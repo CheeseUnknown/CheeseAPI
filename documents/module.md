@@ -6,7 +6,7 @@ CheeseAPI允许导入支持的python模块，以及选择性的加载本项目�
 
 在默认情况下，项目会自动加载项目根目录下的所有文件夹（隐藏文件夹除外）。
 
-你也可以选择加载某几个个项目：
+你可以选择加载某几个个项目：
 
 ```python
 from CheeseAPI import app
@@ -14,6 +14,17 @@ from CheeseAPI import app
 app.localModules = [
     'User',
     'Permission'
+]
+```
+
+你也可以选择不加载哪个项目，但你的`app.localModules`必须为`True`：
+
+```python
+from CheeseAPI import app
+
+app.exclude_localModules = [
+    'folder1',
+    'folder2'
 ]
 ```
 

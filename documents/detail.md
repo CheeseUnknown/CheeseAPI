@@ -81,9 +81,11 @@ worker的数量，如果为0的话会自动设置为当前设备cpu核数*2。
 
 在多worke下websocket暂时无法全局广播，未来会提供支持。
 
+它与`IS_RELOAD`是不兼容的。
+
 ### **`IS_RELOAD: bool = False`**
 
-热更新。
+热更新。它与`WORKERS`是不兼容的。
 
 ### **`IS_DEBUG: bool = False`**
 

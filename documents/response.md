@@ -27,3 +27,5 @@
 - **`def __init__(self, file: File, isDownloaded: bool = False, headers: Dict[str, str] = {})`**
 
     默认的，文件可预览的话会优先预览，如果需要下载，则设置`isDownloaded = True`。
+
+    `File`可看后续的《文件》一节。

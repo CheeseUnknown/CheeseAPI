@@ -28,6 +28,7 @@ class App:
         self.server: Server = Server(self)
         self.modules: Set[Module] | Set[str] = set()
         self.localModules: Set[LocalModule] | Set[str] | bool = True
+        self.exclude_localModules: Set[LocalModule] = set()
 
         self.route: Route = Route('')
 
@@ -272,6 +273,8 @@ class App:
             self.localModules = set()
             for folderName in os.listdir(self.workspace.BASE_PATH):
                 if folderName[0] == '.':
+                    continue
+                if folderName in self.exclude_localModules:
                     continue
                 folderPath = os.path.join(self.workspace.BASE_PATH, folderName)
                 if os.path.isdir(folderPath) and folderPath not in [ self.workspace.BASE_PATH + self.workspace.STATIC_PATH[:-1], self.workspace.BASE_PATH + self.workspace.MEDIA_PATH[:-1], self.workspace.BASE_PATH + self.workspace.LOG_PATH[:-1], self.workspace.BASE_PATH + '/__pycache__' ]:

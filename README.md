@@ -1,5 +1,7 @@
 # **CheeseAPI**
 
+请注意，该文档是最新的beta版，如果你想要查看最新的发布版内容，请查看最新的tag。
+
 ## **介绍**
 
 一款基于uvicorn的web协程框架，目前仍处于开发阶段，一些基础功能已经可以使用。
@@ -269,3 +271,5 @@ def delete_user(id: uuid:UUID):
 ### 7. **[websocket](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/websocket.md)**
 
 ### 8. **[信号](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/signal.md)**
+
+### 9. **[文件](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/file.md)**
