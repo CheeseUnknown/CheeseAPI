@@ -5,20 +5,20 @@ from multiprocessing.process import BaseProcess
 import uvicorn, CheeseLog, asyncio
 from CheeseLog import logger, Logger
 
-import exception
-from route import Route, matchPath
-from request import Request
-from response import Response, BaseResponse, FileResponse
-from file import File
-from websocket import websocket
-from module import LocalModule, Module
-from cSignal import signal
+from . import exception
+from .route import Route, matchPath
+from .request import Request
+from .response import Response, BaseResponse, FileResponse
+from .file import File
+from .websocket import websocket
+from .module import LocalModule, Module
+from .cSignal import signal
 
 class App:
     def __init__(self):
-        from system import System
-        from workspace import Workspace
-        from server import Server
+        from .system import System
+        from .workspace import Workspace
+        from .server import Server
 
         self.process: BaseProcess = multiprocessing.current_process()
         self.logger: Logger = logger
@@ -45,18 +45,6 @@ class App:
         self.websocket_afterDisconnectHandles: List[Callable] = []
         self.websocket_errorHandles: List[Callable] = []
         self.websocket_notFoundHandles: List[Callable] = []
-
-        signal.register('server_startingHandle')
-        signal.register('server_endingHandle')
-        signal.register('http_response404Handle')
-        signal.register('http_response405Handle')
-        signal.register('http_response500Handle')
-        signal.register('http_beforeRequestHandle')
-        signal.register('http_afterResponseHandle')
-        signal.register('websocket_beforeConnectionHandle')
-        signal.register('websocket_afterDisconnectHandle')
-        signal.register('websocket_errorHandle')
-        signal.register('websocket_notFoundHandle')
 
         if self.process.name != 'MainProcess':
             self.init()
@@ -262,6 +250,18 @@ class App:
     def init(self):
         self.startTimer: float = time.time()
 
+        signal.register('server_startingHandle')
+        signal.register('server_endingHandle')
+        signal.register('http_response404Handle')
+        signal.register('http_response405Handle')
+        signal.register('http_response500Handle')
+        signal.register('http_beforeRequestHandle')
+        signal.register('http_afterResponseHandle')
+        signal.register('websocket_beforeConnectionHandle')
+        signal.register('websocket_afterDisconnectHandle')
+        signal.register('websocket_errorHandle')
+        signal.register('websocket_notFoundHandle')
+
         _modules = set()
         if self.process.name == 'MainProcess' and len(self.modules):
             CheeseLog.starting(f'Modules:\n{" | ".join(self.modules)}')
@@ -286,7 +286,7 @@ class App:
             _localModules.add(LocalModule(self.workspace.BASE_PATH, module))
         self.localModules = _localModules
 
-    def run(self):
+    def run(self, applicaiton: str):
         global app
         app = self
 
@@ -343,7 +343,7 @@ current log file path: \033[4;36m.{logger.filePath[len(self.workspace.BASE_PATH)
             server_startingHandle()
 
         uvicorn.run(
-            'app:app',
+            applicaiton,
             host = self.server.HOST,
             port = self.server.PORT,
             reload = self.server.IS_RELOAD,

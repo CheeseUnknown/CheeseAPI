@@ -22,6 +22,6 @@ CheeseAPI提供了方便的文件工具，以便读取文件和保存文件。
 
 ## **`class MediaFile(File)`**
 
-### ***`def __init__(self, path: str)`**
+### **`def __init__(self, path: str)`**
 
 `path`会加上`self.workspace.MEDIA_PATH`前缀。

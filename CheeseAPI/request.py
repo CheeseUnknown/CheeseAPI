@@ -3,7 +3,7 @@ from typing import TypeVar, overload, Dict
 
 import CheeseType.network, xmltodict, CheeseLog
 
-from file import File
+from .file import File
 
 T = TypeVar('T')
 
