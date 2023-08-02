@@ -8,3 +8,4 @@ logs
 static
 media
 test.py
+.cache

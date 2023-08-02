@@ -1,20 +1,60 @@
-import argparse, time, os, traceback
+import argparse, time, os, traceback, json, shutil
 
 import CheeseLog, uvicorn, CheeseType, CheeseType.network, uvicorn.importer
 
-from .app import app
-from .cSignal import signal
-
 def command():
+    from .app import app
+    from .cSignal import signal
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('--app', nargs = '?', default = 'app:app', help = '【默认值：app:app】')
-    parser.add_argument('--host', nargs = '?', default = '127.0.0.1', help = '【默认值：127.0.0.1】')
-    parser.add_argument('--port', nargs = '?', default = 5214, help = '【默认值：5214】')
-    parser.add_argument('--reload', nargs = '?', default = False, help = '【默认值：False】')
-    parser.add_argument('--workers', nargs = '?', default = 1, help = 'workers为0时会自动设置为cpu核数*2【默认值：1】')
+    parser.add_argument('--app', nargs = '?', default = 'app:app', help = '服务器本服务【默认值：app:app】')
+    parser.add_argument('--host', nargs = '?', default = '127.0.0.1', help = '服务器地址【默认值：127.0.0.1】')
+    parser.add_argument('--port', nargs = '?', default = 5214, help = '端口号【默认值：5214】')
+    parser.add_argument('--reload', nargs = '?', default = False, help = '热更新。与workers冲突【默认值：False】')
+    parser.add_argument('--workers', nargs = '?', default = 1, help = 'workers为0时会自动设置为cpu核数*2。与reload冲突【默认值：1】')
+    parser.add_argument('--log_path', nargs = '?', default = '/logs/', help = '日志文件夹的相对路径【默认值：/logs/】')
+    parser.add_argument('--log_filename', nargs = '?', default = False, help = '日志文件名。当值为True时，自动设置为%%Y_%%m_%%d-%%H_%%M_%%S.log；当值为False，关闭日志文件记录；自定义文件名也是允许的【默认值：True】')
     args = parser.parse_args()
 
     startTimer: float = time.time()
+
+    _app = args.app
+    host = CheeseType.network.IPv4(args.host)
+    port = CheeseType.network.Port(args.port)
+    reload = CheeseType.Bool(args.reload)
+    workers = CheeseType.NonNegativeInt(args.workers)
+    log_path = args.log_path
+    try:
+        log_filename = CheeseType.Bool(args.log_filename)
+    except:
+        ...
+
+    app.workspace.LOG_PATH = log_path
+    app.server.LOG_FILENAME = log_filename
+    app.server.HOST = host
+    app.server.PORT = port
+    app.server.IS_RELOAD = reload
+    app.server.WORKERS = workers
+
+    if os.path.exists(app.workspace.BASE_PATH + '/.cache'):
+        shutil.rmtree(app.workspace.BASE_PATH + '/.cache')
+    if workers != 1:
+        os.makedirs(app.workspace.BASE_PATH + '/.cache', exist_ok = True)
+        with open(app.workspace.BASE_PATH + '/.cache/config.json', "w") as f:
+            json.dump({
+                'workers': 0,
+                'app': _app,
+                'workspace': {
+                    'LOG_PATH': log_path
+                },
+                'server': {
+                    'HOST': host,
+                    'PORT': port,
+                    'IS_RELOAD': reload,
+                    'WORKERS': workers,
+                    'LOG_FILENAME': log_filename
+                }
+            }, f)
 
     CheeseLog.starting(f'Started CheeseAPI master process {os.getpid()}', f'Started CheeseAPI master process \033[34m{os.getpid()}\033[0m')
     CheeseLog.starting('The application starts loading...')
@@ -66,19 +106,15 @@ current log file path: \033[4;36m.{app.logger.filePath[len(app.workspace.BASE_PA
     for server_startingHandle in app.server_startingHandles:
         server_startingHandle()
 
-    app.server.HOST = CheeseType.network.IPv4(args.host)
-    app.server.PORT = CheeseType.network.Port(args.port)
-    app.server.IS_RELOAD = CheeseType.Bool(args.reload)
-    app.server.WORKERS = CheeseType.NonNegativeInt(args.workers)
     try:
         uvicorn.run(
-            args.app,
+            _app,
             host = app.server.HOST,
             port = app.server.PORT,
             reload = app.server.IS_RELOAD,
             workers = app.server.WORKERS,
             log_level = 'critical',
-            app_dir = os.getcwd()
+            app_dir = app.workspace.BASE_PATH
         )
     except:
         CheeseLog.error(f'server startup failed\n{traceback.format_exc()}'[:-1])

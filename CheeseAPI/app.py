@@ -1,4 +1,4 @@
-import os, time, inspect, traceback, multiprocessing
+import os, time, inspect, traceback, multiprocessing, json, shutil
 from typing import Callable, AsyncIterator, Dict, List, Any, Set
 from multiprocessing.process import BaseProcess
 
@@ -47,6 +47,22 @@ class App:
         self.websocket_afterDisconnectHandles: List[Callable] = []
         self.websocket_errorHandles: List[Callable] = []
         self.websocket_notFoundHandles: List[Callable] = []
+
+        if os.path.exists(self.workspace.BASE_PATH + '/.cache/config.json'):
+            with open(self.workspace.BASE_PATH + '/.cache/config.json', 'r') as f:
+                data = json.load(f)
+            self.workspace.LOG_PATH = data['workspace']['LOG_PATH']
+            self.server.HOST = data['server']['HOST']
+            self.server.PORT = data['server']['PORT']
+            self.server.IS_RELOAD = data['server']['IS_RELOAD']
+            self.server.WORKERS = data['server']['WORKERS']
+            self.server.LOG_FILENAME = data['server']['LOG_FILENAME']
+            with open(self.workspace.BASE_PATH + '/.cache/workers', 'a+') as f:
+                f.write('1')
+                f.seek(0)
+                workers = len(f.readline())
+            if workers == self.server.WORKERS and os.path.exists(self.workspace.BASE_PATH + '/.cache'):
+                shutil.rmtree(self.workspace.BASE_PATH + '/.cache')
 
     async def __call__(self, scope, receive, send):
         ''' Server started '''

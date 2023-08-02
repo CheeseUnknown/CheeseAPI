@@ -56,7 +56,7 @@ media文件的相对路径。
 
 ### **`LOG_PATH: str = '/logs/'`**
 
-log文件的相对路径，仅在`app.server.LOG_FILENAME`不为`False`的时候生效。
+（只读）log文件的相对路径。
 
 ## **服务器**
 
@@ -101,4 +101,4 @@ static的匹配优先级大于`Route`，请确保文件不会占用已有的路�
 
 ### **`LOG_FILENAME: bool | str = False`**
 
-日志文件，默认为`False`不输出文件。为`True`时会在服务器启动时自动生成格式为`'%Y_%m_%d-%H_%M_%S.log'`的文件，你也可以自定义文件名，消息为追加写入。
+（只读）日志文件名。
