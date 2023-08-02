@@ -36,3 +36,15 @@ class Signal:
         await self._values[name].send_async(*args, **kwargs)
 
 signal = Signal()
+
+signal.register('server_startingHandle')
+signal.register('server_endingHandle')
+signal.register('http_response404Handle')
+signal.register('http_response405Handle')
+signal.register('http_response500Handle')
+signal.register('http_beforeRequestHandle')
+signal.register('http_afterResponseHandle')
+signal.register('websocket_beforeConnectionHandle')
+signal.register('websocket_afterDisconnectHandle')
+signal.register('websocket_errorHandle')
+signal.register('websocket_notFoundHandle')

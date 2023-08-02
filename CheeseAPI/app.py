@@ -2,7 +2,7 @@ import os, time, inspect, traceback, multiprocessing
 from typing import Callable, AsyncIterator, Dict, List, Any, Set
 from multiprocessing.process import BaseProcess
 
-import uvicorn, CheeseLog, asyncio
+import CheeseLog, asyncio
 from CheeseLog import logger, Logger
 
 from . import exception
@@ -16,6 +16,8 @@ from .cSignal import signal
 
 class App:
     def __init__(self):
+        self.startTimer: float = time.time()
+
         from .system import System
         from .workspace import Workspace
         from .server import Server
@@ -46,14 +48,35 @@ class App:
         self.websocket_errorHandles: List[Callable] = []
         self.websocket_notFoundHandles: List[Callable] = []
 
-        if self.process.name != 'MainProcess':
-            self.init()
-
     async def __call__(self, scope, receive, send):
         ''' Server started '''
         if scope['type'] == 'lifespan':
             message = await receive()
             if message['type'] == 'lifespan.startup':
+                _modules = set()
+                if self.process.name == 'MainProcess' and len(self.modules):
+                    CheeseLog.starting(f'Modules:\n{" | ".join(self.modules)}')
+                for module in self.modules:
+                    _modules.add(Module(_modules, module))
+                self.modules = _modules
+
+                if self.localModules is True:
+                    self.localModules = set()
+                    for folderName in os.listdir(self.workspace.BASE_PATH):
+                        if folderName[0] == '.':
+                            continue
+                        if folderName in self.exclude_localModules:
+                            continue
+                        folderPath = os.path.join(self.workspace.BASE_PATH, folderName)
+                        if os.path.isdir(folderPath) and folderPath not in [ self.workspace.BASE_PATH + self.workspace.STATIC_PATH[:-1], self.workspace.BASE_PATH + self.workspace.MEDIA_PATH[:-1], self.workspace.BASE_PATH + self.workspace.LOG_PATH[:-1], self.workspace.BASE_PATH + '/__pycache__' ]:
+                            self.localModules.add(folderName)
+                if self.process.name == 'MainProcess' and len(self.localModules):
+                    CheeseLog.starting(f'Local modules:\n{" | ".join(self.localModules)}')
+                _localModules = set()
+                for module in self.localModules:
+                    _localModules.add(LocalModule(self.workspace.BASE_PATH, module))
+                self.localModules = _localModules
+
                 startTime = time.time() - self.startTimer
                 if self.process.name == 'MainProcess':
                     CheeseLog.starting('The server started, took {:.6f} seconds'.format(startTime), 'The server started, took \033[34m{:.6f}\033[0m seconds'.format(startTime))
@@ -247,138 +270,6 @@ class App:
                     kwargs['exception'] = e
                     await self.doFunc(websocket_errorHandle, kwargs)
 
-    def init(self):
-        self.startTimer: float = time.time()
-
-        signal.register('server_startingHandle')
-        signal.register('server_endingHandle')
-        signal.register('http_response404Handle')
-        signal.register('http_response405Handle')
-        signal.register('http_response500Handle')
-        signal.register('http_beforeRequestHandle')
-        signal.register('http_afterResponseHandle')
-        signal.register('websocket_beforeConnectionHandle')
-        signal.register('websocket_afterDisconnectHandle')
-        signal.register('websocket_errorHandle')
-        signal.register('websocket_notFoundHandle')
-
-        _modules = set()
-        if self.process.name == 'MainProcess' and len(self.modules):
-            CheeseLog.starting(f'Modules:\n{" | ".join(self.modules)}')
-        for module in self.modules:
-            _modules.add(Module(_modules, module))
-        self.modules = _modules
-
-        if self.localModules is True:
-            self.localModules = set()
-            for folderName in os.listdir(self.workspace.BASE_PATH):
-                if folderName[0] == '.':
-                    continue
-                if folderName in self.exclude_localModules:
-                    continue
-                folderPath = os.path.join(self.workspace.BASE_PATH, folderName)
-                if os.path.isdir(folderPath) and folderPath not in [ self.workspace.BASE_PATH + self.workspace.STATIC_PATH[:-1], self.workspace.BASE_PATH + self.workspace.MEDIA_PATH[:-1], self.workspace.BASE_PATH + self.workspace.LOG_PATH[:-1], self.workspace.BASE_PATH + '/__pycache__' ]:
-                    self.localModules.add(folderName)
-        if self.process.name == 'MainProcess' and len(self.localModules):
-            CheeseLog.starting(f'Local modules:\n{" | ".join(self.localModules)}')
-        _localModules = set()
-        for module in self.localModules:
-            _localModules.add(LocalModule(self.workspace.BASE_PATH, module))
-        self.localModules = _localModules
-
-    def run(self, applicaiton: str):
-        global app
-        app = self
-
-        CheeseLog.starting(f'Started CheeseAPI master process {os.getpid()}', f'Started CheeseAPI master process \033[34m{os.getpid()}\033[0m')
-        CheeseLog.starting('The application starts loading...')
-
-        CheeseLog.starting('''System information:
-system: ''' + {
-'WINDOWS': 'Windows',
-'LINUX': 'Linux',
-'MACOS': 'MacOS',
-'OTHER': 'Other'
-}[self.system.SYSTEM.value] + f'''
-python version: {self.system.PYTHON_VERSION}''' + (f'''
-CheeseAPI version: {self.system.CHEESEAPI_VERSION}''' if self.system.CHEESEAPI_VERSION is not None else ''))
-
-        CheeseLog.starting(f'''Workspace information:
-CheeseAPI path: {self.workspace.CHEESEAPI_PATH}
-base path: {self.workspace.BASE_PATH}''' + (f'''
-static path: .{self.workspace.STATIC_PATH}''' if self.server.STATIC_PATH is not False else '') + f'''
-media path: .{self.workspace.MEDIA_PATH}''' + (f'''
-log path: .{self.workspace.LOG_PATH}''' if self.server.LOG_FILENAME is not False else ''), f'''Workspace information:
-CheeseAPI path: \033[4;36m{self.workspace.CHEESEAPI_PATH}\033[0m
-base path: \033[4;36m{self.workspace.BASE_PATH}\033[0m''' + (f'''
-static path: \033[4;36m.{self.workspace.STATIC_PATH}\033[0m''' if self.server.STATIC_PATH is not False else '') + f'''
-media path: \033[4;36m.{self.workspace.MEDIA_PATH}\033[0m''' + (f'''
-log path: \033[4;36m.{self.workspace.LOG_PATH}\033[0m''' if self.server.LOG_FILENAME is not False else ''))
-
-        CheeseLog.starting(f'''Server information:
-host: {self.server.HOST}
-port: {self.server.PORT}
-workers: {self.server.WORKERS}
-is reload: {self.server.IS_RELOAD}
-is debug: {self.server.IS_DEBUG}
-is request logged: {self.server.IS_REQUEST_LOGGED}''' + (f'''
-static path: {self.server.STATIC_PATH}''' if self.server.STATIC_PATH is not False else '') + (f'''
-current log file path: .{logger.filePath[len(self.workspace.BASE_PATH):]}''' if self.server.LOG_FILENAME is not False else ''), f'''Server information:
-host: \033[36m{self.server.HOST}\033[0m
-port: \033[34m{self.server.PORT}\033[0m
-workers: \033[34m{self.server.WORKERS}\033[0m
-is reload: \033[34m{self.server.IS_RELOAD}\033[0m
-is debug: \033[34m{self.server.IS_DEBUG}\033[0m
-is request logged: \033[34m{self.server.IS_REQUEST_LOGGED}\033[0m''' + (f'''
-static path: \033[34m{self.server.STATIC_PATH}\033[0m''' if self.server.STATIC_PATH is not False else '') + (f'''
-current log file path: \033[4;36m.{logger.filePath[len(self.workspace.BASE_PATH):]}\033[0m''' if self.server.LOG_FILENAME is not False else ''))
-
-        self.init()
-
-        CheeseLog.starting(f'The server running on http://{self.server.HOST}:{self.server.PORT}', f'The server running on \033[4;36mhttp://{self.server.HOST}:{self.server.PORT}\033[0m')
-
-        if signal.receiver('server_startingHandle'):
-            signal.send('server_startingHandle')
-        for server_startingHandle in self.server_startingHandles:
-            server_startingHandle()
-
-        uvicorn.run(
-            applicaiton,
-            host = self.server.HOST,
-            port = self.server.PORT,
-            reload = self.server.IS_RELOAD,
-            workers = self.server.WORKERS,
-            log_level = 'critical'
-        )
-
-        if signal.receiver('server_endingHandle'):
-            signal.send('server_endingHandle')
-        for server_endingHandle in self.server_endingHandles:
-            server_endingHandle()
-
-        print('')
-        CheeseLog.ending('The application tries to stop...')
-        runningTime = time.time() - self.startTimer
-        endingMessage = 'The application stopped, running '
-        endingColorfulMessage = 'The application stopped, running '
-        days = int(runningTime // 86400)
-        if days:
-            endingMessage += f'{days} days '
-            endingColorfulMessage += f'\033[34m{days}\033[0m days '
-        hours = int(runningTime % 24 // 3600)
-        if days or hours:
-            endingMessage += f'{hours} hours '
-            endingColorfulMessage += f'\033[34m{hours}\033[0m hours '
-        minutes = int(runningTime % 3600 // 60)
-        if days or hours or minutes:
-            endingMessage += f'{minutes} minutes '
-            endingColorfulMessage += f'\033[34m{minutes}\033[0m minutes '
-        endingMessage += '{:.6f} seconds'.format(runningTime % 60)
-        endingColorfulMessage += '\033[34m{:.6f}\033[0m seconds'.format(runningTime % 60)
-        CheeseLog.ending(endingMessage, endingColorfulMessage)
-        if self.logger.is_alive():
-            self.logger.stop()
-
     async def doFunc(self, func: Callable, kwargs: Dict[str, Any] = {}):
         _kwargs = {}
         sig = inspect.signature(func)
@@ -420,4 +311,4 @@ current log file path: \033[4;36m.{logger.filePath[len(self.workspace.BASE_PATH)
     def websocket_errorHandle(self, func: Callable):
         self.websocket_errorHandles.append(func)
 
-app: App | None = None
+app: App = App()

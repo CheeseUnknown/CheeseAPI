@@ -44,7 +44,7 @@ app.workspace.MEDIA_PATH = '/myMedia/'
 
 ### **`BASE_PATH: str`**
 
-当前工作区的绝对路径。你可以自定义一个绝对路径，但我不建议这么做。
+（只读）当前工作区的绝对路径。
 
 ### **`STATIC_PATH: str = '/static/'`**
 
@@ -71,21 +71,15 @@ app.server.PORT = 5215
 
 ### **`HOST: CheeseType.network.Ipv4 = '127.0.0.1'`**
 
-启动的地址，目前仅支持ipv4，ipv6暂时还未尝试。
-
-如果需要外网访问，请设置为`'0.0.0.0'`。
+（只读）启动的地址。
 
 ### **`WORKERS: CheeseType.NonNegativeInt = 1`**
 
-worker的数量，如果为0的话会自动设置为当前设备cpu核数*2。
-
-在多worke下websocket暂时无法全局广播，未来会提供支持。
-
-它与`IS_RELOAD`是不兼容的。
+（只读）worker的数量。
 
 ### **`IS_RELOAD: bool = False`**
 
-热更新。它与`WORKERS`是不兼容的。
+（只读）热更新。
 
 ### **`IS_DEBUG: bool = False`**
 

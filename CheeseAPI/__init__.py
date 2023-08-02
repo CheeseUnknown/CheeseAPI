@@ -1,4 +1,4 @@
-from .app import App
+from .app import app
 from .route import Route
 from .response import Response, JsonResponse, RedirectResponse, FileResponse
 from .request import Request

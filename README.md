@@ -35,22 +35,17 @@ pip install CheeseAPI
 ```python
 # File path: /app.py
 
-from CheeseAPI import App, Request, Response
-
-app = App()
+from CheeseAPI import app, Request, Response
 
 @app.route('/', [ 'GET' ])
 async def index(request: Request):
     return Response('你好，这里是CheeseAPI！')
-
-if __name__ == '__main__':
-    app.run()
 ```
 
 使用命令行启动服务器，你可以看到相应的信息打印在控制台上（默认为彩色打印）:
 
 ```bash
-$ python app.py
+$ CheeseAPI --app app:app
 (STARTING) 2023-08-01 00:44:11.143085 > Started CheeseAPI master process 92102
 (STARTING) 2023-08-01 00:44:11.143122 > The application starts loading...
 (STARTING) 2023-08-01 00:44:11.143133 > System information:
@@ -167,7 +162,7 @@ def get_user(id: uuid.UUID) -> User | None:
     return None
 
 # 修改用户信息
-def set_user(id: uuid:UUID, nickname: str | None, password: str | None, gender: Gender | None) -> User | None:
+def set_user(id: uuid.UUID, nickname: str | None, password: str | None, gender: Gender | None) -> User | None:
     if id in users:
         user = users[id]
         if nickname:
@@ -233,7 +228,7 @@ def get_user(id: uuid.UUID):
     return Response('查找失败！', 404)
 
 @route.put('/<id:uuid>')
-def set_user(id: uuid:UUID):
+def set_user(id: uuid.UUID):
     nickname = request.form.get('nickname')
     password = request.form.get('password')
     gender = request.form.get('gender')
@@ -245,7 +240,7 @@ def set_user(id: uuid:UUID):
     return Response('修改信息失败！', 404)
 
 @route.delete('/<id:uuid>')
-def delete_user(id: uuid:UUID):
+def delete_user(id: uuid.UUID):
     flag = service.delete_user(id)
     if flag:
         return Response('删除用户成功！')
@@ -256,20 +251,22 @@ def delete_user(id: uuid:UUID):
 
 ## **更多...**
 
-### 1. **[详细配置](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/detail.md)**
+### 1. **[命令行](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/command.md)**
 
-### 2. **[模块](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/module.md)**
+### 2. **[详细配置](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/detail.md)**
 
-### 3. **[路由](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/route.md)**
+### 3. **[模块](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/module.md)**
 
-### 4. **[请求](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/request.md)**
+### 4. **[路由](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/route.md)**
 
-### 5. **[响应](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/response.md)**
+### 5. **[请求](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/request.md)**
 
-### 6. **[装饰器](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/decorator.md)**
+### 6. **[响应](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/response.md)**
 
-### 7. **[websocket](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/websocket.md)**
+### 7. **[装饰器](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/decorator.md)**
 
-### 8. **[信号](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/signal.md)**
+### 8. **[websocket](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/websocket.md)**
 
-### 9. **[文件](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/file.md)**
+### 9. **[信号](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/signal.md)**
+
+### 10. **[文件](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/file.md)**
