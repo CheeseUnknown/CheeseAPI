@@ -1,6 +1,8 @@
-import argparse, time, os, traceback, json, shutil
+import argparse, time, os, traceback, json, shutil, importlib, importlib.util
 
 import CheeseLog, uvicorn, CheeseType, CheeseType.network, uvicorn.importer
+
+from .module import Module, LocalModule
 
 def command():
     from .app import app
@@ -9,9 +11,9 @@ def command():
     parser = argparse.ArgumentParser()
     parser.add_argument('--app', nargs = '?', default = 'app:app', help = '服务器本服务【默认值：app:app】')
     parser.add_argument('--host', nargs = '?', default = '127.0.0.1', help = '服务器地址【默认值：127.0.0.1】')
-    parser.add_argument('--port', nargs = '?', default = 5214, help = '端口号【默认值：5214】')
-    parser.add_argument('--reload', nargs = '?', default = False, help = '热更新。与workers冲突【默认值：False】')
-    parser.add_argument('--workers', nargs = '?', default = 1, help = 'workers为0时会自动设置为cpu核数*2。与reload冲突【默认值：1】')
+    parser.add_argument('--port', type = int, nargs = '?', default = 5214, help = '端口号【默认值：5214】')
+    parser.add_argument('--reload', action='store_true', help = '热更新。与workers冲突【默认值：False】')
+    parser.add_argument('--workers', type = int, nargs = '?', default = 1, help = 'workers为0时会自动设置为cpu核数*2。与reload冲突【默认值：1】')
     parser.add_argument('--log_path', nargs = '?', default = '/logs/', help = '日志文件夹的相对路径【默认值：/logs/】')
     parser.add_argument('--log_filename', nargs = '?', default = False, help = '日志文件名。当值为True时，自动设置为%%Y_%%m_%%d-%%H_%%M_%%S.log；当值为False，关闭日志文件记录；自定义文件名也是允许的【默认值：True】')
     args = parser.parse_args()
@@ -28,6 +30,9 @@ def command():
         log_filename = CheeseType.Bool(args.log_filename)
     except:
         ...
+
+    if reload:
+        workers = 1
 
     app.workspace.LOG_PATH = log_path
     app.server.LOG_FILENAME = log_filename
@@ -100,6 +105,34 @@ static path: \033[34m{app.server.STATIC_PATH}\033[0m''' if app.server.STATIC_PAT
 current log file path: \033[4;36m.{app.logger.filePath[len(app.workspace.BASE_PATH):]}\033[0m''' if app.server.LOG_FILENAME is not False else ''))
 
     CheeseLog.starting(f'The server running on http://{app.server.HOST}:{app.server.PORT}', f'The server running on \033[4;36mhttp://{app.server.HOST}:{app.server.PORT}\033[0m')
+
+    import sys
+    sys.path.append(os.getcwd())
+    app = __import__(_app.split(':')[0]).app
+
+    _modules = set()
+    if len(app.modules):
+        CheeseLog.starting(f'Modules:\n{" | ".join(app.modules)}')
+    for module in app.modules:
+        _modules.add(Module(_modules, module))
+    app.modules = _modules
+
+    if app.localModules is True:
+        app.localModules = set()
+        for folderName in os.listdir(app.workspace.BASE_PATH):
+            if folderName[0] == '.':
+                continue
+            if folderName in app.exclude_localModules:
+                continue
+            folderPath = os.path.join(app.workspace.BASE_PATH, folderName)
+            if os.path.isdir(folderPath) and folderPath not in [ app.workspace.BASE_PATH + app.workspace.STATIC_PATH[:-1], app.workspace.BASE_PATH + app.workspace.MEDIA_PATH[:-1], app.workspace.BASE_PATH + app.workspace.LOG_PATH[:-1], app.workspace.BASE_PATH + '/__pycache__' ]:
+                app.localModules.add(folderName)
+    if len(app.localModules):
+        CheeseLog.starting(f'Local modules:\n{" | ".join(app.localModules)}')
+    _localModules = set()
+    for module in app.localModules:
+        _localModules.add(LocalModule(app.workspace.BASE_PATH, module))
+    app.localModules = _localModules
 
     if signal.receiver('server_startingHandle'):
         signal.send('server_startingHandle')

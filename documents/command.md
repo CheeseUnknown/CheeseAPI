@@ -9,7 +9,7 @@ options:
   --app [APP]           服务器本服务【默认值：app:app】
   --host [HOST]         服务器地址【默认值：127.0.0.1】
   --port [PORT]         端口号【默认值：5214】
-  --reload [RELOAD]     热更新。与workers冲突【默认值：False】
+  --reload              热更新。与workers冲突【默认值：False】
   --workers [WORKERS]   workers为0时会自动设置为cpu核数*2。与reload冲突【默认值：1】
   --log_path [LOG_PATH]
                         日志文件夹的相对路径【默认值：/logs/】

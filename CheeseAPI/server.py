@@ -41,7 +41,8 @@ class Server:
             if not self._IS_DEBUG:
                 self._app.logger.filter.add('DEBUG')
             elif self._IS_DEBUG:
-                self._app.logger.filter.remove('DEBUG')
+                if 'DEBUG' in self._app.logger.filter:
+                    self._app.logger.filter.remove('DEBUG')
 
     @property
     def IS_REQUEST_LOGGED(self) -> bool:
@@ -55,8 +56,10 @@ class Server:
                 self._app.logger.filter.add('HTTP')
                 self._app.logger.filter.add('WEBSOCKET')
             elif self._IS_REQUEST_LOGGED:
-                self._app.logger.filter.remove('HTTP')
-                self._app.logger.filter.add('WEBSOCKET')
+                if 'HTTP' in self._app.logger.filter:
+                    self._app.logger.filter.remove('HTTP')
+                if 'WEBSOCKET' in self._app.logger.filter:
+                    self._app.logger.filter.remove('WEBSOCKET')
 
     @property
     def LOG_FILENAME(self) -> str | bool:
