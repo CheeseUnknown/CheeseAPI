@@ -15,11 +15,14 @@ from .module import LocalModule, Module
 from .cSignal import signal
 
 async def doFunc(func: Callable, kwargs: Dict[str, Any] = {}):
-    _kwargs = {}
-    sig = inspect.signature(func)
-    for key, value in kwargs.items():
-        if key in sig.parameters or 'kwargs' in sig.parameters:
-            _kwargs[key] = value
+    if hasattr(func, '__wrapped__'):
+        _kwargs = kwargs
+    else:
+        _kwargs = {}
+        sig = inspect.signature(func)
+        for key, value in kwargs.items():
+            if key in sig.parameters or 'kwargs' in sig.parameters:
+                _kwargs[key] = value
     if inspect.iscoroutinefunction(func):
         return await func(**_kwargs)
     else:

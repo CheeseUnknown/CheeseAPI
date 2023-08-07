@@ -15,7 +15,7 @@ PATTERNS: Dict[str, re.Pattern] = {
         'type': float
     },
     'uuid': {
-        'pattern': r'r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"',
+        'pattern': r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
         'type': uuid.UUID
     }
 }
