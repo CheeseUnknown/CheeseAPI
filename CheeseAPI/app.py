@@ -14,6 +14,17 @@ from .websocket import websocket
 from .module import LocalModule, Module
 from .cSignal import signal
 
+async def doFunc(func: Callable, kwargs: Dict[str, Any] = {}):
+    _kwargs = {}
+    sig = inspect.signature(func)
+    for key, value in kwargs.items():
+        if key in sig.parameters or 'kwargs' in sig.parameters:
+            _kwargs[key] = value
+    if inspect.iscoroutinefunction(func):
+        return await func(**_kwargs)
+    else:
+        return func(**_kwargs)
+
 class App:
     def __init__(self):
         self.startTimer: float = time.time()
@@ -128,7 +139,7 @@ class App:
                         if signal.receiver('http_response404Handle'):
                             await signal.send_async('http_response404Handle', kwargs)
                         for http_response404Handle in self.http_response404Handles:
-                            _response = await self.doFunc(http_response404Handle, kwargs)
+                            _response = await doFunc(http_response404Handle, kwargs)
                             if isinstance(_response, BaseResponse):
                                 response = _response
                         if not isinstance(response, BaseResponse):
@@ -139,7 +150,7 @@ class App:
                         if signal.receiver('http_response405Handle'):
                             await signal.send_async('http_response405Handle', kwargs)
                         for http_response405Handle in self.http_response405Handles:
-                            _response = await self.doFunc(http_response405Handle, kwargs)
+                            _response = await doFunc(http_response405Handle, kwargs)
                             if isinstance(_response, BaseResponse):
                                 response = _response
                         if not isinstance(response, BaseResponse):
@@ -150,20 +161,20 @@ class App:
                         if signal.receiver('http_beforeRequestHandle'):
                             await signal.send_async('http_beforeRequestHandle', kwargs)
                         for http_beforeRequestHandle in self.http_beforeRequestHandles:
-                            _response = await self.doFunc(http_beforeRequestHandle, kwargs)
+                            _response = await doFunc(http_beforeRequestHandle, kwargs)
                             if isinstance(_response, BaseResponse):
                                 response = _response
 
                         if not isinstance(response, BaseResponse):
                             requestFunc = requestFunc[request.method]
-                            response = await self.doFunc(requestFunc, kwargs)
+                            response = await doFunc(requestFunc, kwargs)
 
                         if isinstance(response, BaseResponse):
                             if signal.receiver('http_afterResponseHandle'):
                                 await signal.send_async('http_afterResponseHandle', kwargs)
                             for http_afterResponseHandle in self.http_afterResponseHandles:
                                 kwargs['response'] = response
-                                _response = await self.doFunc(http_afterResponseHandle, kwargs)
+                                _response = await doFunc(http_afterResponseHandle, kwargs)
                                 if isinstance(_response, BaseResponse):
                                     response = _response
                         else:
@@ -175,7 +186,7 @@ class App:
                     await signal.send_async('http_response500Handle', kwargs)
                 for http_response500Handle in self.http_response500Handles:
                     kwargs['exception'] = e
-                    _response = await self.doFunc(http_response500Handle, kwargs)
+                    _response = await doFunc(http_response500Handle, kwargs)
                     if isinstance(_response, BaseResponse):
                         response = _response
                 if not isinstance(response, BaseResponse):
@@ -236,14 +247,14 @@ class App:
                 kwargs['request'] = request
                 if requestFunc is None or 'WEBSOCKET' not in requestFunc:
                     for websocket_notFoundHandle in self.websocket_notFoundHandles:
-                        await self.doFunc(websocket_notFoundHandle, kwargs)
+                        await doFunc(websocket_notFoundHandle, kwargs)
                     return
                 requestFunc = requestFunc['WEBSOCKET']
 
                 if signal.receiver('websocket_beforeConnectionHandle'):
                     await signal.send_async('websocket_beforeConnectionHandle', kwargs)
                 for websocket_beforeConnectionHandle in self.websocket_beforeConnectionHandles:
-                    await self.doFunc(websocket_beforeConnectionHandle, kwargs)
+                    await doFunc(websocket_beforeConnectionHandle, kwargs)
 
                 await send({
                     'type': 'websocket.accept'
@@ -268,7 +279,7 @@ class App:
                                 kwargs['value'] = message['text']
                             elif 'bytes' in message:
                                 kwargs['value'] = message['bytes']
-                            await self.doFunc(requestFunc, kwargs)
+                            await doFunc(requestFunc, kwargs)
                         elif message['type'] == 'websocket.disconnect':
                             del websocket._CLIENTS[request.sid]
                             task.cancel()
@@ -279,23 +290,12 @@ class App:
                 if signal.receiver('websocket_afterDisconnectHandle'):
                     await signal.send_async('websocket_afterDisconnectHandle', kwargs)
                 for websocket_afterDisconnectHandle in self.websocket_afterDisconnectHandles:
-                    await self.doFunc(websocket_afterDisconnectHandle, kwargs)
+                    await doFunc(websocket_afterDisconnectHandle, kwargs)
             except Exception as e:
                 CheeseLog.danger(f'The error occured while accessing the WEBSOCKET {request.fullPath}\n{traceback.format_exc()}'[:-1], f'The error occured while accessing the \033[36mWEBSOCKET {request.fullPath}\033[0m\n{traceback.format_exc()}'[:-1])
                 for websocket_errorHandle in self.websocket_errorHandles:
                     kwargs['exception'] = e
-                    await self.doFunc(websocket_errorHandle, kwargs)
-
-    async def doFunc(self, func: Callable, kwargs: Dict[str, Any] = {}):
-        _kwargs = {}
-        sig = inspect.signature(func)
-        for key, value in kwargs.items():
-            if key in sig.parameters or 'kwargs' in sig.parameters:
-                _kwargs[key] = value
-        if inspect.iscoroutinefunction(func):
-            return await func(**_kwargs)
-        else:
-            return func(**_kwargs)
+                    await doFunc(websocket_errorHandle, kwargs)
 
     def server_startingHandle(self, func: Callable):
         self.server_startingHandles.append(func)

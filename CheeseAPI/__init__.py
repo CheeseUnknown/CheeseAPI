@@ -1,4 +1,4 @@
-from .app import app
+from .app import app, doFunc
 from .route import Route
 from .response import Response, JsonResponse, RedirectResponse, FileResponse
 from .request import Request

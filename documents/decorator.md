@@ -43,3 +43,16 @@
 ## **`@app.websocket_notFoundHandle`**
 
 `WEBSOCKET`匹配路由错误时触发，可选的参数：`request`。
+
+如果你需要自定义一个中间件，请使用`doFunc`函数进行参数过滤，以免在最后的函数中需要把每个参数都写上：
+
+```python
+from CheeseAPI import doFunc
+
+def db(fn):
+    async def wrapper(*args, **kwargs):
+        async with Session() as session:
+            async with session.begin():
+                return await doFunc(fn, kwargs)
+    return wrapper
+```
