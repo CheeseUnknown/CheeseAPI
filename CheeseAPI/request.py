@@ -1,5 +1,6 @@
 import json, traceback, re
-from typing import TypeVar, overload, Dict
+from typing import TypeVar, Dict
+from urllib.parse import unquote
 
 import CheeseType.network, xmltodict, CheeseLog
 
@@ -21,8 +22,8 @@ class Request:
         query_string = scope['query_string'].decode()
 
         self.ip: CheeseType.network.IPv4 = scope['client'][0]
-        self.path: str = scope['path']
-        self.fullPath: str = self.path + '?' + query_string if query_string else self.path
+        self.path: str = unquote(scope['path'])
+        self.fullPath: str = self.path + '?' + unquote(query_string) if query_string else self.path
         self.scheme = scope['scheme']
 
         self.headers: Dict[str, str] = {}
@@ -32,7 +33,7 @@ class Request:
             self.args: Dict[str, str] = {}
             for q in query_string.split('&'):
                 q = q.split('=')
-                self.args[q[0]] = q[1] if len(q) > 1 else None
+                self.args[unquote(q[0])] = unquote(q[1]) if len(q) > 1 else None
             self.body = None
             self.form: Dict[str, str] = {}
             for header in scope['headers']:
