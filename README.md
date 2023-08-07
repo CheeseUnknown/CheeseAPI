@@ -204,7 +204,7 @@ route = Route('/User', app.route)
 def register(request: Request):
     nickname = request.form.get('nickname')
     password = request.form.get('password')
-    gender = Gender(request.form.get('gender', 2))
+    gender = Gender(int(request.form.get('gender', 2)))
     service.register(nickname, password, gender)
     return Response('注册成功！')
 

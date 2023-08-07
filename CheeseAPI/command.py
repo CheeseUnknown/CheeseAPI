@@ -108,7 +108,7 @@ current log file path: \033[4;36m.{app.logger.filePath[len(app.workspace.BASE_PA
 
     import sys
     sys.path.append(os.getcwd())
-    app = __import__(_app.split(':')[0]).app
+    app = eval(f'__import__(\'{_app.split(":")[0]}\').{_app.split(":")[1]}')
 
     _modules = set()
     if len(app.modules):

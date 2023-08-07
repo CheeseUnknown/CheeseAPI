@@ -34,7 +34,7 @@ key2 = request.form.get('key2')
 
 请求方式，仅在`HTTP`下有。
 
-## **`args: Args`**
+## **`args: Dict[str, str]`**
 
 请求路径中的`?key=value`。
 
@@ -50,7 +50,7 @@ value = request.args.get('key', None)
 
 它有可能是`str`，也有可能是`Dict`，根据请求的格式解析内容。
 
-## **`form: Form`**
+## **`form: Dict[str, str]`**
 
 表单，仅在`HTTP`下有。
 
