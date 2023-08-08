@@ -1,12 +1,15 @@
-import argparse, time, os, traceback, json, shutil, importlib, importlib.util
+import argparse, time, os, traceback, json, shutil
 
 import CheeseLog, uvicorn, CheeseType, CheeseType.network, uvicorn.importer
 
-from .module import Module, LocalModule
-
 def command():
-    from .app import app
-    from .cSignal import signal
+    import sys
+    sys.path.append(os.getcwd())
+    print(os.getcwd())
+
+    from CheeseAPI.module import Module, LocalModule
+    from CheeseAPI.app import app
+    from CheeseAPI.cSignal import signal
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--app', nargs = '?', default = 'app:app', help = '服务器本服务【默认值：app:app】')
@@ -106,8 +109,6 @@ current log file path: \033[4;36m.{app.logger.filePath[len(app.workspace.BASE_PA
 
     CheeseLog.starting(f'The server running on http://{app.server.HOST}:{app.server.PORT}', f'The server running on \033[4;36mhttp://{app.server.HOST}:{app.server.PORT}\033[0m')
 
-    import sys
-    sys.path.append(os.getcwd())
     app = eval(f'__import__(\'{_app.split(":")[0]}\').{_app.split(":")[1]}')
 
     _modules = set()
@@ -179,3 +180,6 @@ current log file path: \033[4;36m.{app.logger.filePath[len(app.workspace.BASE_PA
     CheeseLog.ending(endingMessage, endingColorfulMessage)
     if app.logger.is_alive():
         app.logger.stop()
+
+if __name__ == '__main__':
+    command()

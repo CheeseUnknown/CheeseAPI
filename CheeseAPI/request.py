@@ -4,7 +4,7 @@ from urllib.parse import unquote
 
 import CheeseType.network, xmltodict, CheeseLog
 
-from .file import File
+from CheeseAPI.file import File
 
 T = TypeVar('T')
 

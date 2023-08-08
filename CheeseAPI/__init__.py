@@ -1,7 +1,7 @@
-from .app import app, doFunc
-from .route import Route
-from .response import Response, JsonResponse, RedirectResponse, FileResponse
-from .request import Request
-from .file import File, MediaFile
-from .websocket import websocket
-from .cSignal import signal, Signal
+from CheeseAPI.app import app, doFunc
+from CheeseAPI.route import Route
+from CheeseAPI.response import Response, JsonResponse, RedirectResponse, FileResponse
+from CheeseAPI.request import Request
+from CheeseAPI.file import File, MediaFile
+from CheeseAPI.websocket import websocket
+from CheeseAPI.cSignal import signal, Signal

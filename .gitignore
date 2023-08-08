@@ -7,5 +7,5 @@ dist
 logs
 static
 media
-test.py
+myTest.py
 .cache

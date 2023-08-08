@@ -1,7 +1,7 @@
 import json
 from typing import Dict, Any
 
-from .file import File
+from CheeseAPI.file import File
 
 CONTENT_TYPE = {
     'tif': 'image/tiff',

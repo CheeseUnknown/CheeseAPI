@@ -5,14 +5,14 @@ from multiprocessing.process import BaseProcess
 import CheeseLog, asyncio
 from CheeseLog import logger, Logger
 
-from . import exception
-from .route import Route, matchPath
-from .request import Request
-from .response import Response, BaseResponse, FileResponse
-from .file import File
-from .websocket import websocket
-from .module import LocalModule, Module
-from .cSignal import signal
+from CheeseAPI import exception
+from CheeseAPI.route import Route, matchPath
+from CheeseAPI.request import Request
+from CheeseAPI.response import Response, BaseResponse, FileResponse
+from CheeseAPI.file import File
+from CheeseAPI.websocket import websocket
+from CheeseAPI.module import LocalModule, Module
+from CheeseAPI.cSignal import signal
 
 async def doFunc(func: Callable, kwargs: Dict[str, Any] = {}):
     if hasattr(func, '__wrapped__'):
@@ -32,9 +32,9 @@ class App:
     def __init__(self):
         self.startTimer: float = time.time()
 
-        from .system import System
-        from .workspace import Workspace
-        from .server import Server
+        from CheeseAPI.system import System
+        from CheeseAPI.workspace import Workspace
+        from CheeseAPI.server import Server
 
         self.process: BaseProcess = multiprocessing.current_process()
         self.logger: Logger = logger

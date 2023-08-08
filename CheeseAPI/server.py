@@ -4,7 +4,7 @@ import CheeseType, CheeseType.network
 
 class Server:
     def __init__(self, app):
-        from .app import App
+        from CheeseAPI.app import App
 
         self._app: App = app
         self.HOST: CheeseType.network.IPv4 = '127.0.0.1'
