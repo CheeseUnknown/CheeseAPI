@@ -277,9 +277,7 @@ class App:
                                 kwargs['value'] = message['bytes']
                             await doFunc(requestFunc, kwargs)
                         elif message['type'] == 'websocket.disconnect':
-                            del websocket._CLIENTS[request.sid]
                             task.cancel()
-                            await task
                             CheeseLog.websocket(f'{request.ip} disconnected {request.path}', f'{request.ip} disconnected \033[36m{request.path}\033[0m')
                             break
 
@@ -288,6 +286,7 @@ class App:
                 for websocket_afterDisconnectHandle in self.websocket_afterDisconnectHandles:
                     await doFunc(websocket_afterDisconnectHandle, kwargs)
             except Exception as e:
+                task.cancel()
                 CheeseLog.danger(f'The error occured while accessing the WEBSOCKET {request.fullPath}\n{traceback.format_exc()}'[:-1], f'The error occured while accessing the \033[36mWEBSOCKET {request.fullPath}\033[0m\n{traceback.format_exc()}'[:-1])
                 for websocket_errorHandle in self.websocket_errorHandles:
                     kwargs['exception'] = e
@@ -300,6 +299,7 @@ class App:
                 await (await websocket._CLIENTS[request.sid].get())(send)
         except asyncio.CancelledError:
             ...
+        del websocket._CLIENTS[request.sid]
 
     def server_startingHandle(self, func: Callable):
         self.server_startingHandles.append(func)
