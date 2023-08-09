@@ -41,9 +41,14 @@ app.modules.add('Module2')
 
 如果你想开发一个适配于CheeseAPI的模块，你需要遵循以下几点：
 
-1. 它能够在CheeseAPI中使用。
+1. 它能够在CheeseAPI中使用，并在`__init__.py`中表明它是单模块还是多模块：
 
-2. 如果它有模块依赖，则在__init__.py中添加变量：
+    ```python
+    CheeseAPI_module_type = 'single'
+    # CheeseAPI_module_type = 'multiple'
+    ```
+
+2. 如果它有模块依赖，则在`__init__.py`中添加变量：
 
     ```python
     CheeseAPI_module_dependencies = [

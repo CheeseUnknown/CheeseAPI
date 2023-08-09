@@ -27,11 +27,11 @@ class Module:
 
         modulePath = os.path.dirname(inspect.getfile(mainModule))
 
-        if not hasattr(mainModule, 'moduleType'):
+        if not hasattr(mainModule, 'CheeseAPI_module_type'):
             CheeseLog.error(f'The error occured while the module \'{name}\' loading:\nUnknown module type')
             raise SystemExit()
 
-        if mainModule.moduleType == 'single':
+        if mainModule.CheeseAPI_module_type == 'single':
             for filename in os.listdir(modulePath):
                 filePath = os.path.join(modulePath, filename)
                 if os.path.isfile(filePath) and filename != '__init__.py':
@@ -43,7 +43,7 @@ class Module:
                         raise SystemExit()
 
                     self.subModules.add(module)
-        elif mainModule.moduleType == 'multiple':
+        elif mainModule.CheeseAPI_module_type == 'multiple':
             for foldername in os.listdir(modulePath):
                 folderPath = os.path.join(modulePath, foldername)
                 if os.path.isdir(folderPath):
