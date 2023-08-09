@@ -286,7 +286,10 @@ class App:
                 for websocket_afterDisconnectHandle in self.websocket_afterDisconnectHandles:
                     await doFunc(websocket_afterDisconnectHandle, kwargs)
             except Exception as e:
-                task.cancel()
+                try:
+                    task.cancel()
+                except:
+                    ...
                 CheeseLog.danger(f'The error occured while accessing the WEBSOCKET {request.fullPath}\n{traceback.format_exc()}'[:-1], f'The error occured while accessing the \033[36mWEBSOCKET {request.fullPath}\033[0m\n{traceback.format_exc()}'[:-1])
                 for websocket_errorHandle in self.websocket_errorHandles:
                     kwargs['exception'] = e
