@@ -26,17 +26,39 @@ class Module:
                     modules.add(Module(modules, dependency))
 
         modulePath = os.path.dirname(inspect.getfile(mainModule))
-        for filename in os.listdir(modulePath):
-            filePath = os.path.join(modulePath, filename)
-            if os.path.isfile(filePath) and filename != '__init__.py':
-                filename = filename[:-3]
-                try:
-                    module = __import__(f'{self.name}.{filename}')
-                except:
-                    CheeseLog.error(f'The error occured while the module \'{name}\' loading\n{traceback.format_exc()}'[:-1])
-                    raise SystemExit()
 
-                self.subModules.add(module)
+        if not hasattr(mainModule, 'moduleType'):
+            CheeseLog.error(f'The error occured while the module \'{name}\' loading:\nUnknown module type')
+            raise SystemExit()
+
+        if mainModule.moduleType == 'single':
+            for filename in os.listdir(modulePath):
+                filePath = os.path.join(modulePath, filename)
+                if os.path.isfile(filePath) and filename != '__init__.py':
+                    filename = filename[:-3]
+                    try:
+                        module = __import__(f'{self.name}.{filename}')
+                    except:
+                        CheeseLog.error(f'The error occured while the module \'{name}\' loading:\n{traceback.format_exc()}'[:-1])
+                        raise SystemExit()
+
+                    self.subModules.add(module)
+        elif mainModule.moduleType == 'multiple':
+            for foldername in os.listdir(modulePath):
+                folderPath = os.path.join(modulePath, foldername)
+                if os.path.isdir(folderPath):
+                    for filename in os.listdir(folderPath):
+                        filePath = os.path.join(folderPath, filename)
+                        if os.path.isfile(filePath) and filename != '__init__.py':
+                            filename = filename[:-3]
+                            try:
+                                module = __import__(f'{self.name}.{filename}')
+                            except:
+                                CheeseLog.error(f'The error occured while the module \'{name}\' loading:\n{traceback.format_exc()}'[:-1])
+                                raise SystemExit()
+        else:
+            CheeseLog.error(f'The error occured while the module \'{name}\' loading:\nUnknown module type')
+            raise SystemExit()
 
 class LocalModule:
     def __init__(self, basePath: str, name: str):
@@ -54,6 +76,6 @@ class LocalModule:
                 try:
                     module = __import__(f'{self.name}.{filename}')
                 except:
-                    CheeseLog.error(f'The error occured while the local module \'{name}\' loading\n{traceback.format_exc()}'[:-1])
+                    CheeseLog.error(f'The error occured while the local module \'{name}\' loading:\n{traceback.format_exc()}'[:-1])
                     raise SystemExit()
                 self.subModules.add(module)
