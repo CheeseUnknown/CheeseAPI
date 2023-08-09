@@ -5,7 +5,6 @@ from multiprocessing.process import BaseProcess
 import CheeseLog, asyncio
 from CheeseLog import logger, Logger
 
-from CheeseAPI import exception
 from CheeseAPI.route import Route, matchPath
 from CheeseAPI.request import Request
 from CheeseAPI.response import Response, BaseResponse, FileResponse
@@ -13,6 +12,7 @@ from CheeseAPI.file import File
 from CheeseAPI.websocket import websocket
 from CheeseAPI.module import LocalModule, Module
 from CheeseAPI.cSignal import signal
+from CheeseAPI.exception import WebsocketDisconnect
 
 async def doFunc(func: Callable, kwargs: Dict[str, Any] = {}):
     if hasattr(func, '__wrapped__'):
@@ -259,6 +259,12 @@ class App:
                 for websocket_beforeConnectionHandle in self.websocket_beforeConnectionHandles:
                     await doFunc(websocket_beforeConnectionHandle, kwargs)
 
+                kwargs['type'] = 'connect'
+                kwargs['value'] = None
+                try:
+                    await doFunc(requestFunc, kwargs)
+                except WebsocketDisconnect:
+                    return
                 await send({
                     'type': 'websocket.accept'
                 })
@@ -271,6 +277,7 @@ class App:
                     while True:
                         message = await receive()
                         if message['type'] == 'websocket.receive':
+                            kwargs['type'] = 'receive'
                             if 'text' in message:
                                 kwargs['value'] = message['text']
                             elif 'bytes' in message:
@@ -280,6 +287,10 @@ class App:
                             task.cancel()
                             CheeseLog.websocket(f'{request.ip} disconnected {request.path}', f'{request.ip} disconnected \033[36m{request.path}\033[0m')
                             break
+
+                kwargs['type'] = 'disconnect'
+                kwargs['value'] = None
+                await doFunc(requestFunc, kwargs)
 
                 if signal.receiver('websocket_afterDisconnectHandle'):
                     await signal.send_async('websocket_afterDisconnectHandle', kwargs)
@@ -296,13 +307,13 @@ class App:
                     await doFunc(websocket_errorHandle, kwargs)
 
     async def _websocket_sendHandle(self, send, request: Request):
-        websocket._CLIENTS[request.sid] = asyncio.Queue()
+        websocket._CLIENTS[request.path][request.sid] = asyncio.Queue()
         try:
             while True:
-                await (await websocket._CLIENTS[request.sid].get())(send)
+                await (await websocket._CLIENTS[request.path][request.sid].get())(send)
         except asyncio.CancelledError:
             ...
-        del websocket._CLIENTS[request.sid]
+        del websocket._CLIENTS[request.path][request.sid]
 
     def server_startingHandle(self, func: Callable):
         self.server_startingHandles.append(func)

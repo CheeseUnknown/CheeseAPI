@@ -15,3 +15,6 @@ def threadException(*args, **kwargs):
     except:
         danger(f'The error occured while the program running:\n{traceback.format_exc()}'[:-1])
 threading.excepthook = threadException
+
+class WebsocketDisconnect(Exception):
+    ...

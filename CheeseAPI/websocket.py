@@ -6,10 +6,10 @@ from CheeseAPI.route import matchPath
 
 class Websocket:
     def __init__(self):
-        self._CLIENTS: Dict[str, asyncio.Queue] = {}
+        self._CLIENTS: Dict[str, Dict[str, asyncio.Queue]] = {}
 
-    async def _send(self, message: any, sid: str):
-        if sid in self._CLIENTS:
+    async def _send(self, message: any, path: str, sid: str):
+        if path in self._CLIENTS and sid in self._CLIENTS[path]:
             if isinstance(message, bytes):
                 async def func(send):
                     await send({
@@ -22,13 +22,12 @@ class Websocket:
                         'type': 'websocket.send',
                         'text': str(message)
                     })
-            await self._CLIENTS[sid].put(func)
+            await self._CLIENTS[path][sid].put(func)
 
     async def send(self, message: any, path: str, sid: str | list[str] | None = None):
-        func, _ = matchPath(path)
-        if func:
+        if path in self._CLIENTS:
             if not sid:
-                for key in self._CLIENTS:
+                for key in self._CLIENTS[path]:
                     await self._send(message, key)
             elif isinstance(sid, list):
                 for s in sid:
@@ -41,10 +40,15 @@ class Websocket:
             'type': 'websocket.close'
         })
 
-    async def close(self, sid: str):
-        await self._CLIENTS[sid].put(self._close)
-
-    def isOnline(self, sid: str) -> bool:
-        return sid in self._CLIENTS
+    async def close(self, path: str, sid: str | list[str] | None = None):
+        if path in self._CLIENTS:
+            if not sid:
+                for key in self._CLIENTS[path]:
+                    await self._CLIENTS[path][key].put(self._close)
+            elif isinstance(sid, list):
+                for s in sid:
+                    await self._CLIENTS[path][s].put(self._close)
+            else:
+                await self._CLIENTS[path][sid].put(self._close)
 
 websocket = Websocket()
