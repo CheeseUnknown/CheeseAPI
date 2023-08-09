@@ -28,6 +28,12 @@
 pip install CheeseAPI
 ```
 
+你可能需要更多的插件：
+
+1. [**CheeseAPI_websocket**](https://github.com/CheeseUnknown/CheeseAPI_websocket)
+
+    基于CheeseAPI的升级版websocket。
+
 ## **使用**
 
 ### **简单的示例**
