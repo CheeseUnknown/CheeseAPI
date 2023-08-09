@@ -45,6 +45,8 @@ class Module:
                     self.subModules.add(module)
         elif mainModule.CheeseAPI_module_type == 'multiple':
             for foldername in os.listdir(modulePath):
+                if foldername == '__pycache__':
+                    continue
                 folderPath = os.path.join(modulePath, foldername)
                 if os.path.isdir(folderPath):
                     for filename in os.listdir(folderPath):
@@ -52,7 +54,7 @@ class Module:
                         if os.path.isfile(filePath) and filename != '__init__.py':
                             filename = filename[:-3]
                             try:
-                                module = __import__(f'{self.name}.{filename}')
+                                module = __import__(f'{self.name}.{foldername}.{filename}')
                             except:
                                 CheeseLog.error(f'The error occured while the module \'{name}\' loading:\n{traceback.format_exc()}'[:-1])
                                 raise SystemExit()
