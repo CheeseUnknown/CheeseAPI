@@ -1,14 +1,12 @@
-import argparse, time, os, traceback, json, shutil
+import argparse, time, os, traceback, json, shutil, sys
 
 import CheeseLog, uvicorn, CheeseType, CheeseType.network, uvicorn.importer
 
 def command():
-    import sys
     sys.path.append(os.getcwd())
-    print(os.getcwd())
 
     from CheeseAPI.module import Module, LocalModule
-    from CheeseAPI.app import app
+    from CheeseAPI.app import app, App
     from CheeseAPI.cSignal import signal
 
     parser = argparse.ArgumentParser()
@@ -109,7 +107,7 @@ current log file path: \033[4;36m.{app.logger.filePath[len(app.workspace.BASE_PA
 
     CheeseLog.starting(f'The server running on http://{app.server.HOST}:{app.server.PORT}', f'The server running on \033[4;36mhttp://{app.server.HOST}:{app.server.PORT}\033[0m')
 
-    app = eval(f'__import__(\'{_app.split(":")[0]}\').{_app.split(":")[1]}')
+    app: App = eval(f'__import__(\'{_app.split(":")[0]}\').{_app.split(":")[1]}')
 
     _modules = set()
     if len(app.modules):

@@ -18,15 +18,13 @@ async def a(request, value):
 
 ## **`class Websocket`**
 
-### **`async def send(self, message: any, sid: str | list[str] | None = None)`**
+### **`async def send(self, message: any, path: str, sid: str | list[str] | None = None)`**
 
 `sid`为`None`，向所有在线用户广播消息。
 
 `sid`为`list[str]`，向所选用户广播消息。
 
 `sid`为`str`，向指定用户发送消息。
-
-在多worker下暂时广播多用户会有消息丢失，后续会提供支持。
 
 ### **`async def close(self, sid: str)`**
 

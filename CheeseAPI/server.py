@@ -67,26 +67,27 @@ class Server:
 
     @LOG_FILENAME.setter
     def LOG_FILENAME(self, value):
-        if self._app.process.name == 'MainProcess':
-            if value is not False:
-                if value is True:
-                    self._LOG_FILENAME = datetime.datetime.now().strftime('%Y_%m_%d-%H_%M_%S.log')
-                else:
-                    self._LOG_FILENAME = datetime.datetime.now().strftime(str(value))
-                self._app.logger.filePath = os.path.join(self._app.workspace.BASE_PATH + self._app.workspace.LOG_PATH + self.LOG_FILENAME)
-            elif value is False:
-                self._LOG_FILENAME = False
-                self._app.logger.filePath = None
-        else:
-            logPath = os.path.join(self._app.workspace.BASE_PATH + self._app.workspace.LOG_PATH)
-            logFiles = [ os.path.join(logPath, file) for file in os.listdir(logPath) if os.path.isfile(os.path.join(logPath, file)) ]
-            if not logFiles:
-                self._LOG_FILENAME = False
-                self._app.logger.filePath = None
+        if value is not False:
+            if self._app.process.name == 'MainProcess':
+                if value is not False:
+                    if value is True:
+                        self._LOG_FILENAME = datetime.datetime.now().strftime('%Y_%m_%d-%H_%M_%S.log')
+                    else:
+                        self._LOG_FILENAME = datetime.datetime.now().strftime(str(value))
+                    self._app.logger.filePath = os.path.join(self._app.workspace.BASE_PATH + self._app.workspace.LOG_PATH + self.LOG_FILENAME)
+                elif value is False:
+                    self._LOG_FILENAME = False
+                    self._app.logger.filePath = None
             else:
-                logFile = max(logFiles, key = os.path.getmtime)
-                self._LOG_FILENAME = logFile.split('/')[-1]
-                self._app.logger.filePath = logFile
+                logPath = os.path.join(self._app.workspace.BASE_PATH + self._app.workspace.LOG_PATH)
+                logFiles = [ os.path.join(logPath, file) for file in os.listdir(logPath) if os.path.isfile(os.path.join(logPath, file)) ]
+                if not logFiles:
+                    self._LOG_FILENAME = False
+                    self._app.logger.filePath = None
+                else:
+                    logFile = max(logFiles, key = os.path.getmtime)
+                    self._LOG_FILENAME = logFile.split('/')[-1]
+                    self._app.logger.filePath = logFile
 
     @property
     def STATIC_PATH(self) -> str | bool:

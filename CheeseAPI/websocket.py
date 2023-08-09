@@ -2,6 +2,8 @@ from typing import Dict
 
 import asyncio
 
+from CheeseAPI.route import matchPath
+
 class Websocket:
     def __init__(self):
         self._CLIENTS: Dict[str, asyncio.Queue] = {}
@@ -22,15 +24,17 @@ class Websocket:
                     })
             await self._CLIENTS[sid].put(func)
 
-    async def send(self, message: any, sid: str | list[str] | None = None):
-        if not sid:
-            for key in self._CLIENTS:
-                await self._send(message, key)
-        elif isinstance(sid, list):
-            for s in sid:
-                await self._send(message, s)
-        else:
-            await self._send(message, sid)
+    async def send(self, message: any, path: str, sid: str | list[str] | None = None):
+        func, _ = matchPath(path)
+        if func:
+            if not sid:
+                for key in self._CLIENTS:
+                    await self._send(message, key)
+            elif isinstance(sid, list):
+                for s in sid:
+                    await self._send(message, s)
+            else:
+                await self._send(message, sid)
 
     async def _close(self, send):
         await send({
