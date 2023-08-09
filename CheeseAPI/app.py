@@ -266,14 +266,7 @@ class App:
                 if (await receive())['type'] == 'websocket.connect':
                     CheeseLog.websocket(f'{request.ip} connected {request.path}', f'{request.ip} connected \033[36m{request.path}\033[0m')
 
-                    websocket._CLIENTS[request.sid] = asyncio.Queue()
-                    async def sendHandle():
-                        try:
-                            while True:
-                                await (await websocket._CLIENTS[request.sid].get())(send)
-                        except asyncio.CancelledError:
-                            ...
-                    task = asyncio.create_task(sendHandle())
+                    task = asyncio.create_task(self._websocket_sendHandle(send, request))
 
                     while True:
                         message = await receive()
@@ -299,6 +292,14 @@ class App:
                 for websocket_errorHandle in self.websocket_errorHandles:
                     kwargs['exception'] = e
                     await doFunc(websocket_errorHandle, kwargs)
+
+    async def _websocket_sendHandle(self, send, request: Request):
+        websocket._CLIENTS[request.sid] = asyncio.Queue()
+        try:
+            while True:
+                await (await websocket._CLIENTS[request.sid].get())(send)
+        except asyncio.CancelledError:
+            ...
 
     def server_startingHandle(self, func: Callable):
         self.server_startingHandles.append(func)
