@@ -259,7 +259,7 @@ class App:
                 for websocket_beforeConnectionHandle in self.websocket_beforeConnectionHandles:
                     await doFunc(websocket_beforeConnectionHandle, kwargs)
 
-                kwargs['type'] = 'connect'
+                kwargs['type'] = 'beforeConnect'
                 kwargs['value'] = None
                 try:
                     await doFunc(requestFunc, kwargs)
@@ -273,6 +273,10 @@ class App:
                     CheeseLog.websocket(f'{request.ip} connected {request.path}', f'{request.ip} connected \033[36m{request.path}\033[0m')
 
                     task = asyncio.create_task(self._websocket_sendHandle(send, request))
+
+                    kwargs['type'] = 'connect'
+                    kwargs['value'] = None
+                    await doFunc(requestFunc, kwargs)
 
                     while True:
                         message = await receive()
