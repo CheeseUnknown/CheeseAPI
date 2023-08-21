@@ -150,14 +150,21 @@ class App:
 
                     # 405
                     elif request.method not in requestFunc:
-                        if signal.receiver('http_response405Handle'):
-                            await signal.send_async('http_response405Handle', kwargs)
-                        for http_response405Handle in self.http_response405Handles:
-                            _response = await doFunc(http_response405Handle, kwargs)
-                            if isinstance(_response, BaseResponse):
-                                response = _response
-                        if not isinstance(response, BaseResponse):
-                            response = Response(status = 405)
+                        if request.method == 'OPTIONS':
+                            response = Response(headers = {
+                                'Access-Control-Allow-Headers': '*',
+                                'Access-Control-Allow-Methods': '*',
+                                'Access-Control-Allow-Origin': '*'
+                            })
+                        else:
+                            if signal.receiver('http_response405Handle'):
+                                await signal.send_async('http_response405Handle', kwargs)
+                            for http_response405Handle in self.http_response405Handles:
+                                _response = await doFunc(http_response405Handle, kwargs)
+                                if isinstance(_response, BaseResponse):
+                                    response = _response
+                            if not isinstance(response, BaseResponse):
+                                response = Response(status = 405)
 
                     # Other...
                     else:
