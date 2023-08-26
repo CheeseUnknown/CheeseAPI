@@ -1,9 +1,8 @@
-import json
-from typing import Dict, Any
+import http, time, json
+from typing import Dict, Callable, Any, AsyncIterator, Tuple
+from email.utils import formatdate
 
-from CheeseAPI.file import File
-
-CONTENT_TYPE = {
+contentTypes = {
     'tif': 'image/tiff',
     '001': 'application/x-001',
     '301': 'application/x-301',
@@ -336,49 +335,88 @@ CONTENT_TYPE = {
 }
 
 class BaseResponse:
-    def __init__(self, body: Any = '', status: int = 200, headers: Dict[str, str] = {}) -> None:
-        self.status: int = status
-        self.headers: Dict[str, str] = headers
-        self.body: Any = body
+    def __init__(self, body: str | bytes | Callable | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, header: Dict[str, str] = {}):
+        self.status: http.HTTPStatus = http.HTTPStatus(status)
+        self.header: Dict[str, str] = {
+            'Server': 'CheeseAPI',
+            'Transfer-Encoding': 'chunked'
+        }
+        self.header.update(header)
+        self.body: str | bytes | Callable = body
+        if self.body is None:
+            self.body = self.status.description
+
+        self.transfering: bool = False
+
+    async def __call__(self) -> Tuple[bytes, bool]:
+        if not self.transfering:
+            content = [ b''.join([ b'HTTP/1.1 ', str(self.status).encode(), b' ', http.HTTPStatus(self.status).phrase.encode(), b'\r\n' ]) ]
+
+            if isinstance(content, AsyncIterator):
+                self.header['Transfer-Encoding'] = 'chunked'
+            self.header['Date'] = formatdate(time.time(), usegmt = True)
+            for key, value in self.header.items():
+                content.extend([ key.encode(), b': ', value.encode(), b'\r\n' ])
+
+            content.append(b'\r\n')
+            self.transfering = True
+            return b''.join(content)
+        else:
+            self.transfering = False
+
+            content = self.body
+            if isinstance(content, Callable):
+                content = content()
+            elif isinstance(content, AsyncIterator):
+                try:
+                    content = await anext(content)
+                    self.transfering = True
+                except StopAsyncIteration:
+                    return b'0\r\n\r\n', False
+
+            if not isinstance(content, bytes):
+                content = str(content).encode()
+
+            if self.header.get('Transfer-Encoding') == 'chunked':
+                content = [ b'%x\r\n' % len(content), content, b'\r\n' ]
+                if not self.transfering:
+                    content.append(b'0\r\n\r\n')
+
+            return b''.join(content), self.transfering
 
 class Response(BaseResponse):
-    def __init__(self, body: Any = '', status: int = 200, headers: Dict[str, str] = {}):
-        _headers = {
+    def __init__(self, body: str | bytes | Callable | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, header: Dict[str, str] = {}):
+        _header = {
             'content-type': 'text/plain; charset=utf-8'
         }
-        _headers.update(headers)
-        super().__init__(body, status, _headers)
+        _header.update(header)
+        super().__init__(body, status, _header)
 
 class JsonResponse(BaseResponse):
-    def __init__(self, body: Dict = {}, status: int = 200, headers: Dict[str, str] = {}):
-        _headers = {
-            'content-type': 'application/json; charset=utf-8'
+    def __init__(self, body: Dict[str, Any] = {}, status: http.HTTPStatus | int = http.HTTPStatus.OK, header: Dict[str, str] = {}):
+        _header = {
+            'Content-Type': 'application/json; charset=utf-8'
         }
-        _headers.update(headers)
-        super().__init__(json.dumps(body), status, _headers)
-
-class RedirectResponse(BaseResponse):
-    def __init__(self, url: str, status: int = 301, headers: Dict[str, str] = {}):
-        _headers = {
-            'Location': url
-        }
-        _headers.update(headers)
-        super().__init__(b'', status, _headers)
+        _header.update(header)
+        super().__init__(json.dumps(body), status, _header)
 
 class FileResponse(BaseResponse):
-    def __init__(self, file: File, isDownloaded: bool = False, headers: Dict[str, str] = {}):
-        fileSuffix = file.name.split('.')
-        if len(fileSuffix) == 1:
-            fileSuffix = ''
+    def __init__(self, filePath: str, downloaded: bool = False, header: Dict[str, str] = {}):
+        from CheeseAPI.app import app
+
+        if filePath[0] == '.':
+            filePath = app.workspace.base + '/' + filePath
+
+        try:
+            with open(filePath, 'rb') as f:
+                data = f.read()
+        except:
+            raise FileNotFoundError('The file was not found')
+
+        fileSuffix = filePath.split('.')[-1]
+        if downloaded or fileSuffix not in contentTypes:
+            _header = { 'content-type': 'application/octet-stream' }
         else:
-            fileSuffix = fileSuffix[-1]
-        if isDownloaded or fileSuffix not in CONTENT_TYPE:
-            _headers = {
-                'content-type': 'application/octet-stream'
-            }
-        else:
-            _headers = {
-                'content-type': CONTENT_TYPE[fileSuffix]
-            }
-        _headers.update(headers)
-        super().__init__(file.data, 200, _headers)
+            _header = { 'content-type': contentTypes[fileSuffix] }
+        _header.update(header)
+        super().__init__(data, http.HTTPStatus.OK, _header)

@@ -5,10 +5,10 @@ with open('./README.md', 'r', encoding = 'utf-8') as f:
 
 setuptools.setup(
     name = 'CheeseAPI',
-    version = '0.0.15',
+    version = '0.1.0',
     author = 'Cheese Unknown',
     author_email = 'cheese@cheese.ren',
-    description = '一款基于uvicorn的web协程框架',
+    description = '一款web协程框架',
     long_description = longDescription,
     long_description_content_type = 'text/markdown',
     url = 'https://github.com/CheeseUnknown/CheeseAPI',
@@ -19,17 +19,12 @@ setuptools.setup(
     ],
     keywords = 'api framework backend asyncio',
     python_requires = '>=3.11',
-    entry_points = {
-        'console_scripts': [
-            'CheeseAPI = CheeseAPI.command:command'
-        ]
-    },
     install_requires = [
-        'uvicorn[standard]',
         'CheeseType',
         'CheeseLog',
         'xmltodict',
-        'blinker'
+        'blinker',
+        'websockets'
     ],
     packages = setuptools.find_packages()
 )

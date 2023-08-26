@@ -9,3 +9,5 @@ static
 media
 myTest.py
 .cache
+test*
+test.py

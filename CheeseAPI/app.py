@@ -1,359 +1,113 @@
-import os, time, inspect, traceback, multiprocessing, json, shutil
-from typing import Callable, AsyncIterator, Dict, List, Any, Set
-from multiprocessing.process import BaseProcess
+import asyncio, multiprocessing, socket, time
+import signal as pySignal
+from typing import Dict, Any, List, Literal
 
-import CheeseLog, asyncio
-from CheeseLog import logger, Logger
+import uvloop
+from CheeseLog import logger
 
-from CheeseAPI.route import Route, matchPath
-from CheeseAPI.request import Request
-from CheeseAPI.response import Response, BaseResponse, FileResponse
-from CheeseAPI.file import File
-from CheeseAPI.websocket import websocket
-from CheeseAPI.module import LocalModule, Module
-from CheeseAPI.cSignal import signal
-from CheeseAPI.exception import WebsocketDisconnect
-
-async def doFunc(func: Callable, kwargs: Dict[str, Any] = {}):
-    if hasattr(func, '__wrapped__'):
-        _kwargs = kwargs
-    else:
-        _kwargs = {}
-        sig = inspect.signature(func)
-        for key, value in kwargs.items():
-            if key in sig.parameters or 'kwargs' in sig.parameters:
-                _kwargs[key] = value
-    if inspect.iscoroutinefunction(func):
-        return await func(**_kwargs)
-    else:
-        return func(**_kwargs)
+from CheeseAPI import exception
+from CheeseAPI.signal import signal
 
 class App:
     def __init__(self):
-        self.startTimer: float = time.time()
-
-        from CheeseAPI.system import System
-        from CheeseAPI.workspace import Workspace
         from CheeseAPI.server import Server
+        from CheeseAPI.handle import Handle
+        from CheeseAPI.worker import HttpWorker, WebsocketWorker
+        from CheeseAPI.route import Route
+        from CheeseAPI.workspace import Workspace
+        from CheeseAPI.cors import Cors
 
-        self.process: BaseProcess = multiprocessing.current_process()
-        self.logger: Logger = logger
-
-        self.system: System = System()
         self.workspace: Workspace = Workspace()
-        self.server: Server = Server(self)
-        self.modules: Set[Module] | Set[str] = set()
-        self.localModules: Set[LocalModule] | Set[str] | bool = True
-        self.exclude_localModules: Set[LocalModule] = set()
+        self.server: Server = Server()
+        self.httpWorker: HttpWorker = HttpWorker()
+        self.websocketWorker: WebsocketWorker = WebsocketWorker()
+        self.route: Route = Route()
+        self.cors: Cors = Cors()
 
-        self.route: Route = Route('')
+        self.modules: List[str] = []
+        self.localModules: List[str] | Literal[True] = True
 
-        self.server_startingHandles: List[Callable] = []
-        self.server_endingHandles: List[Callable] = []
-        # http
-        self.http_response404Handles: List[Callable] = []
-        self.http_response405Handles: List[Callable] = []
-        self.http_response500Handles: List[Callable] = []
-        self.http_beforeRequestHandles: List[Callable] = []
-        self.http_afterResponseHandles: List[Callable] = []
-        # websocket
-        self.websocket_beforeConnectionHandles: List[Callable] = []
-        self.websocket_afterDisconnectHandles: List[Callable] = []
-        self.websocket_errorHandles: List[Callable] = []
-        self.websocket_notFoundHandles: List[Callable] = []
+        self.handle: Handle = Handle()
+        self.g: Dict[str, Any] = {}
 
-        if os.path.exists(self.workspace.BASE_PATH + '/.cache/config.json'):
-            with open(self.workspace.BASE_PATH + '/.cache/config.json', 'r') as f:
-                data = json.load(f)
-            self.workspace.LOG_PATH = data['workspace']['LOG_PATH']
-            self.server.HOST = data['server']['HOST']
-            self.server.PORT = data['server']['PORT']
-            self.server.IS_RELOAD = data['server']['IS_RELOAD']
-            self.server.WORKERS = data['server']['WORKERS']
-            self.server.LOG_FILENAME = data['server']['LOG_FILENAME']
-            with open(self.workspace.BASE_PATH + '/.cache/workers', 'a+') as f:
-                f.write('1')
-                f.seek(0)
-                workers = len(f.readline())
-            if workers == self.server.WORKERS and os.path.exists(self.workspace.BASE_PATH + '/.cache'):
-                shutil.rmtree(self.workspace.BASE_PATH + '/.cache')
+    def run(self, *, managers: Dict[str, multiprocessing.Manager] = {}):
+        manager = multiprocessing.Manager()
+        managers['lock'] = manager.Lock()
+        managers['startedWorkerNum'] = manager.Value(int, 0)
+        managers['firstRequest'] = manager.Value(bool, False)
 
-    async def __call__(self, scope, receive, send):
-        ''' Server started '''
-        if scope['type'] == 'lifespan':
-            message = await receive()
-            if message['type'] == 'lifespan.startup':
-                _modules = set()
-                if self.process.name == 'MainProcess' and len(self.modules):
-                    CheeseLog.starting(f'Modules:\n{" | ".join(self.modules)}')
-                for module in self.modules:
-                    _modules.add(Module(_modules, module))
-                self.modules = _modules
+        self.handle._server_beforeStartingHandle()
+        for server_beforeStartingHandle in self.handle.server_beforeStartingHandles:
+            server_beforeStartingHandle()
+        if signal.receiver('server_beforeStartingHandle'):
+            signal.send('server_beforeStartingHandle')
 
-                if self.localModules is True:
-                    self.localModules = set()
-                    for folderName in os.listdir(self.workspace.BASE_PATH):
-                        if folderName[0] == '.':
-                            continue
-                        if folderName in self.exclude_localModules:
-                            continue
-                        folderPath = os.path.join(self.workspace.BASE_PATH, folderName)
-                        if os.path.isdir(folderPath) and folderPath not in [ self.workspace.BASE_PATH + self.workspace.STATIC_PATH[:-1], self.workspace.BASE_PATH + self.workspace.MEDIA_PATH[:-1], self.workspace.BASE_PATH + self.workspace.LOG_PATH[:-1], self.workspace.BASE_PATH + '/__pycache__' ]:
-                            self.localModules.add(folderName)
-                if self.process.name == 'MainProcess' and len(self.localModules):
-                    CheeseLog.starting(f'Local modules:\n{" | ".join(self.localModules)}')
-                _localModules = set()
-                for module in self.localModules:
-                    _localModules.add(LocalModule(self.workspace.BASE_PATH, module))
-                self.localModules = _localModules
+        sock = socket.socket(socket.AF_INET)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((self.server.host, self.server.port))
+        sock.set_inheritable(True)
 
-                startTime = time.time() - self.startTimer
-                if self.process.name == 'MainProcess':
-                    CheeseLog.starting('The server started, took {:.6f} seconds'.format(startTime), 'The server started, took \033[34m{:.6f}\033[0m seconds'.format(startTime))
-                else:
-                    CheeseLog.starting(f'The worker {os.getpid()} started, took ' + '{:.6f} seconds'.format(startTime), f'The worker \033[34m{os.getpid()}\033[0m started, took ' + '\033[34m{:.6f}\033[0m seconds'.format(startTime))
+        for i in range(0, self.server.workers - 1):
+            process = multiprocessing.Process(target = run, args = (app, sock, managers), name = f'CheeseAPI_Subprocess<{i}>', daemon = True)
+            process.start()
 
-        ''' Http request '''
-        if scope['type'] in [ 'http', 'https' ]:
-            try:
-                timer = time.time()
-                body = b''
-                bodyFlag = True
-                while bodyFlag:
-                    message = await receive()
-                    body += message.get('body', b'')
-                    bodyFlag = message.get('more_body', False)
-                request = Request(scope, body)
-                response = None
-                requestFunc = None
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        asyncio.run(_run(app, sock, managers))
 
-                # Static
-                if self.server.STATIC_PATH and request.path.startswith(self.server.STATIC_PATH):
-                    try:
-                        response = FileResponse(File(path = self.workspace.STATIC_PATH + request.path[len(self.server.STATIC_PATH):]))
-                    except:
-                        ...
+        while managers['startedWorkerNum'].value != 0:
+            time.sleep(0.1)
+        logger.destory()
 
-                if not isinstance(response, FileResponse):
-                    # 404
-                    requestFunc, kwargs = matchPath(request.path)
-                    kwargs['request'] = request
-                    if not isinstance(requestFunc, dict):
-                        if signal.receiver('http_response404Handle'):
-                            await signal.send_async('http_response404Handle', kwargs)
-                        for http_response404Handle in self.http_response404Handles:
-                            _response = await doFunc(http_response404Handle, kwargs)
-                            if isinstance(_response, BaseResponse):
-                                response = _response
-                        if not isinstance(response, BaseResponse):
-                            response = Response(status = 404)
+app = App()
 
-                    # 405
-                    elif request.method not in requestFunc:
-                        if request.method == 'OPTIONS':
-                            response = Response(headers = {
-                                'Access-Control-Allow-Headers': '*',
-                                'Access-Control-Allow-Methods': '*',
-                                'Access-Control-Allow-Origin': '*'
-                            })
-                        else:
-                            if signal.receiver('http_response405Handle'):
-                                await signal.send_async('http_response405Handle', kwargs)
-                            for http_response405Handle in self.http_response405Handles:
-                                _response = await doFunc(http_response405Handle, kwargs)
-                                if isinstance(_response, BaseResponse):
-                                    response = _response
-                            if not isinstance(response, BaseResponse):
-                                response = Response(status = 405)
+async def _run(app: App, sock: socket.socket, managers):
+    from CheeseAPI.protocol import HttpProtocol
 
-                    # Other...
-                    else:
-                        if signal.receiver('http_beforeRequestHandle'):
-                            await signal.send_async('http_beforeRequestHandle', kwargs)
-                        for http_beforeRequestHandle in self.http_beforeRequestHandles:
-                            _response = await doFunc(http_beforeRequestHandle, kwargs)
-                            if isinstance(_response, BaseResponse):
-                                response = _response
+    app.handle._worker_beforeStartingHandle()
+    for worker_beforeStartingHandle in app.handle.worker_beforeStartingHandles:
+        worker_beforeStartingHandle()
+    if signal.receiver('worker_beforeStartingHandle'):
+        signal.send('worker_beforeStartingHandle')
 
-                        if not isinstance(response, BaseResponse):
-                            requestFunc = requestFunc[request.method]
-                            response = await doFunc(requestFunc, kwargs)
+    HttpProtocol.managers = managers
 
-                        if isinstance(response, BaseResponse):
-                            if signal.receiver('http_afterResponseHandle'):
-                                await signal.send_async('http_afterResponseHandle', kwargs)
-                            for http_afterResponseHandle in self.http_afterResponseHandles:
-                                kwargs['response'] = response
-                                _response = await doFunc(http_afterResponseHandle, kwargs)
-                                if isinstance(_response, BaseResponse):
-                                    response = _response
-                        else:
-                            CheeseLog.danger(f'The error occured while accessing the {request.method} {request.fullPath}\nTraceback (most recent call last):\n  File "{inspect.getsourcefile(requestFunc)}", line {inspect.getsourcelines(requestFunc)[1]}, in <module>\n    Function {requestFunc.__name__} needs to return Response, not {response.__class__.__name__}')
-                            response = Response(status = 500)
-            except Exception as e:
-                CheeseLog.danger(f'The error occured while accessing the {request.method} {request.fullPath}\n{traceback.format_exc()}'[:-1], f'The error occured while accessing the \033[36m{request.method} {request.fullPath}\033[0m\n{traceback.format_exc()}'[:-1])
-                if signal.receiver('http_response500Handle'):
-                    await signal.send_async('http_response500Handle', kwargs)
-                for http_response500Handle in self.http_response500Handles:
-                    kwargs['exception'] = e
-                    _response = await doFunc(http_response500Handle, kwargs)
-                    if isinstance(_response, BaseResponse):
-                        response = _response
-                if not isinstance(response, BaseResponse):
-                    response = Response(status = 500)
+    loop = asyncio.get_running_loop()
+    server = await loop.create_server(HttpProtocol, sock = sock)
+    loop.add_signal_handler(pySignal.SIGINT, app.handle._exitSignalHandle, server)
+    loop.add_signal_handler(pySignal.SIGTERM, app.handle._exitSignalHandle, server)
 
-            headers = []
-            for key, value in response.headers.items():
-                headers.append([key.encode(), value.encode()])
-            await send({
-                'type': 'http.response.start',
-                'status': response.status,
-                'headers': headers
-            })
+    for worker_afterStartingHandle in app.handle.worker_afterStartingHandles:
+        worker_afterStartingHandle()
+    if signal.receiver('worker_afterStartingHandle'):
+        signal.send('worker_afterStartingHandle')
 
-            body = response.body
-            if isinstance(response.body, Callable):
-                body = response.body()
-            if isinstance(body, AsyncIterator):
-                try:
-                    async for value in body:
-                        if isinstance(body, bytes):
-                            await send({
-                                'type': 'http.response.body',
-                                'body': value,
-                                'more_body': True
-                            })
-                        else:
-                            await send({
-                                'type': 'http.response.body',
-                                'body': str(value).encode(),
-                                'more_body': True
-                            })
-                except Exception as e:
-                    await send({
-                        'type': 'http.response.body',
-                        'body': b''
-                    })
-            else:
-                if isinstance(body, bytes):
-                    await send({
-                        'type': 'http.response.body',
-                        'body': body
-                    })
-                else:
-                    await send({
-                        'type': 'http.response.body',
-                        'body': str(body).encode()
-                    })
+    with managers['lock']:
+        managers['startedWorkerNum'].value += 1
+        if managers['startedWorkerNum'].value == app.server.workers:
+            app.handle._server_afterStartingHandle()
+            for server_afterStartingHandle in app.handle.server_afterStartingHandles:
+                server_afterStartingHandle()
+            if signal.receiver('server_afterStartingHandle'):
+                signal.send('server_afterStartingHandle')
 
-            diffTime = time.time() - timer
-            CheeseLog.http(f'{request.ip} accessed {request.method} {request.fullPath}, returned {response.status}, took ' + '{:.6f}'.format(diffTime) + ' seconds', f'{request.ip} accessed \033[36m{request.method} {request.fullPath}\033[0m, returned \033[34m{response.status}\033[0m, took ' + '\033[34m{:.6f}\033[0m'.format(diffTime) + ' seconds')
+    while server.is_serving():
+        await asyncio.sleep(0.1)
 
-        ''' Websocket '''
-        if scope['type'] in [ 'websocket', 'websockets' ]:
-            try:
-                request = Request(scope)
-                requestFunc, kwargs = matchPath(request.path)
-                kwargs['request'] = request
-                if requestFunc is None or 'WEBSOCKET' not in requestFunc:
-                    for websocket_notFoundHandle in self.websocket_notFoundHandles:
-                        await doFunc(websocket_notFoundHandle, kwargs)
-                    return
-                requestFunc = requestFunc['WEBSOCKET']
+    if signal.receiver('worker_beforeStoppingHandle'):
+        signal.send('worker_beforeStoppingHandle')
+    for worker_beforeStoppingHandle in app.handle.worker_beforeStoppingHandles:
+        worker_beforeStoppingHandle()
+    app.handle._worker_beforeStoppingHandle()
 
-                if signal.receiver('websocket_beforeConnectionHandle'):
-                    await signal.send_async('websocket_beforeConnectionHandle', kwargs)
-                for websocket_beforeConnectionHandle in self.websocket_beforeConnectionHandles:
-                    await doFunc(websocket_beforeConnectionHandle, kwargs)
+    with managers['lock']:
+        managers['startedWorkerNum'].value -= 1
+        if managers['startedWorkerNum'].value == 0:
+            if signal.receiver('server_beforeStoppingHandle'):
+                signal.send('server_beforeStoppingHandle')
+            for server_beforeStoppingHandle in app.handle.server_beforeStoppingHandles:
+                server_beforeStoppingHandle()
+            app.handle._server_beforeStoppingHandle()
 
-                kwargs['type'] = 'beforeConnect'
-                kwargs['value'] = None
-                try:
-                    await doFunc(requestFunc, kwargs)
-                except WebsocketDisconnect:
-                    return
-                await send({
-                    'type': 'websocket.accept'
-                })
-
-                if (await receive())['type'] == 'websocket.connect':
-                    CheeseLog.websocket(f'{request.ip} connected {request.path}', f'{request.ip} connected \033[36m{request.path}\033[0m')
-
-                    task = asyncio.create_task(self._websocket_sendHandle(send, request))
-
-                    kwargs['type'] = 'connect'
-                    kwargs['value'] = None
-                    await doFunc(requestFunc, kwargs)
-
-                    while True:
-                        message = await receive()
-                        if message['type'] == 'websocket.receive':
-                            kwargs['type'] = 'receive'
-                            if 'text' in message:
-                                kwargs['value'] = message['text']
-                            elif 'bytes' in message:
-                                kwargs['value'] = message['bytes']
-                            await doFunc(requestFunc, kwargs)
-                        elif message['type'] == 'websocket.disconnect':
-                            task.cancel()
-                            CheeseLog.websocket(f'{request.ip} disconnected {request.path}', f'{request.ip} disconnected \033[36m{request.path}\033[0m')
-                            break
-
-                kwargs['type'] = 'disconnect'
-                kwargs['value'] = None
-                await doFunc(requestFunc, kwargs)
-
-                if signal.receiver('websocket_afterDisconnectHandle'):
-                    await signal.send_async('websocket_afterDisconnectHandle', kwargs)
-                for websocket_afterDisconnectHandle in self.websocket_afterDisconnectHandles:
-                    await doFunc(websocket_afterDisconnectHandle, kwargs)
-            except Exception as e:
-                try:
-                    task.cancel()
-                except:
-                    ...
-                CheeseLog.danger(f'The error occured while accessing the WEBSOCKET {request.fullPath}\n{traceback.format_exc()}'[:-1], f'The error occured while accessing the \033[36mWEBSOCKET {request.fullPath}\033[0m\n{traceback.format_exc()}'[:-1])
-                for websocket_errorHandle in self.websocket_errorHandles:
-                    kwargs['exception'] = e
-                    await doFunc(websocket_errorHandle, kwargs)
-
-    async def _websocket_sendHandle(self, send, request: Request):
-        websocket._CLIENTS[request.path][request.sid] = asyncio.Queue()
-        try:
-            while True:
-                await (await websocket._CLIENTS[request.path][request.sid].get())(send)
-        except asyncio.CancelledError:
-            ...
-        del websocket._CLIENTS[request.path][request.sid]
-
-    def server_startingHandle(self, func: Callable):
-        self.server_startingHandles.append(func)
-
-    def server_endingHandle(self, func: Callable):
-        self.server_endingHandles.append(func)
-
-    def http_response404Handle(self, func: Callable):
-        self.http_response404Handles.append(func)
-
-    def http_response405Handle(self, func: Callable):
-        self.http_response405Handles.append(func)
-
-    def http_response500Handle(self, func: Callable):
-        self.http_response500Handles.append(func)
-
-    def http_beforeRequestHandle(self, func: Callable):
-        self.http_beforeRequestHandles.append(func)
-
-    def http_afterResponseHandle(self, func: Callable):
-        self.http_afterResponseHandles.append(func)
-
-    def websocket_beforeConnectionHandle(self, func: Callable):
-        self.websocket_beforeConnectionHandles.append(func)
-
-    def websocket_afterDisconnectHandle(self, func: Callable):
-        self.websocket_afterDisconnectHandles.append(func)
-
-    def websocket_errorHandle(self, func: Callable):
-        self.websocket_errorHandles.append(func)
-
-app: App = App()
+def run(app, sock, managers):
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    asyncio.run(_run(app, sock, managers))

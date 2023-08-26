@@ -1,7 +1,7 @@
-import re, uuid
-from typing import Self, Callable, Dict, List, Tuple, Any
+import re, uuid, http
+from typing import Callable, Dict, List, Tuple, Any
 
-PATTERNS: Dict[str, re.Pattern] = {
+patterns: Dict[str, re.Pattern] = {
     'str': {
         'pattern': r'.+',
         'type': str
@@ -20,121 +20,125 @@ PATTERNS: Dict[str, re.Pattern] = {
     }
 }
 
-_PATHS: dict = {}
-
-class _MatchPathNode:
+class PathNode:
     def __init__(self):
-        self.children: dict = {}
+        self.children: Dict[str, PathNode] = None
         self.key: str | None = None
-        self.isEnd: bool = False
+        self.methods: Dict[str, Callable] | None = None
 
-class _MatchPath:
+class Path:
     def __init__(self):
-        self.root: _MatchPathNode = _MatchPathNode()
+        self.root: PathNode = PathNode()
 
-    def insert(self, path: str, func: Callable, methods: List[str]):
+    def insert(self, path: str, func: Callable, methods: List[http.HTTPMethod | str]):
+        for method in methods:
+            if method != 'WEBSOCKET':
+                method = http.HTTPMethod(method)
+
         node = self.root
+
+        paths = path.split('/')[1:]
+        if paths[-1] == '':
+            paths = path[:-1]
         for part in path.split('/')[1:]:
+            if not node.children:
+                node.children = {}
+
             if re.match(r'<\w+:\w+>', part):
                 part = part[1:-1].split(':')
                 _part = f'<:{part[1]}>'
                 if _part not in node.children:
-                    node.children[_part] = _MatchPathNode()
+                    node.children[_part] = PathNode()
                 node.children[_part].key = part[0]
                 part = _part
             else:
                 if part not in node.children:
-                    node.children[part] = _MatchPathNode()
+                    node.children[part] = PathNode()
             node = node.children[part]
-        node.isEnd = True
 
+        node.methods = {}
         for method in methods:
-            node.children[method] = func
+            node.methods[method] = func
 
-    def match(self, path: str) -> Tuple[Dict[str, Callable], Dict[str, Any]]:
-        kwargs = {}
-        node = self.root
-        for part in path.split('/')[1:]:
-            if part not in node.children:
-                flag = False
-                for key, value in reversed(PATTERNS.items()):
-                    if re.fullmatch(value['pattern'], part) and f'<:{key}>' in node.children:
-                        kwargs[node.children[f'<:{key}>'].key] = value['type'](part)
-                        part = f'<:{key}>'
-                        flag = True
-                        break
-                if not flag:
-                    return None, {}
-            node = node.children[part]
-        if node.isEnd:
-            return node.children, kwargs
-        else:
-            return None, {}
+    def match(self, path: str) -> Tuple[Dict[str, Callable] | None, Dict[str, Any]]:
+        paths = path.split('/')[1:]
+        if paths[-1] == '':
+            paths = paths[:-1]
+        return self._match(self.root, paths, {})
 
-_MATCH_PATH: _MatchPath = _MatchPath()
+    def _match(self, node: PathNode, paths: List[str], kwargs: Dict[str, Any]):
+        for i in range(len(paths)):
+            if paths[i] not in node.children:
+                for key, value in reversed(patterns.items()):
+                    if re.fullmatch(value['pattern'], paths[i]) and f'<:{key}>' in node.children:
+                        result, kwargs = self._match(node.children[f'<:{key}>'], paths[i + 1:], kwargs)
+                        if result:
+                            kwargs[node.children[f'<:{key}>'].key] = value['type'](paths[i])
+                            return result, kwargs
+                return None, {}
+            node = node.children[paths[i]]
+        if node.methods:
+            return node.methods, kwargs
+        return None, {}
+
+paths: Path = Path()
 
 class Route:
-    def __init__(self, prefix: str = '', parent: Self | None = None):
-        self.parent: Route | None = parent
-        if self.parent is not None:
-            self.parent.routers.append(self)
-            prefix = self.parent.prefix + prefix
+    def __init__(self, prefix: str = ''):
         self.prefix: str = prefix
-        self.routers: List[Route] = []
-        self.paths: Dict[str, Dict[str, Callable]] = {}
 
-    def __call__(self, path: str, methods: List[str]):
+    def __call__(self, path: str, methods: List[ http.HTTPMethod | str ]):
         def decorator(func):
-            self.default(path, methods, func)
+            paths.insert(self.prefix + path, func, methods)
         return decorator
-
-    def default(self, path: str, methods: List[str], func: Callable):
-        _path = self.prefix + path
-        if _path not in _PATHS:
-            _PATHS[_path] = {}
-        if _path not in self.paths:
-            self.paths[_path] = {}
-
-        if not isinstance(_PATHS[_path], dict):
-            _PATHS[_path] = {}
-        for method in methods:
-            _PATHS[_path][method] = func
-            self.paths[_path][method] = func
-
-        _MATCH_PATH.insert(_path, func, methods)
 
     def get(self, path: str):
         def decorator(func):
-            self.default(path, [ 'GET' ], func)
+            paths.insert(self.prefix + path, func, [ http.HTTPMethod.GET ])
         return decorator
 
     def post(self, path: str):
         def decorator(func):
-            self.default(path, [ 'POST' ], func)
+            paths.insert(self.prefix + path, func, [ http.HTTPMethod.POST ])
         return decorator
 
     def delete(self, path: str):
         def decorator(func):
-            self.default(path, [ 'DELETE' ], func)
-        return decorator
-
-    def patch(self, path: str):
-        def decorator(func):
-            self.default(path, [ 'PATCH' ], func)
+            paths.insert(self.prefix + path, func, [ http.HTTPMethod.DELETE ])
         return decorator
 
     def put(self, path: str):
         def decorator(func):
-            self.default(path, [ 'PUT' ], func)
+            paths.insert(self.prefix + path, func, [ http.HTTPMethod.PUT ])
+        return decorator
+
+    def patch(self, path: str):
+        def decorator(func):
+            paths.insert(self.prefix + path, func, [ http.HTTPMethod.PATCH ])
+        return decorator
+
+    def trace(self, path: str):
+        def decorator(func):
+            paths.insert(self.prefix + path, func, [ http.HTTPMethod.TRACE ])
+        return decorator
+
+    def options(self, path: str):
+        def decorator(func):
+            paths.insert(self.prefix + path, func, [ http.HTTPMethod.OPTIONS ])
+        return decorator
+
+    def head(self, path: str):
+        def decorator(func):
+            paths.insert(self.prefix + path, func, [ http.HTTPMethod.HEAD ])
+        return decorator
+
+    def connect(self, path: str):
+        def decorator(func):
+            paths.insert(self.prefix + path, func, [ http.HTTPMethod.CONNECT ])
         return decorator
 
     def websocket(self, path: str):
-        def decorator(func):
-            self.default(path, [ 'WEBSOCKET' ], func)
+        def decorator(cls):
+            instance = cls()
+            paths.insert(self.prefix + path, instance, [ 'WEBSOCKET' ])
         return decorator
-
-def matchPath(path: str) -> Tuple[Dict[str, Callable], Dict[str, Any]]:
-    if path in _PATHS:
-        return _PATHS[path], {}
-
-    return _MATCH_PATH.match(path)

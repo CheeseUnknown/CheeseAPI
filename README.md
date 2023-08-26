@@ -1,82 +1,95 @@
 # **CheeseAPI**
 
-目前项目仍处于开发阶段，无法保证稳定性。
-
-该文档是最新的beta版，如果你想要查看最新的发布版内容，请查看最新的tag。
-
 ## **介绍**
 
-一款基于uvicorn的web协程框架，目前仍处于开发阶段，一些基础功能已经可以使用。
+一款协程友好的web框架，它有大部分框架都有的功能，以及它的特点：
 
-目前仅保证支持python3.11。
+1. 插件支持，更可塑的事件处理。
 
-## **功能**
+2. 类Django的项目结构。
 
-1. 支持部分配置动态设置。
+3. Websocket支持。
 
-2. 起飞般的请求速度。
+4. 支持部分配置项动态设置。
 
-3. websocket支持。
+目前项目仍处于开发阶段，未来期望提供的功能：
 
-4. 类Django的项目结构。
+1. 对于请求更完善的处理。
 
-5. 外部模块导入。
+2. 更好的架构设计以及更快的算法处理。
+
+3. 更多的插件。
+
+4. 提供命令，以方便管理项目。
+
+5. 自定义的工作目录。
+
+6. 更多的配置选项。
 
 ## **安装**
+
+目前仅支持linux python3.11，这里也推荐将python升级到3.11。
 
 ```bash
 pip install CheeseAPI
 ```
 
-你可能需要更多的插件：
-
-1. [**CheeseAPI_websocket**](https://github.com/CheeseUnknown/CheeseAPI_websocket)
-
-    基于CheeseAPI的升级版websocket。
-
 ## **使用**
 
 ### **简单的示例**
 
-创建一个入口文件：
+目前只支持在当前工作目录下运行。
+
+创建一个启动入口：
 
 ```python
-# File path: /app.py
+# File path: ./app.py
 
-from CheeseAPI import app, Request, Response
+from CheeseAPI import app, Response
 
-@app.route('/', [ 'GET' ])
-async def index(request: Request):
-    return Response('你好，这里是CheeseAPI！')
+'''
+路由装饰器装饰的函数参数是可选的，如果你需要获取request，则：
+async def test(request):
+    ...
+即可，其他参数都是动态获取的。
+'''
+@app.route.get('/')
+async def test():
+    return Response('您好，这里是CheeseAPI！')
+
+if __name__ == '__main__':
+    app.run() # 默认的启动地址：'0.0.0.0'，默认的启动端口：5214
 ```
 
-使用命令行启动服务器，你可以看到相应的信息打印在控制台上（默认为彩色打印）:
+运行`app.py`，可以看到打印了一些基础信息，当当前代码的最后一行启动时，代表系统已经可以访问：
 
 ```bash
-$ CheeseAPI --app app:app
-(STARTING) 2023-08-01 00:44:11.143085 > Started CheeseAPI master process 92102
-(STARTING) 2023-08-01 00:44:11.143122 > The application starts loading...
-(STARTING) 2023-08-01 00:44:11.143133 > System information:
-    system: MacOS
-    python version: 3.11.4
-    CheeseAPI version: 0.0.1
-(STARTING) 2023-08-01 00:44:11.143142 > Workspace information:
-    CheeseAPI path: /Users/cheese/Desktop/CheeseAPI/CheeseAPI
-    base path: /Users/cheese/Desktop/CheeseAPI
-(STARTING) 2023-08-01 00:44:11.143155 > Server information:
-    host: 127.0.0.1
-    port: 5214
-    workers: 1
-    is reload: False
-    is debug: False
-    is request logged: True
-(STARTING) 2023-08-01 00:44:11.143215 > The server running on http://127.0.0.1:5214
-(STARTING) 2023-08-01 00:44:11.153093 > The server started, took 0.009919 seconds
+$ python app.py
+(STARTING) 2023-08-24 12:20:56.933161 > The master process 700506 started
+(STARTING) 2023-08-24 12:20:56.934117 > Workspace information:
+    CheeseAPI: /xxx/CheeseAPI/CheeseAPI
+    Base: /xxx/CheeseAPI
+(STARTING) 2023-08-24 12:20:56.934274 > Server information:
+    Host: 0.0.0.0
+    Port: 5214
+    Workers: 1
+(STARTING) 2023-08-24 12:20:56.934619 > Local Modules:
+    CheeseAPI
+(LOADED) 2023-08-24 12:20:56.937603 > The local modules are loaded, which takes 0.002867 seconds
+(DEBUG) 2023-08-24 12:20:56.938326 > The subprocess 700506 started
+(STARTING) 2023-08-24 12:20:56.939158 > The server started on http://0.0.0.0:5214
+(STARTING) 2023-08-24 12:20:56.939279 > The server startup takes 0.006139 seconds
 ```
 
-此时访问`GET http://127.0.0.1:5214`，会返回相应的`Response`。
+使用`ctrl + c`或`kill <pid>`杀死进程，会打印完剩下的内容：
 
-### **项目结构**
+```bash
+(DEBUG) 2023-08-24 12:29:19.061431 > The 701056 subprocess stopped
+(ENDING) 2023-08-24 12:29:19.062018 > The server runs for a total of 11.326843 seconds
+(ENDING) 2023-08-24 12:29:19.062144 > The master process 701056 stopped
+```
+
+## **项目结构**
 
 CheeseAPI采用类Django的结构：
 
@@ -85,12 +98,10 @@ CheeseAPI采用类Django的结构：
     | - model.py
     | - api.py
     | - service.py
-    | - decorator.py
 | - Permission
     | - model.py
     | - api.py
     | - service.py
-    | - decorator.py
 | - app.py
 ```
 
@@ -103,178 +114,29 @@ CheeseAPI采用类Django的结构：
 | model.py | 模型类 |
 | api.py | api接口 |
 | service.py | 业务逻辑实现 |
-| decorator.py | 装饰器 |
-
-### **用户的增删改查**
-
-该示例仅为演示，所用用户结构为普通的`class`构建，在正常项目中你应该使用`SQL`或`ORM`。
-
-在开始，首先需要创建一个用户类：
-
-```python
-# File path: /User/model.py
-
-import datetime, uuid
-from enum import Enum
-from typing import Optional
-
-class Gender(Enum):
-    MALE = 0
-    FEMALE = 1
-    UNKNOWN = 2
-
-class User:
-    def __init__(self, nickname: str, password: str, gender: Optional[Gender] = Gender.UNKNOWN):
-        self.id: uuid.UUID = uuid.uuid4()
-        self.nickname: str = nickname
-        self.password: str = password
-        self.gender: Gender = gender
-        self.join_date: datetime.datetime = datetime.datetime.now()
-```
-
-实现增删改查的逻辑代码：
-
-```python
-# File path: /User/service.py
-
-import uuid
-from typing import Optional, Dict
-
-from User.model import User, Gender
-
-users: Dict[uuid.UUID, User] = {}
-loginUsers: Dict[uuid.UUID, User] = {}
-
-# 注册用户
-def register(nickname: str, password: str, gender: Gender):
-    user = User(nickname, password, gender)
-    users[user.id] = user
-
-# 登入用户
-def login(nickname: str, password: str) -> User | None:
-    for id, user in users.item():
-        if user.nickname == nickname and user.password == password:
-            loginUsers[id] = user
-            return user
-    return None
-
-# 登出用户
-def logout(id: uuid.UUID):
-    if id in loginUsers:
-        del loginUsers[id]
-
-# 获取用户
-def get_user(id: uuid.UUID) -> User | None:
-    if id in users:
-        return users[id]
-    return None
-
-# 修改用户信息
-def set_user(id: uuid.UUID, nickname: str | None, password: str | None, gender: Gender | None) -> User | None:
-    if id in users:
-        user = users[id]
-        if nickname:
-            user.nickname = nickname
-        if password:
-            user.password = password
-        if gender:
-            user.gender = gender
-        return user
-    return None
-
-# 删除用户
-def delete_user(id: uuid.UUID) -> bool:
-    if id in loginUsers:
-        del loginUsers[id]
-    if id in users:
-        del users[id]
-        return True
-    return False
-```
-
-实现API接口，在实际项目中，你需要先进行数据的初步校验：
-
-```python
-# File path:
-
-import uuid
-
-from CheeseAPI import app, Request, Route, Response, JsonResponse
-
-from User.model import Gender
-from User import service
-
-route = Route('/User', app.route)
-
-@route.post('/register')
-def register(request: Request):
-    nickname = request.form.get('nickname')
-    password = request.form.get('password')
-    gender = Gender(int(request.form.get('gender', 2)))
-    service.register(nickname, password, gender)
-    return Response('注册成功！')
-
-@route.post('/login')
-def login(request: Request):
-    nickname = request.form.get('nickname')
-    password = request.form.get('password')
-    user = service.login(nickname, password)
-    if user:
-        return JsonResponse(user.__dict__)
-    return Response('登入失败！', 401)
-
-@route.post('/<id:uuid>/logout')
-def logout(id: uuid.UUID):
-    service.logout(id)
-    return Response('登出成功！')
-
-@route.get('/<id:uuid>')
-def get_user(id: uuid.UUID):
-    user = service.get_user(id)
-    if user:
-        return JsonResponse(user.__dict__)
-    return Response('查找失败！', 404)
-
-@route.put('/<id:uuid>')
-def set_user(id: uuid.UUID):
-    nickname = request.form.get('nickname')
-    password = request.form.get('password')
-    gender = request.form.get('gender')
-    if gender:
-        gender = Gender(gender)
-    user = service.set_user(id, nickname, password, gender)
-    if user:
-        return JsonResponse(user.__dict__)
-    return Response('修改信息失败！', 404)
-
-@route.delete('/<id:uuid>')
-def delete_user(id: uuid.UUID):
-    flag = service.delete_user(id)
-    if flag:
-        return Response('删除用户成功！')
-    return Response('删除用户失败！', 404)
-```
-
-这样，一个简陋的用户系统就搭建完成了，其中有很多纰漏例如会把密码返回出去 :(
 
 ## **更多...**
 
-### 1. **[命令行](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/command.md)**
+### 1. [**生命周期**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/生命周期.md)
 
-### 2. **[详细配置](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/detail.md)**
+### 2. [**App**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/App.md)
 
-### 3. **[模块](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/module.md)**
+#### 2.1 [**Workspace**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/App/Workspace.md)
 
-### 4. **[路由](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/route.md)**
+#### 2.2 [**Server**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/App/Server.md)
 
-### 5. **[请求](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/request.md)**
+#### 2.3 [**Cors**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/App/Cors.md)
 
-### 6. **[响应](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/response.md)**
+#### 2.4 [**Handle**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/App/Handle.md)
 
-### 7. **[装饰器](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/decorator.md)**
+### 3. [**Route**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Route.md)
 
-### 8. **[websocket](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/websocket.md)**
+### 4. [**Request**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Request.md)
 
-### 9. **[信号](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/signal.md)**
+### 5. [**Response**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Response.md)
 
-### 10. **[文件](https://github.com/CheeseUnknown/CheeseAPI/tree/master/documents/file.md)**
+### 6. [**Websocket**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Websocket.md)
+
+### 7. [**Module**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Module.md)
+
+### 8. [**Signal**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Signal.md)

@@ -1,74 +1,64 @@
-import json, traceback, re
-from typing import TypeVar, Dict
+import http, json, re
+from typing import Dict, Literal
 from urllib.parse import unquote
 
-import CheeseType.network, xmltodict, CheeseLog
+import xmltodict
+from CheeseLog import logger
 
 from CheeseAPI.file import File
 
-T = TypeVar('T')
-
-class BaseItem:
-    def __init__(self):
-        self._values: Dict[str, str] = {}
-
-    def get(self, key: str, default: T = None) -> str | File | T:
-        if key not in self._values:
-            return default
-        return self._values[key]
-
 class Request:
-    def __init__(self, scope, body: bytes | None = None):
-        query_string = scope['query_string'].decode()
+    def __init__(self, url: str):
+        self.url: str = url
+        self.fullPath: str = '/' + '/'.join(self.url.split('/')[3:])
+        self.path: str = self.fullPath.split('?')[0]
+        self.scheme: Literal[ 'http', 'https', 'ws', 'wws' ] = self.url.split('://')[0]
+        self.header: Dict[str, str] = {}
+        self.query: Dict[str, str] = {}
+        try:
+            for pair in self.fullPath.split('?')[1].split('&'):
+                key, value = pair.split('=')
+                self.query[key] = value
+        except:
+            ...
 
-        self.ip: CheeseType.network.IPv4 = scope['client'][0]
-        self.path: str = unquote(scope['path'])
-        self.fullPath: str = self.path + '?' + unquote(query_string) if query_string else self.path
-        self.scheme = scope['scheme']
-
-        self.headers: Dict[str, str] = {}
-
-        if scope['type'] in [ 'http', 'https' ]:
-            self.method: str = scope['method']
-            self.args: Dict[str, str] = {}
-            for q in query_string.split('&'):
-                q = q.split('=')
-                self.args[unquote(q[0])] = unquote(q[1]) if len(q) > 1 else None
-            self.body = None
+        if self.scheme in [ 'http', 'https' ]:
+            self.method: http.HTTPMethod | None = None
+            self._body: str | bytes | None = None
             self.form: Dict[str, str] = {}
-            for header in scope['headers']:
-                key = header[0].decode()
-                value = header[1].decode()
-                self.headers[key] = value
-                if key == 'content-type':
-                    try:
-                        if value in [ 'application/json', 'application/javascript' ]:
-                            self.body = json.loads(body)
-                        elif value == 'application/xml':
-                            self.body = xmltodict.parse(body)
-                        elif value in [ 'text/plain', 'text/html' ]:
-                            self.body = body.decode()
-                        elif value.startswith('multipart/form-data;'):
-                            spliter = header[1].split(b'boundary=')[1].split(b';')[0]
-                            body = body[2:-4].split(spliter)[1:-1]
-                            for s in body:
-                                key = re.findall(rb'\bname="(.*?)"', s)[0].decode()
-                                value = s.split(b'\r\n\r\n')[1][:-4]
-                                filename = re.findall(rb'\bfilename="(.*?)"', s)
-                                if len(filename):
-                                    self.form[key] = File(filename[0].decode(), value)
-                                else:
-                                    self.form[key] = value.decode()
-                        elif value == 'application/x-www-form-urlencoded':
-                            for s in body.decode().split('&'):
-                                s = s.split('=')
-                                self.form[s[0]] = s[1]
-                    except:
-                        CheeseLog.danger(f'{self.method} {self.fullPath} cannot parse request.body correctly:\n{traceback.format_exc()}'[:-1], f'\033[36m{self.method} {self.fullPath}\033[0m cannot parse request.body correctly:\n{traceback.format_exc()}'[:-1])
-        else:
-            for header in scope['headers']:
-                key = header[0].decode()
-                value = header[1].decode()
-                self.headers[key] = value
-                if key == 'sec-websocket-key':
-                    self.sid: str = value
+
+    @property
+    def body(self) -> str | bytes | None:
+        if self.scheme in [ 'http', 'https' ]:
+            return self._body
+
+    @body.setter
+    def body(self, value: bytes):
+        if 'Content-Type' in self.header:
+            _value = self.header.get('Content-Type')
+            try:
+                if _value in [ 'application/json', 'application/javascript' ]:
+                    self._body = json.loads(value)
+                elif _value == 'application/xml':
+                    self._body = xmltodict.parse(value)
+                elif _value in [ 'text/plain', 'text/html' ]:
+                    self._body = value.decode()
+                elif _value.startswith('multipart/form-data;'):
+                    spliter = _value.split('boundary=')[1].split(';')[0]
+                    body = value.split(b'--' + spliter.encode())[1:-1]
+                    for s in body:
+                        key = re.findall(rb'name="(.*?)"', s)[0].decode()
+                        value = s.split(b'\r\n\r\n')[1][:-2]
+                        filename = re.findall(rb'filename="(.*?)"', s)
+                        if len(filename):
+                            self.form[key] = File(filename[0].decode(), value)
+                        else:
+                            self.form[key] = value.decode()
+                elif _value == 'application/x-www-form-urlencoded':
+                    for s in value.decode().split('&'):
+                        s = s.split('=')
+                        self.form[unquote(s[0])] = unquote(s[1])
+            except:
+                logger.danger(f'''An error occurred while accessing {self.method} {self.fullPath}:
+Unable to parse body content''', f'''An error occurred while accessing <cyan>{self.method} {self.fullPath}</cyan>:
+Unable to parse body content''')

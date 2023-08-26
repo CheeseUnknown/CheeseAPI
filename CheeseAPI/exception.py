@@ -1,20 +1,21 @@
 import sys, traceback, threading
 
-from CheeseLog import error, danger
+from CheeseLog import logger
 
-def sysException(*args, **kwargs):
+def sysExceptionHandle(*args, **kwargs):
     try:
         raise args[1]
     except:
-        error(f'The error occured while the program running:\n{traceback.format_exc()}'[:-1])
-sys.excepthook = sysException
+        logger.error(f'''The server exited with an error:
+{logger.encode(traceback.format_exc()[:-1])}''')
+
+sys.excepthook = sysExceptionHandle
 
 def threadException(*args, **kwargs):
     try:
         raise args[0][1]
     except:
-        danger(f'The error occured while the program running:\n{traceback.format_exc()}'[:-1])
-threading.excepthook = threadException
+        logger.danger(f'''The error occured in the {threading.currentThread().getName()}:
+{logger.encode(traceback.format_exc()[:-1])}''')
 
-class WebsocketDisconnect(Exception):
-    ...
+threading.excepthook = threadException
