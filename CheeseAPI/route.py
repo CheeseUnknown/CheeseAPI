@@ -62,7 +62,7 @@ class Path:
 
     def match(self, path: str) -> Tuple[Dict[str, Callable] | None, Dict[str, Any]]:
         paths = path.split('/')[1:]
-        if paths[-1] == '':
+        if paths[-1] == '' and path != '/':
             paths = paths[:-1]
         return self._match(self.root, paths, {})
 

@@ -122,8 +122,11 @@ Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
                 if foldername[0] == '.' or foldername == '__pycache__':
                     continue
                 folderPath = os.path.join(app.workspace.base, foldername)
-                if os.path.isdir(folderPath) and (app.workspace.static and not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.static))) and (app.workspace.logger and not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.log))):
-                    localModule.append(foldername)
+                if os.path.isdir(folderPath):
+                    if not app.workspace.static or not os.path.exists(os.path.join(app.workspace.base, app.workspace.static)) or not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.static)):
+                        localModule.append(foldername)
+                    elif not app.workspace.log or not os.path.exists(os.path.join(app.workspace.base, app.workspace.log)) or not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.log)):
+                        localModule.append(foldername)
             app.localModules = localModule
         localModuleNum = len(app.localModules)
         if localModuleNum:
@@ -237,10 +240,10 @@ A usable BaseResponse is not returned''')
         funcs, kwargs = paths.match(protocol.request.path)
 
         if funcs is None:
-            return await self._websocket_responseHandle(protocol.request, await self._websocket_404Handle(protocol, app))
+            return await self._websocket_responseHandle(protocol, app, await self._websocket_404Handle(protocol, app))
 
         if 'WEBSOCKET' not in funcs:
-            return await self._websocket_responseHandle(protocol.request, await self._websocket_405Handle(protocol, app))
+            return await self._websocket_responseHandle(protocol, app, await self._websocket_405Handle(protocol, app))
 
         func = funcs['WEBSOCKET']
         kwargs['request'] = protocol.request
