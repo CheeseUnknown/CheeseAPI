@@ -285,7 +285,7 @@ A usable BaseResponse is not returned''')
     async def _websocket_dataHandle(self, protocol: 'WebsocketProtocol', app: 'App', data: bytes | str):
         kwargs = protocol.func[1].copy()
         kwargs.update({
-            'data': data
+            'data': await protocol.recv()
         })
         await async_doFunc(protocol.func[0].dataHandle, kwargs)
 
