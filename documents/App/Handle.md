@@ -91,7 +91,7 @@ WEBSOCKET subprotol处理事件插槽。
 
 WEBSOCKET连接事件插槽。
 
-## **`app.handle._websocket_dataHandle(protocol: WebsocketProtocol, app: App, data: bytes | str)`**
+## **`app.handle._websocket_dataHandle(protocol: WebsocketProtocol, app: App)`**
 
 WEBSOCKET消息接收事件插槽。
 
