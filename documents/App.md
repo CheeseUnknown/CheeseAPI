@@ -34,7 +34,7 @@ if __name__ == '__main__':
 
 ## **`app.modules: List[str] = []`**
 
-模块。如果在python库中适配于CheeseAPI的库，可以添加库名以导入到项目中，下面以[CheeseAPI_Websocket](https://github.com/CheeseUnknown/CheeseAPI_websocket)为例：
+模块。如果在python库中适配于CheeseAPI的库，可以添加库名以导入到项目中，下面以[CheeseAPI_Websocket](https://github.com/CheeseUnknown/CheeseAPI_Websocket)为例：
 
 ```bash
 pip install CheeseAPI_Websocket

@@ -1,6 +1,6 @@
 # **Websocket**
 
-CheeseAPI自带Websocket支持，但仅提供基础功能，如果需要更多扩展功能，请使用[CheeseAPI_Websocket](https://github.com/CheeseUnknown/CheeseAPI_websocket)。
+CheeseAPI自带Websocket支持，但仅提供基础功能，如果需要更多扩展功能，请使用[CheeseAPI_Websocket](https://github.com/CheeseUnknown/CheeseAPI_Websocket)。
 
 ```python
 from CheeseAPI import WebsocketClient, app
