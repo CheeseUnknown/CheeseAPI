@@ -149,12 +149,16 @@ class HttpProtocol(asyncio.Protocol):
         self.request.method = http.HTTPMethod(self.parser.get_method().decode())
         if self.parser.should_upgrade():
             return
-
-        task = asyncio.get_event_loop().create_task(app.handle._httpHandle(self, app))
-        task.add_done_callback(app.httpWorker.tasks.discard)
-        app.httpWorker.tasks.add(task)
+        if not self.request.header.get('Content-Type'):
+            task = asyncio.get_event_loop().create_task(app.handle._httpHandle(self, app))
+            task.add_done_callback(app.httpWorker.tasks.discard)
+            app.httpWorker.tasks.add(task)
 
     def on_body(self, body: bytes):
         if self.parser.should_upgrade():
             return
         self.request.body = body
+
+        task = asyncio.get_event_loop().create_task(app.handle._httpHandle(self, app))
+        task.add_done_callback(app.httpWorker.tasks.discard)
+        app.httpWorker.tasks.add(task)
