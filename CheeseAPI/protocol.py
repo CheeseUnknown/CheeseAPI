@@ -68,7 +68,7 @@ class WebsocketProtocol(WebSocketServerProtocol):
 
         while not self.closed:
             try:
-                await app.handle._websocket_dataHandle(self, app)
+                await app.handle._websocket_messageHandle(self, app)
             except:
                 ...
 

@@ -270,12 +270,11 @@ A usable BaseResponse is not returned''')
         return response.status, response.header, response.body if isinstance(response.body, bytes) else str(response.body).encode()
 
     def _websocket_subprotocolHandle(self, protocol: 'WebsocketProtocol', app: 'App') -> str | None:
-        if 'Sec-Websocket-Protocol' in protocol.request.header:
-            kwargs = protocol.func[1]
-            kwargs.update({
-                'subprotocols': protocol.request.header.get('Sec-Websocket-Protocol', '').split(', ')
-            })
-            return doFunc(protocol.func[0].subprotocolHandle, kwargs)
+        kwargs = protocol.func[1]
+        kwargs.update({
+            'subprotocols': protocol.request.header.get('Sec-Websocket-Protocol', '').split(', ')
+        })
+        return doFunc(protocol.func[0].subprotocolHandle, kwargs)
 
     def websocket_beforeConnectionHandle(self, func: Callable):
         self.websocket_beforeConnectionHandles.append(func)
@@ -285,12 +284,12 @@ A usable BaseResponse is not returned''')
 
         await async_doFunc(protocol.func[0].connectionHandle, protocol.func[1])
 
-    async def _websocket_dataHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
+    async def _websocket_messageHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
         kwargs = protocol.func[1].copy()
         kwargs.update({
-            'data': await protocol.recv()
+            'message': await protocol.recv()
         })
-        await async_doFunc(protocol.func[0].dataHandle, kwargs)
+        await async_doFunc(protocol.func[0].messageHandle, kwargs)
 
     def websocket_afterDisconnectionHandle(self, func: Callable):
         self.websocket_afterDisconnectionHandles.append(func)

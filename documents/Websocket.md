@@ -13,7 +13,7 @@ class Test(WebsocketClient):
     async def connectionHandle(self, request: 'Request', **kwargs):
         ...
 
-    async def dataHandle(self, request: 'Request', data: bytes | str, **kwargs):
+    async def messageHandle(self, request: 'Request', message: bytes | str, **kwargs):
         ...
 
     async def disconnectionHandle(self, request: 'Request', **kwargs):
@@ -36,7 +36,7 @@ class Test(WebsocketClient):
 
     其中包含一些多余的参数，例如路由中的变量。
 
-## **`async def dataHandle(self, request: 'Request', data: bytes | str, **kwargs)`**
+## **`async def messageHandle(self, request: 'Request', message: bytes | str, **kwargs)`**
 
 接收消息时调用该函数。
 
@@ -61,8 +61,8 @@ from CheeseAPI import WebsocketClient, app
 
 @app.route.websocket('/')
 class Test(WebsocketClient):
-    async def dataHandle(self, request: 'Request', data: bytes | str, **kwargs):
-        self.send(data)
+    async def messageHandle(self, request: 'Request', message: bytes | str, **kwargs):
+        self.send(message)
 ```
 
 ## **`async def close(self, code: int = 1000, reason: str = '')`**
@@ -74,7 +74,7 @@ from CheeseAPI import WebsocketClient, app
 
 @app.route.websocket('/')
 class Test(WebsocketClient):
-    async def dataHandle(self, request: 'Request', data: bytes | str, **kwargs):
-        if data == 'close':
+    async def messageHandle(self, request: 'Request', message: bytes | str, **kwargs):
+        if message == 'close':
             self.close()
 ```

@@ -10,7 +10,7 @@ class WebsocketClient:
     async def connectionHandle(self, request: 'Request', **kwargs):
         ...
 
-    async def dataHandle(self, request: 'Request', data: bytes | str, **kwargs):
+    async def messageHandle(self, request: 'Request', message: bytes | str, **kwargs):
         ...
 
     async def disconnectionHandle(self, request: 'Request', **kwargs):
