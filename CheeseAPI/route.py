@@ -90,55 +90,66 @@ class Route:
     def __call__(self, path: str, methods: List[ http.HTTPMethod | str ]):
         def decorator(func):
             paths.insert(self.prefix + path, func, methods)
+            return func
         return decorator
 
     def get(self, path: str):
         def decorator(func):
             paths.insert(self.prefix + path, func, [ http.HTTPMethod.GET ])
+            return func
         return decorator
 
     def post(self, path: str):
         def decorator(func):
             paths.insert(self.prefix + path, func, [ http.HTTPMethod.POST ])
+            return func
         return decorator
 
     def delete(self, path: str):
         def decorator(func):
             paths.insert(self.prefix + path, func, [ http.HTTPMethod.DELETE ])
+            return func
         return decorator
 
     def put(self, path: str):
         def decorator(func):
             paths.insert(self.prefix + path, func, [ http.HTTPMethod.PUT ])
+            return func
         return decorator
 
     def patch(self, path: str):
         def decorator(func):
             paths.insert(self.prefix + path, func, [ http.HTTPMethod.PATCH ])
+            return func
         return decorator
 
     def trace(self, path: str):
         def decorator(func):
             paths.insert(self.prefix + path, func, [ http.HTTPMethod.TRACE ])
+            return func
         return decorator
 
     def options(self, path: str):
         def decorator(func):
             paths.insert(self.prefix + path, func, [ http.HTTPMethod.OPTIONS ])
+            return func
         return decorator
 
     def head(self, path: str):
         def decorator(func):
             paths.insert(self.prefix + path, func, [ http.HTTPMethod.HEAD ])
+            return func
         return decorator
 
     def connect(self, path: str):
         def decorator(func):
             paths.insert(self.prefix + path, func, [ http.HTTPMethod.CONNECT ])
+            return func
         return decorator
 
     def websocket(self, path: str):
         def decorator(cls):
             instance = cls()
             paths.insert(self.prefix + path, instance, [ 'WEBSOCKET' ])
+            return cls
         return decorator

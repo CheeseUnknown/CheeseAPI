@@ -335,13 +335,13 @@ contentTypes = {
 }
 
 class BaseResponse:
-    def __init__(self, body: str | bytes | Callable | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, header: Dict[str, str] = {}):
+    def __init__(self, body: str | bytes | Callable | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
         self.status: http.HTTPStatus = http.HTTPStatus(status)
-        self.header: Dict[str, str] = {
+        self.headers: Dict[str, str] = {
             'Server': 'CheeseAPI',
             'Transfer-Encoding': 'chunked'
         }
-        self.header.update(header)
+        self.headers.update(headers)
         self.body: str | bytes | Callable = body
         if self.body is None:
             self.body = self.status.description
@@ -353,9 +353,9 @@ class BaseResponse:
             content = [ b''.join([ b'HTTP/1.1 ', str(self.status).encode(), b' ', http.HTTPStatus(self.status).phrase.encode(), b'\r\n' ]) ]
 
             if isinstance(content, AsyncIterator):
-                self.header['Transfer-Encoding'] = 'chunked'
-            self.header['Date'] = formatdate(time.time(), usegmt = True)
-            for key, value in self.header.items():
+                self.headers['Transfer-Encoding'] = 'chunked'
+            self.headers['Date'] = formatdate(time.time(), usegmt = True)
+            for key, value in self.headers.items():
                 content.extend([ key.encode(), b': ', value.encode(), b'\r\n' ])
 
             content.append(b'\r\n')
@@ -377,7 +377,7 @@ class BaseResponse:
             if not isinstance(content, bytes):
                 content = str(content).encode()
 
-            if self.header.get('Transfer-Encoding') == 'chunked':
+            if self.headers.get('Transfer-Encoding') == 'chunked':
                 content = [ b'%x\r\n' % len(content), content, b'\r\n' ]
                 if not self.transfering:
                     content.append(b'0\r\n\r\n')
@@ -385,23 +385,23 @@ class BaseResponse:
             return b''.join(content), self.transfering
 
 class Response(BaseResponse):
-    def __init__(self, body: str | bytes | Callable | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, header: Dict[str, str] = {}):
-        _header = {
+    def __init__(self, body: str | bytes | Callable | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
+        _headers = {
             'content-type': 'text/plain; charset=utf-8'
         }
-        _header.update(header)
-        super().__init__(body, status, _header)
+        _headers.update(headers)
+        super().__init__(body, status, _headers)
 
 class JsonResponse(BaseResponse):
-    def __init__(self, body: Dict[str, Any] = {}, status: http.HTTPStatus | int = http.HTTPStatus.OK, header: Dict[str, str] = {}):
-        _header = {
+    def __init__(self, body: Dict[str, Any] = {}, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
+        _headers = {
             'Content-Type': 'application/json; charset=utf-8'
         }
-        _header.update(header)
-        super().__init__(json.dumps(body), status, _header)
+        _headers.update(headers)
+        super().__init__(json.dumps(body), status, _headers)
 
 class FileResponse(BaseResponse):
-    def __init__(self, filePath: str, downloaded: bool = False, header: Dict[str, str] = {}):
+    def __init__(self, filePath: str, downloaded: bool = False, headers: Dict[str, str] = {}):
         from CheeseAPI.app import app
 
         if filePath[0] == '.':
@@ -415,8 +415,8 @@ class FileResponse(BaseResponse):
 
         fileSuffix = filePath.split('.')[-1]
         if downloaded or fileSuffix not in contentTypes:
-            _header = { 'content-type': 'application/octet-stream' }
+            _headers = { 'content-type': 'application/octet-stream' }
         else:
-            _header = { 'content-type': contentTypes[fileSuffix] }
-        _header.update(header)
-        super().__init__(data, http.HTTPStatus.OK, _header)
+            _headers = { 'content-type': contentTypes[fileSuffix] }
+        _headers.update(headers)
+        super().__init__(data, http.HTTPStatus.OK, _headers)

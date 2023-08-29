@@ -13,12 +13,12 @@ class Request:
         self.fullPath: str = '/' + '/'.join(self.url.split('/')[3:])
         self.path: str = self.fullPath.split('?')[0]
         self.scheme: Literal[ 'http', 'https', 'ws', 'wws' ] = self.url.split('://')[0]
-        self.header: Dict[str, str] = {}
-        self.query: Dict[str, str] = {}
+        self.headers: Dict[str, str] = {}
+        self.args: Dict[str, str] = {}
         try:
             for pair in self.fullPath.split('?')[1].split('&'):
                 key, value = pair.split('=')
-                self.query[key] = value
+                self.args[key] = value
         except:
             ...
 
@@ -34,8 +34,8 @@ class Request:
 
     @body.setter
     def body(self, value: bytes):
-        if 'Content-Type' in self.header:
-            _value = self.header.get('Content-Type')
+        if 'Content-Type' in self.headers:
+            _value = self.headers.get('Content-Type')
             try:
                 if _value in [ 'application/json', 'application/javascript' ]:
                     self._body = json.loads(value)

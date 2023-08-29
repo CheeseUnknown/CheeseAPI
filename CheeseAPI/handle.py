@@ -212,15 +212,15 @@ A usable BaseResponse is not returned''')
                 })
 
             if app.cors.origin == '*':
-                response.header['Access-Control-Allow-Origin'] = app.cors.origin
+                response.headers['Access-Control-Allow-Origin'] = app.cors.origin
             if len(app.cors.origin):
-                response.header['Access-Control-Allow-Origin'] = ', '.join(app.cors.origin)
+                response.headers['Access-Control-Allow-Origin'] = ', '.join(app.cors.origin)
             if len(app.cors.methods):
-                response.header['Access-Control-Allow-Methods'] = ', '.join(app.cors.methods)
+                response.headers['Access-Control-Allow-Methods'] = ', '.join(app.cors.methods)
             if app.cors.headers == '*':
-                response.header['Access-Control-Allow-Headers'] = app.cors.headers
+                response.headers['Access-Control-Allow-Headers'] = app.cors.headers
             if len(app.cors.headers):
-                response.header['Access-Control-Allow-Headers'] = ', '.join(app.cors.headers)
+                response.headers['Access-Control-Allow-Headers'] = ', '.join(app.cors.headers)
 
             protocol.transport.write(await response())
             streamed = True
@@ -229,7 +229,7 @@ A usable BaseResponse is not returned''')
                 protocol.transport.write(content)
             protocol.transport.close()
 
-            logger.http(f'The {protocol.request.header.get("X-Forwarded-For").split(", ")[0]} accessed {protocol.request.method} {protocol.request.fullPath} and returned {response.status}, taking ' + '{:.6f}'.format(time.time() - timer), f'The <cyan>{protocol.request.header.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>{protocol.request.method} {protocol.request.fullPath}</cyan> and returned <blue>{response.status}</blue>, taking ' + '<blue>{:.6f}</blue>'.format(time.time() - timer))
+            logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed {protocol.request.method} {protocol.request.fullPath} and returned {response.status}, taking ' + '{:.6f}'.format(time.time() - timer), f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>{protocol.request.method} {protocol.request.fullPath}</cyan> and returned <blue>{response.status}</blue>, taking ' + '<blue>{:.6f}</blue>'.format(time.time() - timer))
             return True
         return False
 
@@ -265,14 +265,14 @@ A usable BaseResponse is not returned''')
             if isinstance(_response, BaseResponse):
                 response = _response
 
-        logger.http(f'The {protocol.request.header.get("X-Forwarded-For").split(", ")[0]} accessed WEBSOCKET {protocol.request.fullPath} and returned {response.status}', f'The <cyan>{protocol.request.header.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>WEBSOCKET {protocol.request.fullPath}</cyan> and returned <blue>{response.status}</blue>')
+        logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed WEBSOCKET {protocol.request.fullPath} and returned {response.status}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>WEBSOCKET {protocol.request.fullPath}</cyan> and returned <blue>{response.status}</blue>')
 
-        return response.status, response.header, response.body if isinstance(response.body, bytes) else str(response.body).encode()
+        return response.status, response.headers, response.body if isinstance(response.body, bytes) else str(response.body).encode()
 
     def _websocket_subprotocolHandle(self, protocol: 'WebsocketProtocol', app: 'App') -> str | None:
         kwargs = protocol.func[1]
         kwargs.update({
-            'subprotocols': protocol.request.header.get('Sec-Websocket-Protocol', '').split(', ')
+            'subprotocols': protocol.request.headers.get('Sec-Websocket-Protocol', '').split(', ')
         })
         return doFunc(protocol.func[0].subprotocolHandle, kwargs)
 
@@ -280,7 +280,7 @@ A usable BaseResponse is not returned''')
         self.websocket_beforeConnectionHandles.append(func)
 
     async def _websocket_connectionHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
-        logger.websocket(f'The {protocol.request.header.get("X-Forwarded-For").split(", ")[0]} connected WEBSOCKET {protocol.request.fullPath}', f'The <cyan>{protocol.request.header.get("X-Forwarded-For").split(", ")[0]}</cyan> connected <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>')
+        logger.websocket(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} connected WEBSOCKET {protocol.request.fullPath}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> connected <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>')
 
         await async_doFunc(protocol.func[0].connectionHandle, protocol.func[1])
 
@@ -294,10 +294,10 @@ A usable BaseResponse is not returned''')
     def websocket_afterDisconnectionHandle(self, func: Callable):
         self.websocket_afterDisconnectionHandles.append(func)
 
-    async def _websocket_disconnectionHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
-        await async_doFunc(protocol.func[0].disconnectionHandle, protocol.func[1])
+    def _websocket_disconnectionHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
+        doFunc(protocol.func[0].disconnectionHandle, protocol.func[1])
 
-        logger.websocket(f'The {protocol.request.header.get("X-Forwarded-For").split(", ")[0]} disconnected WEBSOCKET {protocol.request.fullPath}', f'The <cyan>{protocol.request.header.get("X-Forwarded-For").split(", ")[0]}</cyan> disconnected <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>')
+        logger.websocket(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} disconnected WEBSOCKET {protocol.request.fullPath}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> disconnected <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>')
 
     def worker_beforeStoppingHandle(self, func: Callable):
         self.worker_beforeStoppingHandles.append(func)

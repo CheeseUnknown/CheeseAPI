@@ -6,7 +6,7 @@
 from CheeseAPI import Response, JsonResponse, FileResponse
 ```
 
-## **`Response(body: str | bytes | Callable | None, status: http.HTTPStatus | int = http.HTTPStatus.OK, header: Dict[str, str] = {})`**
+## **`Response(body: str | bytes | Callable | None, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {})`**
 
 最基础的Response。
 
@@ -56,7 +56,7 @@ from CheeseAPI import Response, JsonResponse, FileResponse
         return Response(iterator)
     ```
 
-## **`JsonResponse(body: Dict[str, Any] = {}, status: http.HTTPStatus | int = http.HTTPStatus.OK, header: Dict[str, str] = {})`**
+## **`JsonResponse(body: Dict[str, Any] = {}, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {})`**
 
 它与`Response`唯一不同的是它会自动解析json格式的数据，不需要手动解析。
 
@@ -70,7 +70,7 @@ async def test():
     })
 ```
 
-## **`FileResponse(filePath: str, downloaded: bool = False, header: Dict[str, str] = {})`**
+## **`FileResponse(filePath: str, downloaded: bool = False, headers: Dict[str, str] = {})`**
 
 返回一个文件的Response。
 

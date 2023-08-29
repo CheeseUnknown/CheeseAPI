@@ -19,7 +19,7 @@ CheeseAPI_module_dependencies = [ 'xxx0', 'xxx1' ]
 默认的，模块架构都为单模块，你可以不设置该变量：
 
 ```python
-CheeseAPI_module_type = 'signal'
+CheeseAPI_module_type = 'signle'
 ```
 
 ```

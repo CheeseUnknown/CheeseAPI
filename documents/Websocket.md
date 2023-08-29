@@ -16,7 +16,7 @@ class Test(WebsocketClient):
     async def messageHandle(self, request: 'Request', message: bytes | str, **kwargs):
         ...
 
-    async def disconnectionHandle(self, request: 'Request', **kwargs):
+    def disconnectionHandle(self, request: 'Request', **kwargs):
         ...
 ```
 
@@ -44,7 +44,7 @@ class Test(WebsocketClient):
 
     其中包含一些多余的参数，例如路由中的变量。
 
-## **`async def disconnectionHandle(self, request: 'Request', **kwargs)`**
+## **`def disconnectionHandle(self, request: 'Request', **kwargs)`**
 
 当WEBSOCKET连接断开后调用。
 

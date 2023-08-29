@@ -9,7 +9,7 @@ from websockets.server import WebSocketServerProtocol
 from CheeseAPI.app import app
 from CheeseAPI.request import Request
 from CheeseAPI.signal import signal
-from CheeseAPI.utils import async_doFunc
+from CheeseAPI.utils import async_doFunc, doFunc
 
 if TYPE_CHECKING:
     from CheeseAPI.websocket import WebsocketClient
@@ -67,22 +67,19 @@ class WebsocketProtocol(WebSocketServerProtocol):
         await app.handle._websocket_connectionHandle(self, app)
 
         while not self.closed:
-            try:
-                await app.handle._websocket_messageHandle(self, app)
-            except:
-                ...
-
-        await app.handle._websocket_disconnectionHandle(self, app)
-        if signal.receiver('websocket_afterDisconnectionHandle'):
-            await signal.async_send('websocket_afterDisconnectionHandle', self.func[1])
-        for websocket_afterDisconnectionHandle in app.handle.websocket_afterDisconnectionHandles:
-            await async_doFunc(websocket_afterDisconnectionHandle, self.func[1])
+            await app.handle._websocket_messageHandle(self, app)
 
     def connection_lost(self, exc: Exception | None) -> None:
         app.websocketWorker.connections.discard(self)
         super().connection_lost(exc)
         if exc is None:
             self.transport.close()
+
+        app.handle._websocket_disconnectionHandle(self, app)
+        if signal.receiver('websocket_afterDisconnectionHandle'):
+            signal.send('websocket_afterDisconnectionHandle', self.func[1])
+        for websocket_afterDisconnectionHandle in app.handle.websocket_afterDisconnectionHandles:
+            doFunc(websocket_afterDisconnectionHandle, self.func[1])
 
 class HttpProtocol(asyncio.Protocol):
     managers: Dict[str, Manager] = {}
@@ -109,10 +106,10 @@ class HttpProtocol(asyncio.Protocol):
         try:
             self.parser.feed_data(data)
         except httptools.HttpParserUpgrade:
-            if self.request.header.get('Upgrade') == 'websocket':
+            if self.request.headers.get('Upgrade') == 'websocket':
                 app.httpWorker.connections.discard(self)
                 content = [ self.request.method.value.encode(), b' ', self.request.fullPath.encode(), b' HTTP/1.1\r\n' ]
-                for key, value in self.request.header.items():
+                for key, value in self.request.headers.items():
                     content += [ key.encode(), b': ', value.encode(), b'\r\n' ]
                 content.append(b'\r\n')
 
@@ -135,13 +132,13 @@ class HttpProtocol(asyncio.Protocol):
     def on_url(self, url: bytes):
         self.request = Request(('https' if self.transport.get_extra_info('sslcontext') else 'http' + '://') + app.server.host + ':' + str(app.server.port) + url.decode())
 
-        self.request.header['X-Forwarded-For'] = self.transport.get_extra_info('socket').getpeername()[0]
+        self.request.headers['X-Forwarded-For'] = self.transport.get_extra_info('socket').getpeername()[0]
 
     def on_header(self, name: bytes, value: bytes):
         name = '-'.join([ n.capitalize() for n in name.decode().split('-') ])
         value = value.decode()
 
-        self.request.header[name] = value
+        self.request.headers[name] = value
         if name == 'Host':
             self.request.url = self.request.url.replace(f'://{app.server.host}:{app.server.port}/', f'://{value}/')
 
@@ -149,7 +146,7 @@ class HttpProtocol(asyncio.Protocol):
         self.request.method = http.HTTPMethod(self.parser.get_method().decode())
         if self.parser.should_upgrade():
             return
-        if not self.request.header.get('Content-Type'):
+        if not self.request.headers.get('Content-Type'):
             task = asyncio.get_event_loop().create_task(app.handle._httpHandle(self, app))
             task.add_done_callback(app.httpWorker.tasks.discard)
             app.httpWorker.tasks.add(task)

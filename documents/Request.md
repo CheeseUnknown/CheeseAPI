@@ -12,10 +12,10 @@ class Test(WebsocketClient):
     async def connect(request: Request):
         ...
 
-    async def data(request: Request):
+    async def message(request: Request, message: str | bytes):
         ...
 
-    async def disconnect(request: Request):
+    def disconnect(request: Request):
         ...
 ```
 
@@ -35,11 +35,11 @@ class Test(WebsocketClient):
 
 当前请求的类型。
 
-## **`request.header: Dict[str, str]`**
+## **`request.headers: Dict[str, str]`**
 
 请求头。
 
-## **`request.query: Dict[str, str]`**
+## **`request.args: Dict[str, str]`**
 
 url中的参数，例如：`'{ 'test': '0' }'`。
 
@@ -51,10 +51,10 @@ url中的参数，例如：`'{ 'test': '0' }'`。
 
 在WEBSOCKET环境下，该参数不存在。
 
-除去`request.header['Content-Type'] in [ 'multipart/form-data', 'x-www-form-urlencoded' ]`，其他都会解析在此处。
+除去`request.headers['Content-Type'] in [ 'multipart/form-data', 'x-www-form-urlencoded' ]`，其他都会解析在此处。
 
 ## **`request.form: Dict[str, str]`**
 
 在WEBSOCKET环境下，该参数不存在。
 
-会将`request.header['Content-Type'] in [ 'multipart/form-data', 'x-www-form-urlencoded' ]`的类型解析在此处。
+会将`request.headers['Content-Type'] in [ 'multipart/form-data', 'x-www-form-urlencoded' ]`的类型解析在此处。
