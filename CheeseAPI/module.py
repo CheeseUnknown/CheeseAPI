@@ -8,9 +8,9 @@ class Module:
             for dependency in dependencies:
                 Module(dependency)
 
-        type = getattr(mainModule, 'CheeseAPI_module_type', 'signle')
+        type = getattr(mainModule, 'CheeseAPI_module_type', 'single')
         modulePath = os.path.dirname(inspect.getfile(mainModule))
-        if type == 'signle':
+        if type == 'single':
             for filename in os.listdir(modulePath):
                 filePath = os.path.join(modulePath, filename)
                 if os.path.isfile(filePath) and filename.endswith('.py') and filename != '__init__.py':

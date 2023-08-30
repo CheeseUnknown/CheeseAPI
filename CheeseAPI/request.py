@@ -18,7 +18,7 @@ class Request:
         try:
             for pair in self.fullPath.split('?')[1].split('&'):
                 key, value = pair.split('=')
-                self.args[key] = value
+                self.args[unquote(key)] = unquote(value)
         except:
             ...
 
