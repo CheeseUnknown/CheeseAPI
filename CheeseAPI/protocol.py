@@ -60,7 +60,7 @@ class WebsocketProtocol(WebSocketServerProtocol):
 
     async def ws_handler(self, *args, **kwargs):
         for websocket_beforeConnectionHandle in app.handle.websocket_beforeConnectionHandles:
-            await async_doFunc(websocket_beforeConnectionHandle, self.func[1])
+            await async_doFunc(websocket_beforeConnectionHandle, (), self.func[1])
         if signal.receiver('websocket_beforeConnectionHandle'):
             await signal.async_send('websocket_beforeConnectionHandle', self.func[1])
 
@@ -79,7 +79,7 @@ class WebsocketProtocol(WebSocketServerProtocol):
         if signal.receiver('websocket_afterDisconnectionHandle'):
             signal.send('websocket_afterDisconnectionHandle', self.func[1])
         for websocket_afterDisconnectionHandle in app.handle.websocket_afterDisconnectionHandles:
-            doFunc(websocket_afterDisconnectionHandle, self.func[1])
+            doFunc(websocket_afterDisconnectionHandle, (), self.func[1])
 
 class HttpProtocol(asyncio.Protocol):
     managers: Dict[str, Manager] = {}

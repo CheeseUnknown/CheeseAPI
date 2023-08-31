@@ -1,7 +1,7 @@
 import inspect
 from typing import Callable, Dict, Any
 
-def doFunc(func: Callable, kwargs: Dict[str, Any] = {}):
+def doFunc(func: Callable, args = (), kwargs: Dict[str, Any] = {}):
     if hasattr(func, '__wrapped__'):
         _kwargs = kwargs
     else:
@@ -10,9 +10,9 @@ def doFunc(func: Callable, kwargs: Dict[str, Any] = {}):
         for key, value in kwargs.items():
             if key in sig.parameters or 'kwargs' in sig.parameters:
                 _kwargs[key] = value
-    return func(**_kwargs)
+    return func(*args, **_kwargs)
 
-async def async_doFunc(func: Callable, kwargs: Dict[str, Any] = {}):
+async def async_doFunc(func: Callable, args = (), kwargs: Dict[str, Any] = {}):
     if hasattr(func, '__wrapped__'):
         _kwargs = kwargs
     else:
@@ -21,4 +21,4 @@ async def async_doFunc(func: Callable, kwargs: Dict[str, Any] = {}):
         for key, value in kwargs.items():
             if key in sig.parameters or 'kwargs' in sig.parameters:
                 _kwargs[key] = value
-    return await func(**_kwargs)
+    return await func(*args, **_kwargs)

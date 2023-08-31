@@ -9,7 +9,7 @@ from CheeseAPI.file import File
 
 class Request:
     def __init__(self, url: str):
-        self.url: str = url
+        self.url: str = unquote(url)
         self.fullPath: str = '/' + '/'.join(self.url.split('/')[3:])
         self.path: str = self.fullPath.split('?')[0]
         self.scheme: Literal[ 'http', 'https', 'ws', 'wws' ] = self.url.split('://')[0]
@@ -18,7 +18,7 @@ class Request:
         try:
             for pair in self.fullPath.split('?')[1].split('&'):
                 key, value = pair.split('=')
-                self.args[unquote(key)] = unquote(value)
+                self.args[key] = value
         except:
             ...
 
