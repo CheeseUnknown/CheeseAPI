@@ -6,7 +6,6 @@ from websockets.legacy.server import HTTPResponse
 
 from CheeseAPI.route import paths
 from CheeseAPI.response import FileResponse, BaseResponse, Response
-from CheeseAPI.utils import async_doFunc, doFunc
 from CheeseAPI.signal import signal
 from CheeseAPI.module import Module, LocalModule
 
@@ -51,13 +50,13 @@ class Handle:
                     return
 
             for http_beforeRequestHandle in self.http_beforeRequestHandles:
-                await async_doFunc(http_beforeRequestHandle, (), { 'request': protocol.request })
+                await http_beforeRequestHandle(**{ 'request': protocol.request })
             if signal.receiver('http_beforeRequestHandle'):
                 await signal.async_send('http_beforeRequestHandle', { 'request': protocol.request })
 
             func = funcs[protocol.request.method]
             kwargs['request'] = protocol.request
-            response = await async_doFunc(func, (), kwargs)
+            response = await func(**kwargs)
             if await self._http_responseHandle(protocol, app, response, timer):
                 return
 
@@ -204,7 +203,7 @@ A usable BaseResponse is not returned''')
                     'request': protocol.request
                 })
             for http_afterResponseHandle in self.http_afterResponseHandles:
-                await async_doFunc(http_afterResponseHandle, (), {
+                await http_afterResponseHandle(**{
                     'response': response,
                     'request': protocol.request
                 })
@@ -256,7 +255,7 @@ A usable BaseResponse is not returned''')
 
     async def _websocket_responseHandle(self, protocol: 'WebsocketProtocol', app: 'App', response) -> HTTPResponse:
         for http_afterResponseHandle in self.http_afterResponseHandles:
-            _response = await async_doFunc(http_afterResponseHandle, (), {
+            _response = await http_afterResponseHandle(**{
                 'response': response,
                 'request': protocol.request
             })
@@ -272,7 +271,7 @@ A usable BaseResponse is not returned''')
         kwargs.update({
             'subprotocols': protocol.request.headers.get('Sec-Websocket-Protocol', '').split(', ')
         })
-        return doFunc(protocol.func[0].subprotocolHandle, (), kwargs)
+        return protocol.func[0].subprotocolHandle(**kwargs)
 
     def websocket_beforeConnectionHandle(self, func: Callable):
         self.websocket_beforeConnectionHandles.append(func)
@@ -280,20 +279,20 @@ A usable BaseResponse is not returned''')
     async def _websocket_connectionHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
         logger.websocket(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} connected WEBSOCKET {protocol.request.fullPath}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> connected <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>')
 
-        await async_doFunc(protocol.func[0].connectionHandle, (), protocol.func[1])
+        await protocol.func[0].connectionHandle(**protocol.func[1])
 
     async def _websocket_messageHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
         kwargs = protocol.func[1].copy()
         kwargs.update({
             'message': await protocol.recv()
         })
-        await async_doFunc(protocol.func[0].messageHandle, (), kwargs)
+        await protocol.func[0].messageHandle(**kwargs)
 
     def websocket_afterDisconnectionHandle(self, func: Callable):
         self.websocket_afterDisconnectionHandles.append(func)
 
     def _websocket_disconnectionHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
-        doFunc(protocol.func[0].disconnectionHandle, (), protocol.func[1])
+        protocol.func[0].disconnectionHandle(**protocol.func[1])
 
         logger.websocket(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} disconnected WEBSOCKET {protocol.request.fullPath}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> disconnected <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>')
 
