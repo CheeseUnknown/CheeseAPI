@@ -123,9 +123,7 @@ Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
                     continue
                 folderPath = os.path.join(app.workspace.base, foldername)
                 if os.path.isdir(folderPath):
-                    if not app.workspace.static or not os.path.exists(os.path.join(app.workspace.base, app.workspace.static)) or not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.static)):
-                        localModule.append(foldername)
-                    elif not app.workspace.log or not os.path.exists(os.path.join(app.workspace.base, app.workspace.log)) or not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.log)):
+                    if (not app.workspace.static or not os.path.exists(os.path.join(app.workspace.base, app.workspace.static)) or not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.static))) and (not app.workspace.log or not os.path.exists(os.path.join(app.workspace.base, app.workspace.log)) or not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.log))):
                         localModule.append(foldername)
             app.localModules = localModule
         localModuleNum = len(app.localModules)
