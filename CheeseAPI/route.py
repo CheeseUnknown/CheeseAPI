@@ -37,9 +37,6 @@ class Path:
 
         node = self.root
 
-        paths = path.split('/')[1:]
-        if paths[-1] == '':
-            paths = path[:-1]
         for part in path.split('/')[1:]:
             if not node.children:
                 node.children = {}
@@ -56,7 +53,8 @@ class Path:
                     node.children[part] = PathNode()
             node = node.children[part]
 
-        node.methods = {}
+        if not node.methods:
+            node.methods = {}
         for method in methods:
             node.methods[method] = func
 
