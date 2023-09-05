@@ -18,7 +18,7 @@ from CheeseAPI import Route
 route = Route('/test')
 
 @route.get('/0')
-async def test():
+async def test(**kwargs):
     ...
 ```
 
@@ -36,19 +36,19 @@ import uuid
 from CheeseAPI import app
 
 @app.route.get('/<id:str>')
-def test0(id: str):
+def test0(id: str, **kwargs):
     ...
 
 @app.route.get('/<id:int>')
-def test1(id: int):
+def test1(id: int, **kwargs):
     ...
 
 @app.route.get('/<id:float>')
-def test2(id: float):
+def test2(id: float, **kwargs):
     ...
 
 @app.route.get('/<id:uuid>')
-def test3(id: uuid.UUID):
+def test3(id: uuid.UUID, **kwargs):
     ...
 ```
 
@@ -62,7 +62,7 @@ def test3(id: uuid.UUID):
 from CheeseAPI import app
 
 @app.route('/', [ 'GET', 'POST' ])
-def test():
+def test(**kwargs):
     ...
 ```
 

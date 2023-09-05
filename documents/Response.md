@@ -16,7 +16,7 @@ from CheeseAPI import Response, JsonResponse, FileResponse
     from CheeseAPI import Response, app
 
     @app.route.get('/')
-    async def test():
+    async def test(**kwargs):
         return Response('Hello World')
 
 - **返回字节**
@@ -25,7 +25,7 @@ from CheeseAPI import Response, JsonResponse, FileResponse
     from CheeseAPI import Response, app
 
     @app.route.get('/')
-    async def test():
+    async def test(**kwargs):
         return Response(b'Hello World')
     ```
 
@@ -38,7 +38,7 @@ from CheeseAPI import Response, JsonResponse, FileResponse
         return 'Hello World'
 
     @app.route.get('/')
-    async def test():
+    async def test(**kwargs):
         return Response(callback)
     ```
 
@@ -52,7 +52,7 @@ from CheeseAPI import Response, JsonResponse, FileResponse
             yield i
 
     @app.route.get('/')
-    async def test():
+    async def test(**kwargs):
         return Response(iterator)
     ```
 
@@ -64,7 +64,7 @@ from CheeseAPI import Response, JsonResponse, FileResponse
 from CheeseAPI import JsonResponse, app
 
 @app.route.get('/')
-async def test():
+async def test(**kwargs):
     return JsonResponse({
         'data': 'Hello World'
     })

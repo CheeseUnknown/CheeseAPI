@@ -47,14 +47,8 @@ pip install CheeseAPI
 
 from CheeseAPI import app, Response
 
-'''
-路由装饰器装饰的函数参数是可选的，如果你需要获取request，则：
-async def test(request):
-    ...
-即可，其他参数都是动态获取的。
-'''
 @app.route.get('/')
-async def test():
+async def test(**kwargs):
     return Response('您好，这里是CheeseAPI！')
 
 if __name__ == '__main__':
