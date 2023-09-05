@@ -242,7 +242,7 @@ A usable BaseResponse is not returned''')
         if 'WEBSOCKET' not in funcs:
             return await self._websocket_responseHandle(protocol, app, await self._websocket_405Handle(protocol, app))
 
-        func = funcs['WEBSOCKET']
+        func = funcs['WEBSOCKET']()
         kwargs['request'] = protocol.request
 
         return func, kwargs

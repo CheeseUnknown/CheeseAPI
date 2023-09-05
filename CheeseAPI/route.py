@@ -147,7 +147,6 @@ class Route:
 
     def websocket(self, path: str):
         def decorator(cls):
-            instance = cls()
-            paths.insert(self.prefix + path, instance, [ 'WEBSOCKET' ])
+            paths.insert(self.prefix + path, cls, [ 'WEBSOCKET' ])
             return cls
         return decorator
