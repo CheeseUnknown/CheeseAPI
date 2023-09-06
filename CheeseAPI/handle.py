@@ -44,7 +44,7 @@ class Handle:
 
             if protocol.request.method not in funcs:
                 if protocol.request.method == http.HTTPMethod.OPTIONS and (app.cors.origin == '*' or protocol.request.method in app.cors.origin):
-                    if await self._http_responseHandle(protocol, app, await self._http_optionsHandle(protocol, app), timer):
+                    if await self._http_responseHandle(protocol, app, await self._http_optionsHandle(protocol, app), timer, False):
                         return
                 elif await self._http_responseHandle(protocol, app, await self._http_405Handle(protocol, app), timer):
                     return
@@ -195,7 +195,7 @@ A usable BaseResponse is not returned''')
 
         return Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    async def _http_responseHandle(self, protocol: 'HttpProtocol', app: 'App', response: 'Response', timer: float) -> bool:
+    async def _http_responseHandle(self, protocol: 'HttpProtocol', app: 'App', response: 'Response', timer: float, printed: bool = True) -> bool:
         if isinstance(response, BaseResponse):
             if signal.receiver('http_afterResponseHandle'):
                 await signal.async_send('http_afterResponseHandle', {
@@ -226,7 +226,8 @@ A usable BaseResponse is not returned''')
                 protocol.transport.write(content)
             protocol.transport.close()
 
-            logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed {protocol.request.method} {protocol.request.fullPath} and returned {response.status}, taking ' + '{:.6f}'.format(time.time() - timer), f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>{protocol.request.method} {protocol.request.fullPath}</cyan> and returned <blue>{response.status}</blue>, taking ' + '<blue>{:.6f}</blue>'.format(time.time() - timer))
+            if printed:
+                logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed {protocol.request.method} {protocol.request.fullPath} and returned {response.status}, taking ' + '{:.6f}s'.format(time.time() - timer), f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>{protocol.request.method} {protocol.request.fullPath}</cyan> and returned <blue>{response.status}</blue>, taking ' + '<blue>{:.6f}</blue>s'.format(time.time() - timer))
             return True
         return False
 
