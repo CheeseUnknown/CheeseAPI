@@ -58,6 +58,16 @@ from CheeseAPI import app
 app.localModules = [ 'testModule0', 'testModule1' ]
 ```
 
+## **`app.exclude_localModules: List[str] = []`**
+
+当`app.localModules is True`时，可以选择不导入的模块，而不需要手动添加需要的模块。
+
+```python
+from CheeseAPI import app
+
+app.exclude_localModules = [ 'testModule0', 'testModule1' ]
+```
+
 ## **`app.handle: Handle`**
 
 插槽，更多请查看[App - Handle](./App/Handle.md)。
