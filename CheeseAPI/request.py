@@ -57,7 +57,7 @@ class Request:
                 elif _value == 'application/x-www-form-urlencoded':
                     for s in value.decode().split('&'):
                         s = s.split('=')
-                        self.form[unquote(s[0])] = unquote(s[1])
+                        self.form[unquote(s[0])] = unquote(s[1].replace(r'+', r'%20'))
             except:
                 logger.danger(f'''An error occurred while accessing {self.method} {self.fullPath}:
 Unable to parse body content''', f'''An error occurred while accessing <cyan>{self.method} {self.fullPath}</cyan>:
