@@ -227,7 +227,7 @@ A usable BaseResponse is not returned''')
             protocol.transport.close()
 
             if printed:
-                logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed {protocol.request.method} {protocol.request.fullPath} and returned {response.status}, taking ' + '{:.6f}s'.format(time.time() - timer), f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>{protocol.request.method} {protocol.request.fullPath}</cyan> and returned <blue>{response.status}</blue>, taking ' + '<blue>{:.6f}</blue>s'.format(time.time() - timer))
+                logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed {protocol.request.method} {protocol.request.fullPath} and returned {response.status}, taking ' + '{:.6f}s'.format(time.time() - timer), f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>{protocol.request.method} ' + logger.encode(protocol.request.fullPath) + '</cyan> and returned <blue>{response.status}</blue>, taking ' + '<blue>{:.6f}</blue>s'.format(time.time() - timer))
             return True
         return False
 
