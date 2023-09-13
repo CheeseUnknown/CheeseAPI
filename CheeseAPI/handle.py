@@ -227,7 +227,7 @@ A usable BaseResponse is not returned''')
             protocol.transport.close()
 
             if printed:
-                logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed {protocol.request.method} {protocol.request.fullPath} and returned {response.status}, taking ' + '{:.6f}s'.format(time.time() - timer), f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>{protocol.request.method} ' + logger.encode(protocol.request.fullPath) + '</cyan> and returned <blue>{response.status}</blue>, taking ' + '<blue>{:.6f}</blue>s'.format(time.time() - timer))
+                logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed {protocol.request.method} {protocol.request.fullPath} and returned {response.status}, taking ' + '{:.6f}s'.format(time.time() - timer), f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>{protocol.request.method} ' + logger.encode(protocol.request.fullPath) + f'</cyan> and returned <blue>{response.status}</blue>, taking ' + '<blue>{:.6f}</blue>s'.format(time.time() - timer))
             return True
         return False
 
@@ -263,7 +263,7 @@ A usable BaseResponse is not returned''')
             if isinstance(_response, BaseResponse):
                 response = _response
 
-        logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed WEBSOCKET {protocol.request.fullPath} and returned {response.status}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>WEBSOCKET {protocol.request.fullPath}</cyan> and returned <blue>{response.status}</blue>')
+        logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed WEBSOCKET {protocol.request.fullPath} and returned {response.status}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>WEBSOCKET ' + logger.encode(protocol.request.fullPath) f'</cyan> and returned <blue>{response.status}</blue>')
 
         return response.status, response.headers, response.body if isinstance(response.body, bytes) else str(response.body).encode()
 
