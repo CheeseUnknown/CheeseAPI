@@ -263,7 +263,7 @@ A usable BaseResponse is not returned''')
             if isinstance(_response, BaseResponse):
                 response = _response
 
-        logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed WEBSOCKET {protocol.request.fullPath} and returned {response.status}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>WEBSOCKET ' + logger.encode(protocol.request.fullPath) f'</cyan> and returned <blue>{response.status}</blue>')
+        logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed WEBSOCKET {protocol.request.fullPath} and returned {response.status}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>WEBSOCKET ' + logger.encode(protocol.request.fullPath) + f'</cyan> and returned <blue>{response.status}</blue>')
 
         return response.status, response.headers, response.body if isinstance(response.body, bytes) else str(response.body).encode()
 
