@@ -36,9 +36,9 @@ class Handle:
                 if await self._http_responseHandle(protocol, app, await self._http_staticHandle(protocol, app), timer):
                     return
 
-            funcs, kwargs = paths.match(protocol.request.path)
+            funcs = paths.match(protocol.request.path)
 
-            if funcs is None:
+            if not funcs:
                 if await self._http_responseHandle(protocol, app, await self._http_404Handle(protocol, app), timer):
                     return
 
@@ -54,7 +54,8 @@ class Handle:
             if signal.receiver('http_beforeRequestHandle'):
                 await signal.async_send('http_beforeRequestHandle', { 'request': protocol.request })
 
-            func = funcs[protocol.request.method]
+            func = funcs[protocol.request.method][0]
+            kwargs = funcs[protocol.request.method][1]
             kwargs['request'] = protocol.request
             response = await func(**kwargs)
             if await self._http_responseHandle(protocol, app, response, timer):

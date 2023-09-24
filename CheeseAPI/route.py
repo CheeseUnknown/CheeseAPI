@@ -58,26 +58,27 @@ class Path:
         for method in methods:
             node.methods[method] = func
 
-    def match(self, path: str) -> Tuple[Dict[str, Callable] | None, Dict[str, Any]]:
+    def match(self, path: str) -> Dict[http.HTTPMethod, Tuple[Callable, Dict[str, Any]]]:
         paths = path.split('/')[1:]
         if paths[-1] == '' and path != '/':
             paths = paths[:-1]
-        return self._match(self.root, paths, {})
+        results = self._match(self.root, paths, {}, {})
+        return results
 
-    def _match(self, node: PathNode, paths: List[str], kwargs: Dict[str, Any]):
-        for i in range(len(paths)):
-            if paths[i] not in node.children:
-                for key, value in reversed(patterns.items()):
-                    if re.fullmatch(value['pattern'], paths[i]) and f'<:{key}>' in node.children:
-                        result, kwargs = self._match(node.children[f'<:{key}>'], paths[i + 1:], kwargs)
-                        if result:
-                            kwargs[node.children[f'<:{key}>'].key] = value['type'](paths[i])
-                            return result, kwargs
-                return None, {}
-            node = node.children[paths[i]]
+    def _match(self, node: PathNode, paths: List[str], kwargs: Dict[str, Any], results: Dict[http.HTTPMethod, Tuple[Callable, Dict[str, Any]]]) -> List[Tuple[http.HTTPMethod, Callable, Dict[str, Any]]]:
+        if paths and node.children:
+            if paths[0] in node.children:
+                results = self._match(node.children[paths[0]], paths[1:], kwargs, results)
+            for key, value in reversed(patterns.items()):
+                if re.fullmatch(value['pattern'], paths[0]) and f'<:{key}>' in node.children:
+                    kwargs[node.children[f'<:{key}>'].key] = value['type'](paths[0])
+                    results = self._match(node.children[f'<:{key}>'], paths[1:], kwargs, results)
+
         if node.methods:
-            return node.methods, kwargs
-        return None, {}
+            for key, value in node.methods.items():
+                if key not in results:
+                    results[key] = (value, kwargs)
+        return results
 
 paths: Path = Path()
 
