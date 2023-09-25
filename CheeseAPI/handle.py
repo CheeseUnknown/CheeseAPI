@@ -236,7 +236,7 @@ A usable BaseResponse is not returned''')
         self.http_afterResponseHandles.append(func)
 
     async def _websocket_requestHandle(self, protocol: 'WebsocketProtocol', app: 'App') -> Tuple[Callable, Dict[str, Any]] | HTTPResponse:
-        funcs, kwargs = paths.match(protocol.request.path)
+        funcs = paths.match(protocol.request.path)
 
         if funcs is None:
             return await self._websocket_responseHandle(protocol, app, await self._websocket_404Handle(protocol, app))
@@ -244,7 +244,8 @@ A usable BaseResponse is not returned''')
         if 'WEBSOCKET' not in funcs:
             return await self._websocket_responseHandle(protocol, app, await self._websocket_405Handle(protocol, app))
 
-        func = funcs['WEBSOCKET']()
+        func = funcs['WEBSOCKET'][0]()
+        kwargs = funcs['WEBSOCKET'][1]
         kwargs['request'] = protocol.request
 
         return func, kwargs
