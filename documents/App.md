@@ -50,7 +50,7 @@ app.modules = [ 'CheeseAPI_Websocket' ]
 
 ## **`app.localModules: List[str] | Literal[True] = True`**
 
-本地模块。当`app.localModules == True`时，在当前工作目录下，会自动导入文件夹中第一层的python文件（忽略隐藏文件夹、`__pycache__`、`__init__.py`以及一些`app.workspace`中使用的文件夹）；如果需要选择性的导入本地模块，请赋值`List[str]`：
+本地模块。当`app.localModules == True`时，在当前工作目录下，会自动导入文件夹中第一层的python文件（忽略隐藏文件夹、`__pycache__`、`__init__.py`以及一些`app.workspace`中使用的文件夹）；如果需要选择性的导入本地模块，请赋值`List[str]`，会遵循列表顺序依次加载模块：
 
 ```python
 from CheeseAPI import app
@@ -66,6 +66,16 @@ app.localModules = [ 'testModule0', 'testModule1' ]
 from CheeseAPI import app
 
 app.exclude_localModules = [ 'testModule0', 'testModule1' ]
+```
+
+## **`app.preferred_localModules: List[str] = []`**
+
+当`app.localModules is True`时，可以选择优先导入的模块，按列表顺序依次加载。
+
+```python
+from CheeseAPI import app
+
+app.preferred_localModules = [ 'firstModule', 'secondModule' ]
 ```
 
 ## **`app.handle: Handle`**

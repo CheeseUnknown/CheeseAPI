@@ -27,6 +27,7 @@ class App:
         self.modules: List[str] = []
         self.localModules: List[str] | Literal[True] = True
         self.exclude_localModules: List[str] = []
+        self.preferred_localModules: List[str] = []
 
         self.handle: Handle = Handle()
         self.g: Dict[str, Any] = {}

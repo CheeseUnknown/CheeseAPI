@@ -126,6 +126,8 @@ Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
                     if (not app.workspace.static or not os.path.exists(os.path.join(app.workspace.base, app.workspace.static)) or not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.static))) and (not app.workspace.log or not os.path.exists(os.path.join(app.workspace.base, app.workspace.log)) or not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.log))) and foldername not in app.exclude_localModules:
                         localModule.append(foldername)
             app.localModules = localModule
+        else:
+            app.preferred_localModules = []
         localModuleNum = len(app.localModules)
         if localModuleNum:
             logger.starting(f'''Local Modules:
@@ -133,10 +135,18 @@ Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
 ''' + ' | '.join(app.localModules) + '''
 ''')
             timer = time.time()
-            for i in range(localModuleNum):
-                message, styledMessage = progressBar(i * 1.0 / localModuleNum)
+            count = 0
+            for module in app.preferred_localModules:
+                message, styledMessage = progressBar(count * 1.0 / localModuleNum)
                 logger.loading(message, styledMessage)
-                LocalModule(app.workspace.base, app.localModules[i])
+                LocalModule(app.workspace.base, module)
+                count += 1
+            for module in app.localModules:
+                if module not in app.preferred_localModules:
+                    message, styledMessage = progressBar(count * 1.0 / localModuleNum)
+                    logger.loading(message, styledMessage)
+                    LocalModule(app.workspace.base, module)
+                    count += 1
             timer = time.time() - timer
             logger.loaded('The local modules are loaded, which takes {:.6f} seconds'.format(timer), 'The local modules are loaded, which takes <blue>{:.6f}</blue> seconds'.format(timer), refreshed = True)
 
