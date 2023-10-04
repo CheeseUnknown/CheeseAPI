@@ -28,25 +28,24 @@ class Handle:
         self.server_beforeStoppingHandles: List[Callable] = []
 
     async def _httpHandle(self, protocol: 'HttpProtocol', app: 'App'):
-        timer = time.time()
         response = None
 
         try:
             if app.server.static and protocol.request.path.startswith(app.server.static):
-                if await self._http_responseHandle(protocol, app, await self._http_staticHandle(protocol, app), timer):
+                if await self._http_responseHandle(protocol, app, await self._http_staticHandle(protocol, app)):
                     return
 
             funcs = paths.match(protocol.request.path)
 
             if not funcs:
-                if await self._http_responseHandle(protocol, app, await self._http_404Handle(protocol, app), timer):
+                if await self._http_responseHandle(protocol, app, await self._http_404Handle(protocol, app)):
                     return
 
             if protocol.request.method not in funcs:
                 if protocol.request.method == http.HTTPMethod.OPTIONS and (app.cors.origin == '*' or protocol.request.method in app.cors.origin):
-                    if await self._http_responseHandle(protocol, app, await self._http_optionsHandle(protocol, app), timer, False):
+                    if await self._http_responseHandle(protocol, app, await self._http_optionsHandle(protocol, app)):
                         return
-                elif await self._http_responseHandle(protocol, app, await self._http_405Handle(protocol, app), timer):
+                elif await self._http_responseHandle(protocol, app, await self._http_405Handle(protocol, app)):
                     return
 
             for http_beforeRequestHandle in self.http_beforeRequestHandles:
@@ -58,12 +57,12 @@ class Handle:
             kwargs = funcs[protocol.request.method][1]
             kwargs['request'] = protocol.request
             response = await func(**kwargs)
-            if await self._http_responseHandle(protocol, app, response, timer):
+            if await self._http_responseHandle(protocol, app, response):
                 return
 
-            await self._http_responseHandle(protocol, app, await self._http_noResponseHandle(protocol, app), timer)
+            await self._http_responseHandle(protocol, app, await self._http_noResponseHandle(protocol, app))
         except BaseException as e:
-            await self._http_responseHandle(protocol, app, await self._http_500Handle(protocol, app, e), timer)
+            await self._http_responseHandle(protocol, app, await self._http_500Handle(protocol, app, e))
 
     def _exitSignalHandle(self, server):
         server.close()
@@ -206,7 +205,7 @@ A usable BaseResponse is not returned''')
 
         return Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    async def _http_responseHandle(self, protocol: 'HttpProtocol', app: 'App', response: 'Response', timer: float, printed: bool = True) -> bool:
+    async def _http_responseHandle(self, protocol: 'HttpProtocol', app: 'App', response: 'Response') -> bool:
         if isinstance(response, BaseResponse):
             if signal.receiver('http_afterResponseHandle'):
                 await signal.async_send('http_afterResponseHandle', {
@@ -237,8 +236,7 @@ A usable BaseResponse is not returned''')
                 protocol.transport.write(content)
             protocol.transport.close()
 
-            if printed:
-                logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed {protocol.request.method} {protocol.request.fullPath} and returned {response.status}, taking ' + '{:.6f}s'.format(time.time() - timer), f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>{protocol.request.method} ' + logger.encode(protocol.request.fullPath) + f'</cyan> and returned <blue>{response.status}</blue>, taking ' + '<blue>{:.6f}</blue>s'.format(time.time() - timer))
+            logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed {protocol.request.method} {protocol.request.fullPath} and returned {response.status}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>{protocol.request.method} ' + logger.encode(protocol.request.fullPath) + f'</cyan> and returned <blue>{response.status}</blue>')
             return True
         return False
 

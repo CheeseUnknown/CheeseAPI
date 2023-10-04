@@ -1,12 +1,13 @@
-import asyncio, http
-from typing import TYPE_CHECKING, Dict, Any, Tuple
+import asyncio, http, copy
+from typing import TYPE_CHECKING, Dict, Any, Tuple, Deque, Callable, Self
 from multiprocessing import Manager
+from collections import deque
 
 import httptools
 from websockets.legacy.server import HTTPResponse
 from websockets.server import WebSocketServerProtocol
 
-from CheeseAPI.app import app
+from CheeseAPI.app import app, App
 from CheeseAPI.request import Request
 from CheeseAPI.signal import signal
 
@@ -96,6 +97,9 @@ class HttpProtocol(asyncio.Protocol):
 
         self.request: Request = None
 
+        self.deque: Deque[Self] = deque()
+        self.task = None
+
     def connection_made(self, transport: asyncio.Transport):
         self.transport = transport
 
@@ -127,6 +131,14 @@ class HttpProtocol(asyncio.Protocol):
         app.httpWorker.connections.discard(self)
         if exc is None:
             self.transport.close()
+        self.task = None
+
+        if self.deque:
+            _self = self.deque.popleft()
+            _self.transport.resume_reading()
+            self.task = asyncio.get_event_loop().create_task(app.handle._httpHandle(_self, app))
+            self.task.add_done_callback(app.httpWorker.tasks.discard)
+            app.httpWorker.tasks.add(self.task)
 
     def on_url(self, url: bytes):
         self.request = Request(('https' if self.transport.get_extra_info('sslcontext') else 'http' + '://') + app.server.host + ':' + str(app.server.port) + url.decode())
@@ -145,16 +157,16 @@ class HttpProtocol(asyncio.Protocol):
         self.request.method = http.HTTPMethod(self.parser.get_method().decode())
         if self.parser.should_upgrade():
             return
-        if not self.request.headers.get('Content-Type'):
-            task = asyncio.get_event_loop().create_task(app.handle._httpHandle(self, app))
-            task.add_done_callback(app.httpWorker.tasks.discard)
-            app.httpWorker.tasks.add(task)
+
+        if self.task:
+            self.transport.pause_reading()
+            self.deque.append(copy.deepcopy(self))
+        else:
+            self.task = asyncio.get_event_loop().create_task(app.handle._httpHandle(self, app))
+            self.task.add_done_callback(app.httpWorker.tasks.discard)
+            app.httpWorker.tasks.add(self.task)
 
     def on_body(self, body: bytes):
         if self.parser.should_upgrade():
             return
         self.request.body = body
-
-        task = asyncio.get_event_loop().create_task(app.handle._httpHandle(self, app))
-        task.add_done_callback(app.httpWorker.tasks.discard)
-        app.httpWorker.tasks.add(task)
