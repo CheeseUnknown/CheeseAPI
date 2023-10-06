@@ -44,8 +44,8 @@ class App:
         if signal.receiver('server_beforeStartingHandle'):
             signal.send('server_beforeStartingHandle')
 
-        sock = socket.socket(socket.AF_INET)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         sock.bind((self.server.host, self.server.port))
         sock.set_inheritable(True)
 

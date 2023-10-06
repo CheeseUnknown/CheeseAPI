@@ -158,6 +158,20 @@ class HttpProtocol(asyncio.Protocol):
         if self.parser.should_upgrade():
             return
 
+        if not self.request.headers.get('Content-Type'):
+            if self.task:
+                self.transport.pause_reading()
+                self.deque.append(copy.deepcopy(self))
+            else:
+                self.task = asyncio.get_event_loop().create_task(app.handle._httpHandle(self, app))
+                self.task.add_done_callback(app.httpWorker.tasks.discard)
+                app.httpWorker.tasks.add(self.task)
+
+    def on_body(self, body: bytes):
+        if self.parser.should_upgrade():
+            return
+        self.request.body = body
+
         if self.task:
             self.transport.pause_reading()
             self.deque.append(copy.deepcopy(self))
@@ -165,8 +179,3 @@ class HttpProtocol(asyncio.Protocol):
             self.task = asyncio.get_event_loop().create_task(app.handle._httpHandle(self, app))
             self.task.add_done_callback(app.httpWorker.tasks.discard)
             app.httpWorker.tasks.add(self.task)
-
-    def on_body(self, body: bytes):
-        if self.parser.should_upgrade():
-            return
-        self.request.body = body
