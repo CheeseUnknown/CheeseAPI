@@ -1,4 +1,4 @@
-import asyncio, multiprocessing, socket, time
+import asyncio, multiprocessing, socket, time, os
 import signal as pySignal
 from typing import Dict, Any, List, Literal
 
@@ -52,6 +52,7 @@ class App:
         for i in range(0, self.server.workers - 1):
             process = multiprocessing.Process(target = run, args = (app, sock, managers), name = f'CheeseAPI_Subprocess<{i}>', daemon = True)
             process.start()
+            os.setpgid(process.pid, os.getpid())
 
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         asyncio.run(_run(app, sock, managers))
@@ -59,6 +60,10 @@ class App:
         while managers['startedWorkerNum'].value != 0:
             time.sleep(0.1)
         logger.destory()
+
+    def stop(self):
+        os.killpg(os.getppid(), pySignal.SIGINT)
+        os.kill(os.getppid(), pySignal.SIGINT)
 
 app = App()
 

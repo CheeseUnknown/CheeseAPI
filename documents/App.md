@@ -89,3 +89,7 @@ app.preferred_localModules = [ 'firstModule', 'secondModule' ]
 ## **`def app.run()`**
 
 启动服务器。
+
+## **`def app.stop()`**
+
+关闭服务器
