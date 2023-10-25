@@ -1,4 +1,4 @@
-import os, time, http, traceback
+import os, time, http, traceback, asyncio
 from typing import TYPE_CHECKING, List, Callable, Tuple, Dict, Any
 
 from CheeseLog import logger, ProgressBar
@@ -11,7 +11,7 @@ from CheeseAPI.module import Module, LocalModule
 
 if TYPE_CHECKING:
     from CheeseAPI.app import App
-    from CheeseAPI.protocol import WebsocketProtocol, HttpProtocol
+    from CheeseAPI.protocol import WebsocketProtocol, Protocol
 
 class Handle:
     def __init__(self):
@@ -27,9 +27,7 @@ class Handle:
         self.worker_beforeStoppingHandles: List[Callable] = []
         self.server_beforeStoppingHandles: List[Callable] = []
 
-    async def _httpHandle(self, protocol: 'HttpProtocol', app: 'App'):
-        response = None
-
+    async def _httpHandle(self, protocol: 'Protocol', app: 'App'):
         try:
             if app.server.static and protocol.request.path.startswith(app.server.static):
                 if await self._http_responseHandle(protocol, app, await self._http_staticHandle(protocol, app)):
@@ -175,29 +173,29 @@ Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
     def http_beforeRequestHandle(self, func: Callable):
         self.http_beforeRequestHandles.append(func)
 
-    async def _http_staticHandle(self, protocol: 'HttpProtocol', app: 'App'):
+    async def _http_staticHandle(self, protocol: 'Protocol', app: 'App'):
         try:
             return FileResponse(app.workspace.static[:-1] + protocol.request.path)
         except:
             ...
 
-    async def _http_404Handle(self, protocol: 'HttpProtocol', app: 'App'):
+    async def _http_404Handle(self, protocol: 'Protocol', app: 'App'):
         return Response(status = http.HTTPStatus.NOT_FOUND)
 
-    async def _http_optionsHandle(self, protocol: 'HttpProtocol', app: 'App'):
+    async def _http_optionsHandle(self, protocol: 'Protocol', app: 'App'):
         return Response(status = http.HTTPStatus.OK)
 
-    async def _http_405Handle(self, protocol: 'HttpProtocol', app: 'App'):
+    async def _http_405Handle(self, protocol: 'Protocol', app: 'App'):
         return Response(status = http.HTTPStatus.METHOD_NOT_ALLOWED)
 
-    async def _http_noResponseHandle(self, protocol: 'HttpProtocol', app: 'App'):
+    async def _http_noResponseHandle(self, protocol: 'Protocol', app: 'App'):
         logger.danger(f'''An error occurred while accessing {protocol.request.method} {protocol.request.fullPath}:
 A usable BaseResponse is not returned''', f'''An error occurred while accessing <cyan>{protocol.request.method} {protocol.request.fullPath}</cyan>:
 A usable BaseResponse is not returned''')
 
         return Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    async def _http_500Handle(self, protocol: 'HttpProtocol', app: 'App', e: BaseException):
+    async def _http_500Handle(self, protocol: 'Protocol', app: 'App', e: BaseException):
         message = logger.encode(traceback.format_exc()[:-1])
         logger.danger(f'''An error occurred while accessing {protocol.request.method} {protocol.request.fullPath}:
 {message}''', f'''An error occurred while accessing <cyan>{protocol.request.method} {protocol.request.fullPath}</cyan>:
@@ -205,7 +203,7 @@ A usable BaseResponse is not returned''')
 
         return Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    async def _http_responseHandle(self, protocol: 'HttpProtocol', app: 'App', response: 'Response') -> bool:
+    async def _http_responseHandle(self, protocol: 'Protocol', app: 'App', response: 'Response') -> bool:
         if isinstance(response, BaseResponse):
             if signal.receiver('http_afterResponseHandle'):
                 await signal.async_send('http_afterResponseHandle', {
@@ -229,14 +227,35 @@ A usable BaseResponse is not returned''')
             if len(app.cors.headers):
                 response.headers['Access-Control-Allow-Headers'] = ', '.join(app.cors.headers)
 
-            protocol.transport.write(await response())
-            streamed = True
-            while streamed:
-                content, streamed = await response()
-                protocol.transport.write(content)
-            protocol.transport.close()
+            try:
+                protocol.transport.write(await response())
+                streamed = True
+                while streamed:
+                    content, streamed = await response()
+                    protocol.transport.write(content)
+            except:
+                ...
 
             logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed {protocol.request.method} {protocol.request.fullPath} and returned {response.status}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>{protocol.request.method} ' + logger.encode(protocol.request.fullPath) + f'</cyan> and returned <blue>{response.status}</blue>')
+
+            if protocol.transport.is_closing():
+                return
+
+            if protocol.timeoutTask:
+                protocol.timeoutTask.cancel()
+                protocol.timeoutTask = None
+            protocol.timeoutTask = asyncio.get_event_loop().call_later(5.0, protocol.transport.close)
+            protocol.task = None
+
+            protocol.transport.resume_reading()
+
+            if protocol.deque:
+                _protocol = protocol.deque.popleft()
+                _protocol.transport.resume_reading()
+                protocol.task = asyncio.get_event_loop().create_task(app.handle._httpHandle(_protocol, app))
+                protocol.task.add_done_callback(app.httpWorker.tasks.discard)
+                app.httpWorker.tasks.add(protocol.task)
+
             return True
         return False
 

@@ -35,35 +35,35 @@ worker启动前事件插槽。
 
 服务器启动后事件插槽。
 
-## **`app.handle._httpHandle(protocol: HttpProtocol, app: App)`**
+## **`app.handle._httpHandle(protocol: Protocol, app: App)`**
 
 HTTP总处理事件插槽。
 
-## **`app.handle._http_staticHandle(protocol: HttpProtocol, app: App)`**
+## **`app.handle._http_staticHandle(protocol: Protocol, app: App)`**
 
 HTTP静态资源处理事件插槽。
 
-## **`app.handle._http_404Handle(protocol: HttpProtocol, app: App)`**
+## **`app.handle._http_404Handle(protocol: Protocol, app: App)`**
 
 HTTP 404处理事件插槽。
 
-## **`app.handle._http_optionsHandle(protocol: HttpProtocol, app: App)`**
+## **`app.handle._http_optionsHandle(protocol: Protocol, app: App)`**
 
 HTTP OPTIONS预请求处理事件插槽。
 
-## **`app.handle._http_405Handle(protocol: HttpProtocol, app: App)`**
+## **`app.handle._http_405Handle(protocol: Protocol, app: App)`**
 
 HTTP 405处理事件插槽。
 
-## **`app.handle._http_noResponseHandle(protocol: HttpProtocol, app: App)`**
+## **`app.handle._http_noResponseHandle(protocol: Protocol, app: App)`**
 
 HTTP 自定义函数没有返回[Response](../Response.md)。
 
-## **`app.handle._http_500Handle(protocol: HttpProtocol, app: App, e: BaseException)`**
+## **`app.handle._http_500Handle(protocol: Protocol, app: App, e: BaseException)`**
 
 HTTP 500处理事件插槽。
 
-## **`app.handle._http_responseHandle(protocol: HttpProtocol, app: App, response: 'Response', timer: float)`**
+## **`app.handle._http_responseHandle(protocol: Protocol, app: App, response: 'Response', timer: float)`**
 
 HTTP 返回[Response](../Response.md)处理事件插槽。
 

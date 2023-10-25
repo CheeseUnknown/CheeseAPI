@@ -44,11 +44,12 @@ class App:
         if signal.receiver('server_beforeStartingHandle'):
             signal.send('server_beforeStartingHandle')
 
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        sock = socket.socket(socket.AF_INET)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((self.server.host, self.server.port))
         sock.set_inheritable(True)
 
+        multiprocessing.allow_connection_pickling()
         for i in range(0, self.server.workers - 1):
             process = multiprocessing.Process(target = run, args = (app, sock, managers), name = f'CheeseAPI_Subprocess<{i}>', daemon = True)
             process.start()
