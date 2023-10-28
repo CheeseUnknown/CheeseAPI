@@ -1,6 +1,7 @@
 import os, time, http, traceback, asyncio
 from typing import TYPE_CHECKING, List, Callable, Tuple, Dict, Any
 
+import websockets
 from CheeseLog import logger, ProgressBar
 from websockets.legacy.server import HTTPResponse
 
@@ -307,24 +308,68 @@ A usable BaseResponse is not returned''')
         self.websocket_beforeConnectionHandles.append(func)
 
     async def _websocket_connectionHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
-        logger.websocket(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} connected WEBSOCKET {protocol.request.fullPath}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> connected <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>')
+        try:
+            logger.websocket(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} connected WEBSOCKET {protocol.request.fullPath}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> connected <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>')
 
-        await protocol.func[0].connectionHandle(**protocol.func[1])
+            await protocol.func[0].connectionHandle(**protocol.func[1])
+        except:
+            message = logger.encode(traceback.format_exc()[:-1])
+            logger.danger(f'''An error occurred while connecting WEBSOCKET {protocol.request.fullPath}:
+{message}''', f'''An error occurred while connecting <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>:
+{message}''')
+
+    async def _websocket_handler(self, protocol: 'WebsocketProtocol', app: 'App'):
+        try:
+            for websocket_beforeConnectionHandle in app.handle.websocket_beforeConnectionHandles:
+                await websocket_beforeConnectionHandle(**protocol.func[1])
+            if signal.receiver('websocket_beforeConnectionHandle'):
+                await signal.async_send('websocket_beforeConnectionHandle', protocol.func[1])
+
+            await app.handle._websocket_connectionHandle(protocol, app)
+
+            while not protocol.closed:
+                await app.handle._websocket_messageHandle(protocol, app)
+        except:
+            message = logger.encode(traceback.format_exc()[:-1])
+            logger.danger(f'''An error occurred while receiving WEBSOCKET {protocol.request.fullPath} message:
+{message}''', f'''An error occurred while receiving <cyan>WEBSOCKET {protocol.request.fullPath}</cyan> message:
+{message}''')
 
     async def _websocket_messageHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
-        kwargs = protocol.func[1].copy()
-        kwargs.update({
-            'message': await protocol.recv()
-        })
-        await protocol.func[0].messageHandle(**kwargs)
+        try:
+            kwargs = protocol.func[1].copy()
+            kwargs.update({
+                'message': await protocol.recv()
+            })
+            await protocol.func[0].messageHandle(**kwargs)
+        except websockets.exceptions.ConnectionClosedError:
+            ...
+        except websockets.exceptions.ConnectionClosedOK:
+            ...
+        except:
+            message = logger.encode(traceback.format_exc()[:-1])
+            logger.danger(f'''An error occurred while receiving WEBSOCKET {protocol.request.fullPath} message:
+{message}''', f'''An error occurred while receiving <cyan>WEBSOCKET {protocol.request.fullPath}</cyan> message:
+{message}''')
 
     def websocket_afterDisconnectionHandle(self, func: Callable):
         self.websocket_afterDisconnectionHandles.append(func)
 
     def _websocket_disconnectionHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
-        protocol.func[0].disconnectionHandle(**protocol.func[1])
+        try:
+            protocol.func[0].disconnectionHandle(**protocol.func[1])
 
-        logger.websocket(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} disconnected WEBSOCKET {protocol.request.fullPath}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> disconnected <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>')
+            logger.websocket(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} disconnected WEBSOCKET {protocol.request.fullPath}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> disconnected <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>')
+
+            if signal.receiver('websocket_afterDisconnectionHandle'):
+                signal.send('websocket_afterDisconnectionHandle', protocol.func[1])
+            for websocket_afterDisconnectionHandle in app.handle.websocket_afterDisconnectionHandles:
+                websocket_afterDisconnectionHandle(**protocol.func[1])
+        except:
+            message = logger.encode(traceback.format_exc()[:-1])
+            logger.danger(f'''An error occurred while disconnecting WEBSOCKET {protocol.request.fullPath}:
+{message}''', f'''An error occurred while disconnecting <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>:
+{message}''')
 
     def worker_beforeStoppingHandle(self, func: Callable):
         self.worker_beforeStoppingHandles.append(func)

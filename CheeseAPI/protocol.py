@@ -1,9 +1,10 @@
-import asyncio, http, copy
+import asyncio, http, traceback
 from typing import TYPE_CHECKING, Dict, Any, Tuple, Deque, Self
 from multiprocessing import Manager
 from collections import deque
 
 import httptools
+from CheeseLog import logger
 from websockets.legacy.server import HTTPResponse
 from websockets.server import WebSocketServerProtocol
 
@@ -59,15 +60,7 @@ class WebsocketProtocol(WebSocketServerProtocol):
         return self.func[1]['subprotocol']
 
     async def ws_handler(self, *args, **kwargs):
-        for websocket_beforeConnectionHandle in app.handle.websocket_beforeConnectionHandles:
-            await websocket_beforeConnectionHandle(**self.func[1])
-        if signal.receiver('websocket_beforeConnectionHandle'):
-            await signal.async_send('websocket_beforeConnectionHandle', self.func[1])
-
-        await app.handle._websocket_connectionHandle(self, app)
-
-        while not self.closed:
-            await app.handle._websocket_messageHandle(self, app)
+        await app.handle._websocket_handler(self, app)
 
     def connection_lost(self, exc: Exception | None) -> None:
         app.websocketWorker.connections.discard(self)
@@ -76,10 +69,6 @@ class WebsocketProtocol(WebSocketServerProtocol):
             self.transport.close()
 
         app.handle._websocket_disconnectionHandle(self, app)
-        if signal.receiver('websocket_afterDisconnectionHandle'):
-            signal.send('websocket_afterDisconnectionHandle', self.func[1])
-        for websocket_afterDisconnectionHandle in app.handle.websocket_afterDisconnectionHandles:
-            websocket_afterDisconnectionHandle(**self.func[1])
 
 class Protocol:
     def __init__(self, parser):
