@@ -2,21 +2,21 @@ import re, uuid, http
 from typing import Callable, Dict, List, Tuple, Any
 
 patterns: Dict[str, re.Pattern] = {
-    'str': {
-        'pattern': r'.+',
-        'type': str
-    },
-    'int': {
-        'pattern': r'[-+]?[0-9]+',
-        'type': int
+    'uuid': {
+        'pattern': r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
+        'type': uuid.UUID
     },
     'float': {
         'pattern': r'[-+]?[0-9]+.[0-9]+',
         'type': float
     },
-    'uuid': {
-        'pattern': r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
-        'type': uuid.UUID
+    'int': {
+        'pattern': r'[-+]?[0-9]+',
+        'type': int
+    },
+    'str': {
+        'pattern': r'.+',
+        'type': str
     }
 }
 
@@ -69,12 +69,12 @@ class Path:
         if paths and node.children:
             if paths[0] in node.children:
                 results = self._match(node.children[paths[0]], paths[1:], kwargs, results)
-            for key, value in reversed(patterns.items()):
+            for key, value in patterns.items():
                 if re.fullmatch(value['pattern'], paths[0]) and f'<:{key}>' in node.children:
                     kwargs[node.children[f'<:{key}>'].key] = value['type'](paths[0])
                     results = self._match(node.children[f'<:{key}>'], paths[1:], kwargs, results)
 
-        if node.methods:
+        if not paths and node.methods:
             for key, value in node.methods.items():
                 if key not in results:
                     results[key] = (value, kwargs)
