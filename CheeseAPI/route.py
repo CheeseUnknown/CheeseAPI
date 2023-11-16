@@ -1,5 +1,6 @@
 import re, uuid, http
 from typing import Callable, Dict, List, Tuple, Any
+from urllib.parse import unquote
 
 patterns: Dict[str, re.Pattern] = {
     'uuid': {
@@ -67,6 +68,7 @@ class Path:
 
     def _match(self, node: PathNode, paths: List[str], kwargs: Dict[str, Any], results: Dict[http.HTTPMethod, Tuple[Callable, Dict[str, Any]]]) -> List[Tuple[http.HTTPMethod, Callable, Dict[str, Any]]]:
         if paths and node.children:
+            paths[0] = unquote(paths[0])
             if paths[0] in node.children:
                 results = self._match(node.children[paths[0]], paths[1:], kwargs, results)
             for key, value in patterns.items():

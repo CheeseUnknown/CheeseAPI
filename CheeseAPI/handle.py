@@ -40,7 +40,7 @@ class Handle:
                 if await self._http_responseHandle(protocol, app, await self._http_404Handle(protocol, app)):
                     return
 
-            if protocol.request.method not in funcs:
+            if protocol.request.method not in funcs or funcs[protocol.request.method] is None:
                 if protocol.request.method == http.HTTPMethod.OPTIONS and (app.cors.origin == '*' or protocol.request.method in app.cors.origin):
                     if await self._http_responseHandle(protocol, app, await self._http_optionsHandle(protocol, app)):
                         return
