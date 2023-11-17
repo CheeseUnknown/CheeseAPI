@@ -40,7 +40,7 @@ class Handle:
                 if await self._http_responseHandle(protocol, app, await self._http_404Handle(protocol, app)):
                     return
 
-            if protocol.request.method not in funcs or funcs[protocol.request.method] is None:
+            if protocol.request.method not in funcs:
                 if protocol.request.method == http.HTTPMethod.OPTIONS and (app.cors.origin == '*' or protocol.request.method in app.cors.origin):
                     if await self._http_responseHandle(protocol, app, await self._http_optionsHandle(protocol, app)):
                         return
@@ -240,7 +240,7 @@ A usable BaseResponse is not returned''')
             logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed {protocol.request.method} {protocol.request.fullPath} and returned {response.status}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>{protocol.request.method} ' + logger.encode(protocol.request.fullPath) + f'</cyan> and returned <blue>{response.status}</blue>')
 
             if protocol.transport.is_closing():
-                return
+                return True
 
             if protocol.timeoutTask:
                 protocol.timeoutTask.cancel()
