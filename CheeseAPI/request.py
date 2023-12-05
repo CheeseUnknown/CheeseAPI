@@ -38,13 +38,13 @@ class Request:
         if 'Content-Type' in self.headers:
             _value = self.headers.get('Content-Type')
             try:
-                if _value in [ 'application/json', 'application/javascript' ]:
+                if 'application/json' in _value or 'application/javascript' in _value:
                     self._body = json.loads(value)
-                elif _value == 'application/xml':
+                elif 'application/xml' in _value:
                     self._body = xmltodict.parse(value)
-                elif _value in [ 'text/plain', 'text/html' ]:
+                elif 'text/plain' in _value or 'text/html' in _value:
                     self._body = value.decode()
-                elif _value.startswith('multipart/form-data;'):
+                elif 'multipart/form-data' in _value:
                     spliter = _value.split('boundary=')[1].split(';')[0]
                     body = value.split(b'--' + spliter.encode())[1:-1]
                     for s in body:
@@ -55,7 +55,7 @@ class Request:
                             self.form[key] = File(filename[0].decode(), value)
                         else:
                             self.form[key] = value.decode()
-                elif _value == 'application/x-www-form-urlencoded':
+                elif 'application/x-www-form-urlencoded' in _value:
                     for s in value.decode().split('&'):
                         s = s.split('=')
                         self.form[unquote(s[0])] = unquote(s[1].replace(r'+', r'%20'))

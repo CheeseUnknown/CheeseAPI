@@ -5,7 +5,7 @@ with open('./README.md', 'r', encoding = 'utf-8') as f:
 
 setuptools.setup(
     name = 'CheeseAPI',
-    version = '0.2.11',
+    version = '0.2.12',
     author = 'Cheese Unknown',
     author_email = 'cheese@cheese.ren',
     description = '一款web协程框架',
