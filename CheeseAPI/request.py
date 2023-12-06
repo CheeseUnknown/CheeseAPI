@@ -25,25 +25,20 @@ class Request:
 
         if self.scheme in [ 'http', 'https' ]:
             self.method: http.HTTPMethod | None = None
-            self._body: str | bytes | None = None
+            self.body: str | bytes | None = None
             self.form: Dict[str, str] = {}
 
-    @property
-    def body(self) -> str | bytes | None:
-        if self.scheme in [ 'http', 'https' ]:
-            return self._body
-
-    @body.setter
-    def body(self, value: bytes):
+    def parseBody(self):
         if 'Content-Type' in self.headers:
+            value = self.body
             _value = self.headers.get('Content-Type')
             try:
                 if 'application/json' in _value or 'application/javascript' in _value:
-                    self._body = json.loads(value)
+                    self.body = json.loads(value)
                 elif 'application/xml' in _value:
-                    self._body = xmltodict.parse(value)
+                    self.body = xmltodict.parse(value)
                 elif 'text/plain' in _value or 'text/html' in _value:
-                    self._body = value.decode()
+                    self.body = value.decode()
                 elif 'multipart/form-data' in _value:
                     spliter = _value.split('boundary=')[1].split(';')[0]
                     body = value.split(b'--' + spliter.encode())[1:-1]
