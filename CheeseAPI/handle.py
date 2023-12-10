@@ -30,22 +30,23 @@ class Handle:
 
     async def _httpHandle(self, protocol: 'Protocol', app: 'App'):
         try:
+            if protocol.request.method == http.HTTPMethod.OPTIONS and (app.cors.origin == '*' or protocol.request.method in app.cors.origin):
+                await self._http_responseHandle(protocol, app, await self._http_optionsHandle(protocol, app))
+                return
+
             if app.server.static and protocol.request.path.startswith(app.server.static):
-                if await self._http_responseHandle(protocol, app, await self._http_staticHandle(protocol, app)):
-                    return
+                await self._http_responseHandle(protocol, app, await self._http_staticHandle(protocol, app))
+                return
 
             funcs = paths.match(protocol.request.path)
 
             if not funcs:
-                if await self._http_responseHandle(protocol, app, await self._http_404Handle(protocol, app)):
-                    return
+                await self._http_responseHandle(protocol, app, await self._http_404Handle(protocol, app))
+                return
 
             if protocol.request.method not in funcs:
-                if protocol.request.method == http.HTTPMethod.OPTIONS and (app.cors.origin == '*' or protocol.request.method in app.cors.origin):
-                    if await self._http_responseHandle(protocol, app, await self._http_optionsHandle(protocol, app)):
-                        return
-                elif await self._http_responseHandle(protocol, app, await self._http_405Handle(protocol, app)):
-                    return
+                await self._http_responseHandle(protocol, app, await self._http_405Handle(protocol, app))
+                return
 
             for http_beforeRequestHandle in self.http_beforeRequestHandles:
                 await http_beforeRequestHandle(**{ 'request': protocol.request })
