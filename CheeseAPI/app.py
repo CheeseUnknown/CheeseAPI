@@ -1,4 +1,4 @@
-import asyncio, multiprocessing, socket, time, os
+import asyncio, multiprocessing, socket, time, os, sys
 import signal as pySignal
 from typing import Dict, Any, List, Literal
 
@@ -33,33 +33,42 @@ class App:
         self.g: Dict[str, Any] = {}
 
     def run(self, *, managers: Dict[str, multiprocessing.Manager] = {}):
-        manager = multiprocessing.Manager()
-        managers['lock'] = manager.Lock()
-        managers['startedWorkerNum'] = manager.Value(int, 0)
-        managers['firstRequest'] = manager.Value(bool, False)
+        try:
+            manager = multiprocessing.Manager()
+            managers['lock'] = manager.Lock()
+            managers['startedWorkerNum'] = manager.Value(int, 0)
+            managers['firstRequest'] = manager.Value(bool, False)
 
-        self.handle._server_beforeStartingHandle()
-        for server_beforeStartingHandle in self.handle.server_beforeStartingHandles:
-            server_beforeStartingHandle()
-        if signal.receiver('server_beforeStartingHandle'):
-            signal.send('server_beforeStartingHandle')
+            self.handle._server_beforeStartingHandle()
+            for server_beforeStartingHandle in self.handle.server_beforeStartingHandles:
+                server_beforeStartingHandle()
+            if signal.receiver('server_beforeStartingHandle'):
+                signal.send('server_beforeStartingHandle')
 
-        sock = socket.socket(socket.AF_INET)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((self.server.host, self.server.port))
-        sock.set_inheritable(True)
+            sock = socket.socket(socket.AF_INET)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((self.server.host, self.server.port))
+            sock.set_inheritable(True)
 
-        multiprocessing.allow_connection_pickling()
-        for i in range(0, self.server.workers - 1):
-            process = multiprocessing.Process(target = run, args = (app, sock, managers), name = f'CheeseAPI_Subprocess<{i}>', daemon = True)
-            process.start()
-            os.setpgid(process.pid, os.getpid())
+            multiprocessing.allow_connection_pickling()
+            for i in range(0, self.server.workers - 1):
+                process = multiprocessing.Process(target = run, args = (app, sock, managers), name = f'CheeseAPI_Subprocess<{i}>', daemon = True)
+                process.start()
+                os.setpgid(process.pid, os.getpid())
 
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-        asyncio.run(_run(app, sock, managers))
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+            asyncio.run(_run(app, sock, managers))
 
-        while managers['startedWorkerNum'].value != 0:
-            time.sleep(0.1)
+            while managers['startedWorkerNum'].value != 0:
+                time.sleep(0.1)
+        except Exception as e:
+            sys.excepthook(Exception, e, sys.exc_info()[2])
+            
+        if signal.receiver('server_beforeStoppingHandle'):
+            signal.send('server_beforeStoppingHandle')
+        for server_beforeStoppingHandle in app.handle.server_beforeStoppingHandles:
+            server_beforeStoppingHandle()
+        app.handle._server_beforeStoppingHandle()
         logger.destory()
 
     def stop(self):
@@ -109,12 +118,6 @@ async def _run(app: App, sock: socket.socket, managers):
 
     with managers['lock']:
         managers['startedWorkerNum'].value -= 1
-        if managers['startedWorkerNum'].value == 0:
-            if signal.receiver('server_beforeStoppingHandle'):
-                signal.send('server_beforeStoppingHandle')
-            for server_beforeStoppingHandle in app.handle.server_beforeStoppingHandles:
-                server_beforeStoppingHandle()
-            app.handle._server_beforeStoppingHandle()
 
 def run(app, sock, managers):
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
