@@ -35,8 +35,11 @@ class Handle:
                 return
 
             if app.server.static and protocol.request.path.startswith(app.server.static):
-                await self._http_responseHandle(protocol, app, await self._http_staticHandle(protocol, app))
-                return
+                try:
+                    await self._http_responseHandle(protocol, app, await self._http_staticHandle(protocol, app))
+                    return
+                except:
+                    ...
 
             funcs = paths.match(protocol.request.path)
 
@@ -176,10 +179,7 @@ Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
         self.http_beforeRequestHandles.append(func)
 
     async def _http_staticHandle(self, protocol: 'Protocol', app: 'App'):
-        try:
-            return FileResponse(app.workspace.static[:-1] + protocol.request.path)
-        except:
-            ...
+        return FileResponse(app.workspace.static[:-1] + protocol.request.path)
 
     async def _http_404Handle(self, protocol: 'Protocol', app: 'App'):
         return Response(status = http.HTTPStatus.NOT_FOUND)
