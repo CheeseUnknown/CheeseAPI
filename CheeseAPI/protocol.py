@@ -4,9 +4,9 @@ from multiprocessing import Manager
 from collections import deque
 
 import httptools
-from CheeseLog import logger
 from websockets.legacy.server import HTTPResponse
 from websockets.server import WebSocketServerProtocol
+from websockets.exceptions import InvalidHandshake
 
 from CheeseAPI.app import app
 from CheeseAPI.request import Request
@@ -57,6 +57,8 @@ class WebsocketProtocol(WebSocketServerProtocol):
 
     def process_subprotocol(self, *args, **kwargs) -> str:
         self.func[1]['subprotocol'] = app.handle._websocket_subprotocolHandle(self, app)
+        if self.func[1]['subprotocol'] not in self.request.headers.get('Sec-Websocket-Protocol', '').split(', '):
+            raise InvalidHandshake()
         return self.func[1]['subprotocol']
 
     async def ws_handler(self, *args, **kwargs):

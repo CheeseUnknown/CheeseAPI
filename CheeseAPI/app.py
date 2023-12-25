@@ -63,7 +63,7 @@ class App:
                 time.sleep(0.1)
         except Exception as e:
             sys.excepthook(Exception, e, sys.exc_info()[2])
-            
+
         if signal.receiver('server_beforeStoppingHandle'):
             signal.send('server_beforeStoppingHandle')
         for server_beforeStoppingHandle in app.handle.server_beforeStoppingHandles:
