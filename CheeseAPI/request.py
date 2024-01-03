@@ -26,7 +26,7 @@ class Request:
         if self.scheme in [ 'http', 'https' ]:
             self.method: http.HTTPMethod | None = None
             self.body: str | bytes | None = None
-            self.form: Dict[str, str] = {}
+            self.form: Dict[str, str | File] = {}
 
     def parseBody(self):
         if 'Content-Type' in self.headers:
@@ -43,13 +43,13 @@ class Request:
                     spliter = _value.split('boundary=')[1].split(';')[0]
                     body = value.split(b'--' + spliter.encode())[1:-1]
                     for s in body:
-                        key = re.findall(rb'name="(.*?)"', s)[0].decode()
-                        value = s.split(b'\r\n\r\n')[1][:-2]
+                        key = re.findall(rb'name="(.*?)"', s)[0]
+                        value = s.split(b'name="' + key + b'"\r\n\r\n')[1][:-2]
                         filename = re.findall(rb'filename="(.*?)"', s)
                         if len(filename):
-                            self.form[key] = File(filename[0].decode(), value)
+                            self.form[key.decode()] = File(filename[0].decode(), value)
                         else:
-                            self.form[key] = value.decode()
+                            self.form[key.decode()] = value.decode()
                 elif 'application/x-www-form-urlencoded' in _value:
                     for s in value.decode().split('&'):
                         s = s.split('=')
