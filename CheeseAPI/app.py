@@ -50,14 +50,13 @@ class App:
             sock.bind((self.server.host, self.server.port))
             sock.set_inheritable(True)
 
-            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-            asyncio.run(_run(app, sock, managers))
-
             multiprocessing.allow_connection_pickling()
             for i in range(0, self.server.workers - 1):
                 process = multiprocessing.Process(target = run, args = (app, sock, managers), name = f'CheeseAPI_Subprocess<{i}>', daemon = True)
                 process.start()
                 os.setpgid(process.pid, os.getpid())
+
+            run(app, sock, managers)
 
             while managers['startedWorkerNum'].value != 0:
                 time.sleep(0.1)
