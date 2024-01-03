@@ -41,29 +41,28 @@ class Handle:
                 except:
                     ...
 
-            funcs = paths.match(protocol.request.path)
+            try:
+                func, kwargs = paths.match(protocol.request.path, protocol.request.method)
 
-            if not funcs:
-                await self._http_responseHandle(protocol, app, await self._http_404Handle(protocol, app))
-                return
+                for http_beforeRequestHandle in self.http_beforeRequestHandles:
+                    await http_beforeRequestHandle(**{ 'request': protocol.request })
+                if signal.receiver('http_beforeRequestHandle'):
+                    await signal.async_send('http_beforeRequestHandle', { 'request': protocol.request })
 
-            if protocol.request.method not in funcs:
-                await self._http_responseHandle(protocol, app, await self._http_405Handle(protocol, app))
-                return
+                kwargs['request'] = protocol.request
+                response = await func(**kwargs)
+                if await self._http_responseHandle(protocol, app, response):
+                    return
 
-            for http_beforeRequestHandle in self.http_beforeRequestHandles:
-                await http_beforeRequestHandle(**{ 'request': protocol.request })
-            if signal.receiver('http_beforeRequestHandle'):
-                await signal.async_send('http_beforeRequestHandle', { 'request': protocol.request })
+                await self._http_responseHandle(protocol, app, await self._http_noResponseHandle(protocol, app))
+            except KeyError as e:
+                if e.args[0] == 0:
+                    await self._http_responseHandle(protocol, app, await self._http_404Handle(protocol, app))
+                    return
 
-            func = funcs[protocol.request.method][0]
-            kwargs = funcs[protocol.request.method][1]
-            kwargs['request'] = protocol.request
-            response = await func(**kwargs)
-            if await self._http_responseHandle(protocol, app, response):
-                return
-
-            await self._http_responseHandle(protocol, app, await self._http_noResponseHandle(protocol, app))
+                if e.args[0] == 1:
+                    await self._http_responseHandle(protocol, app, await self._http_405Handle(protocol, app))
+                    return
         except BaseException as e:
             await self._http_responseHandle(protocol, app, await self._http_500Handle(protocol, app, e))
 
@@ -265,19 +264,16 @@ A usable BaseResponse is not returned''')
         self.http_afterResponseHandles.append(func)
 
     async def _websocket_requestHandle(self, protocol: 'WebsocketProtocol', app: 'App') -> Tuple[Callable, Dict[str, Any]] | HTTPResponse:
-        funcs = paths.match(protocol.request.path)
+        try:
+            func, kwargs = paths.match(protocol.request.path, 'WEBSOCKET')
+            kwargs['request'] = protocol.request
+            return func(), kwargs
+        except KeyError as e:
+            if e.args[0] == 0:
+                return await self._websocket_responseHandle(protocol, app, await self._websocket_404Handle(protocol, app))
 
-        if not funcs:
-            return await self._websocket_responseHandle(protocol, app, await self._websocket_404Handle(protocol, app))
-
-        if 'WEBSOCKET' not in funcs:
-            return await self._websocket_responseHandle(protocol, app, await self._websocket_405Handle(protocol, app))
-
-        func = funcs['WEBSOCKET'][0]()
-        kwargs = funcs['WEBSOCKET'][1]
-        kwargs['request'] = protocol.request
-
-        return func, kwargs
+            if e.args[0] == 1:
+                return await self._websocket_responseHandle(protocol, app, await self._websocket_405Handle(protocol, app))
 
     async def _websocket_404Handle(self, protocol: 'WebsocketProtocol', app: 'App') -> Response:
         return Response(status = http.HTTPStatus.NOT_FOUND)

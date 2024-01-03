@@ -1,5 +1,5 @@
 import re, uuid, http
-from typing import Callable, Dict, List, Tuple, Any
+from typing import Callable, Dict, List, Tuple, Any, Literal
 from urllib.parse import unquote
 
 patterns: Dict[str, re.Pattern] = {
@@ -25,7 +25,7 @@ class PathNode:
     def __init__(self):
         self.children: Dict[str, PathNode] = None
         self.key: str | None = None
-        self.methods: Dict[str, Callable] | None = None
+        self.methods: Dict[str, Tuple[str, Callable]] | None = None
 
 class Path:
     def __init__(self):
@@ -57,29 +57,40 @@ class Path:
         if not node.methods:
             node.methods = {}
         for method in methods:
-            node.methods[method] = func
+            node.methods[method] = path, func
 
-    def match(self, path: str) -> Dict[http.HTTPMethod, Tuple[Callable, Dict[str, Any]]]:
+    def match(self, path: str, method: http.HTTPMethod | Literal['WEBSOCKET']) -> Tuple[Callable, Dict[str, Any]]:
         paths = path.split('/')[1:]
         if paths[-1] == '' and path != '/':
             paths = paths[:-1]
-        results = self._match(self.root, paths, {}, {})
-        return results
 
-    def _match(self, node: PathNode, paths: List[str], kwargs: Dict[str, Any], results: Dict[http.HTTPMethod, Tuple[Callable, Dict[str, Any]]]) -> List[Tuple[http.HTTPMethod, Callable, Dict[str, Any]]]:
+        results = self._match(self.root, paths, {})
+        if not results:
+            raise KeyError(0)
+        if method not in results:
+            raise KeyError(1)
+        results = results[method]
+        kwargs = {}
+        _paths = results[0].split('/')
+        for i in range(len(paths)):
+            if re.match(r'<.*?:.*?>', _paths[i + 1]):
+                kwargs[_paths[i + 1][1:].split(':')[0]] = unquote(paths[i])
+
+        return results[1], kwargs
+
+    def _match(self, node: PathNode, paths: List[str], results: Dict[http.HTTPMethod, Tuple[str, Callable]]) -> Dict[http.HTTPMethod, Tuple[str, Callable]]:
         if paths and node.children:
-            paths[0] = unquote(paths[0])
             if paths[0] in node.children:
-                results = self._match(node.children[paths[0]], paths[1:], kwargs, results)
+                results = self._match(node.children[paths[0]], paths[1:], results)
+            paths[0] = unquote(paths[0])
             for key, value in patterns.items():
                 if re.fullmatch(value['pattern'], paths[0]) and f'<:{key}>' in node.children:
-                    kwargs[node.children[f'<:{key}>'].key] = value['type'](paths[0])
-                    results = self._match(node.children[f'<:{key}>'], paths[1:], kwargs, results)
+                    results = self._match(node.children[f'<:{key}>'], paths[1:], results)
 
         if not paths and node.methods:
             for key, value in node.methods.items():
                 if key not in results:
-                    results[key] = (value, kwargs)
+                    results[key] = value
         return results
 
 paths: Path = Path()

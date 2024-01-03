@@ -1,4 +1,4 @@
-import asyncio, http, traceback
+import asyncio, http
 from typing import TYPE_CHECKING, Dict, Any, Tuple, Deque, Self
 from multiprocessing import Manager
 from collections import deque
