@@ -44,7 +44,7 @@ class Request:
                     body = value.split(b'--' + spliter.encode())[1:-1]
                     for s in body:
                         key = re.findall(rb'name="(.*?)"', s)[0]
-                        value = s.split(b'name="' + key + b'"\r\n\r\n')[1][:-2]
+                        value = s.split(b'\r\n\r\n', 1)[1][:-2]
                         filename = re.findall(rb'filename="(.*?)"', s)
                         if len(filename):
                             self.form[key.decode()] = File(filename[0].decode(), value)
