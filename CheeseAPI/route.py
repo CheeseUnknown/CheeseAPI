@@ -74,7 +74,8 @@ class Path:
         _paths = results[0].split('/')
         for i in range(len(paths)):
             if re.match(r'<.*?:.*?>', _paths[i + 1]):
-                kwargs[_paths[i + 1][1:].split(':')[0]] = unquote(paths[i])
+                p = _paths[i + 1][1:-1].split(':')
+                kwargs[p[0]] = patterns[p[1]]['type'](unquote(paths[i]))
 
         return results[1], kwargs
 
