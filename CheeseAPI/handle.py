@@ -377,7 +377,7 @@ A usable BaseResponse is not returned''')
         self.worker_beforeStoppingHandles.append(func)
 
     def _worker_beforeStoppingHandle(self):
-        logger.debug(f'The {os.getpid()} subprocess stopped', f'The <blue>{os.getpid()}</blue> subprocess stopped')
+        logger.debug(f'The subprocess {os.getpid()} stopped', f'The subprocess <blue>{os.getpid()}</blue> stopped')
 
     def server_beforeStoppingHandle(self, func: Callable):
         self.server_beforeStoppingHandles.append(func)
