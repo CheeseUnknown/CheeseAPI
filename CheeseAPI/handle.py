@@ -30,11 +30,7 @@ class Handle:
 
     async def _httpHandle(self, protocol: 'Protocol', app: 'App'):
         try:
-            if protocol.request.method == http.HTTPMethod.OPTIONS and (app.cors.origin == '*' or protocol.request.method in app.cors.origin):
-                await self._http_responseHandle(protocol, app, await self._http_optionsHandle(protocol, app))
-                return
-
-            if app.server.static and protocol.request.path.startswith(app.server.static):
+            if app.server.static and protocol.request.path.startswith(app.server.static) and protocol.request.method == http.HTTPMethod.GET:
                 try:
                     await self._http_responseHandle(protocol, app, await self._http_staticHandle(protocol, app))
                     return
@@ -56,6 +52,10 @@ class Handle:
 
                 await self._http_responseHandle(protocol, app, await self._http_noResponseHandle(protocol, app))
             except KeyError as e:
+                if protocol.request.method == http.HTTPMethod.OPTIONS and (app.cors.origin == '*' or protocol.request.method in app.cors.origin):
+                    await self._http_responseHandle(protocol, app, await self._http_optionsHandle(protocol, app))
+                    return
+
                 if e.args[0] == 0:
                     await self._http_responseHandle(protocol, app, await self._http_404Handle(protocol, app))
                     return
@@ -377,7 +377,7 @@ A usable BaseResponse is not returned''')
         self.worker_beforeStoppingHandles.append(func)
 
     def _worker_beforeStoppingHandle(self):
-        logger.debug(f'The subprocess {os.getpid()} stopped', f'The subprocess <blue>{os.getpid()}</blue> stopped')
+        logger.debug(f'The {os.getpid()} subprocess stopped', f'The <blue>{os.getpid()}</blue> subprocess stopped')
 
     def server_beforeStoppingHandle(self, func: Callable):
         self.server_beforeStoppingHandles.append(func)
