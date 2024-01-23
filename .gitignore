@@ -7,4 +7,4 @@ dist
 logs
 static
 media
-app.py
+/app.py

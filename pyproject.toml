@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "CheeseAPI"
-version = "0.3.0"
+version = "0.3.1"
 description = "一款web协程框架。"
 readme = "README.md"
 authors = [
