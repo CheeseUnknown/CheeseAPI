@@ -107,3 +107,25 @@ def test(**kwargs):
 为路由添加一个WEBSOCKET方法。
 
 该方法与其他不同，因为WEBSOCKET的构建方式与HTTP请求有异，具体请查看[Websocket](./Websocket.md)。
+
+## **`def Route.addPattern(key: str, pattern: re.Pattern, type: object, weight: int)`**
+
+添加自定义的动态匹配类型。
+
+- `key`
+
+    在路由中显示为`<id:[key]>`。
+
+- `pattern`
+
+    正则表达式，用于匹配对应的字符串。
+
+- `type`
+
+    自定义的类，必须有使用`MyType(value)`进行类型转换的功能。
+
+- `weight`
+
+    匹配权重，越大的值优先级越高。若正则表达式有冲突，请设置正确的权重以避免匹配错误。
+
+    默认的动态匹配类型，`str`权重为0，其余权重为10。

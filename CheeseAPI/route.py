@@ -2,25 +2,6 @@ import re, uuid, http
 from typing import Callable, Dict, List, Tuple, Any, Literal
 from urllib.parse import unquote
 
-patterns: Dict[str, re.Pattern] = {
-    'uuid': {
-        'pattern': r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
-        'type': uuid.UUID
-    },
-    'float': {
-        'pattern': r'[-+]?[0-9]+.[0-9]+',
-        'type': float
-    },
-    'int': {
-        'pattern': r'[-+]?[0-9]+',
-        'type': int
-    },
-    'str': {
-        'pattern': r'.+',
-        'type': str
-    }
-}
-
 class PathNode:
     def __init__(self):
         self.children: Dict[str, PathNode] = None
@@ -75,7 +56,10 @@ class Path:
         for i in range(len(paths)):
             if re.match(r'<.*?:.*?>', _paths[i + 1]):
                 p = _paths[i + 1][1:-1].split(':')
-                kwargs[p[0]] = patterns[p[1]]['type'](unquote(paths[i]))
+                for pattern in Route.patterns:
+                    if pattern['key'] == p[1]:
+                        kwargs[p[0]] = pattern['type'](unquote(paths[i]))
+                        break
 
         return results[1], kwargs
 
@@ -84,9 +68,10 @@ class Path:
             if paths[0] in node.children:
                 results = self._match(node.children[paths[0]], paths[1:], results)
             paths[0] = unquote(paths[0])
-            for key, value in patterns.items():
-                if re.fullmatch(value['pattern'], paths[0]) and f'<:{key}>' in node.children:
-                    results = self._match(node.children[f'<:{key}>'], paths[1:], results)
+            for pattern in Route.patterns:
+                if re.fullmatch(pattern['pattern'], paths[0]) and f'<:{pattern["key"]}>' in node.children:
+                    results = self._match(node.children[f'<:{pattern["key"]}>'], paths[1:], results)
+                    break
 
         if not paths and node.methods:
             for key, value in node.methods.items():
@@ -97,6 +82,43 @@ class Path:
 paths: Path = Path()
 
 class Route:
+    patterns: List[Dict[str, Any]] = [
+        {
+            'key': 'uuid',
+            'pattern': r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
+            'type': uuid.UUID,
+            'weight': 10
+        },
+        {
+            'key': 'float',
+            'pattern': r'[-+]?[0-9]+\.[0-9]+',
+            'type': float,
+            'weight': 10
+        },
+        {
+            'key': 'int',
+            'pattern': r'[-+]?[0-9]+',
+            'type': int,
+            'weight': 10
+        },
+        {
+            'key': 'str',
+            'pattern': r'.+',
+            'type': str,
+            'weight': 0
+        }
+    ]
+
+    @staticmethod
+    def addPattern(key: str, pattern: re.Pattern, type: object, weight: int):
+        Route.patterns.append({
+            'key': key,
+            'pattern': pattern,
+            'type': type,
+            'weight': weight
+        })
+        Route.patterns = sorted(Route.patterns, key = lambda x: x['weight'], reverse = True)
+
     def __init__(self, prefix: str = ''):
         self.prefix: str = prefix
 

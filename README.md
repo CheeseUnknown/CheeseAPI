@@ -10,25 +10,11 @@
 
 3. Websocket支持。
 
-4. 支持部分配置项动态设置。
-
-目前项目仍处于开发阶段，未来期望提供的功能：
-
-1. 对于请求更完善的处理。
-
-2. 更好的架构设计以及更快的算法处理。
-
-3. 更多的插件。
-
-4. 提供命令，以方便管理项目。
-
-5. 自定义的工作目录。
-
-6. 更多的配置选项。
+目前项目仍处于开发阶段，有大部分功能尚未提供。
 
 ## **安装**
 
-目前仅支持linux python3.11，这里也推荐将python升级到3.11。
+目前仅保证支持3.11及以上的python。
 
 ```bash
 pip install CheeseAPI
@@ -133,4 +119,6 @@ CheeseAPI采用类Django的结构：
 
 ### 7. [**Module**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Module.md)
 
-### 8. [**Signal**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Signal.md)
+### 8. [**File**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/File.md)
+
+### 9. [**Signal**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Signal.md)

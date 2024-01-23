@@ -70,14 +70,16 @@ async def test(**kwargs):
     })
 ```
 
-## **`FileResponse(filePath: str, downloaded: bool = False, headers: Dict[str, str] = {})`**
+## **`FileResponse(data: str | File, downloaded: bool = False, headers: Dict[str, str] = {})`**
 
 返回一个文件的Response。
 
-- **`filePath: str`**
+- **`data: str | File`**
 
-    若`filePath[0] == '.'`，会基于`app.workspace.base`路径查找文件，否则则使用绝对路径查找。
+    传入参数为`str`时，若`data[0] == '.'`，会基于`app.workspace.base`路径查找文件，否则则使用绝对路径查找。
+
+    传入参数为`File`，则直接返回该文件的Response。
 
 - **`downloaded: bool`**
 
-    当`not downloaded`时，可预览的文件会优先预览，反正则进行下载操作。
+    当`downloaded is False`时，可预览的文件会优先预览，反正则进行下载操作。

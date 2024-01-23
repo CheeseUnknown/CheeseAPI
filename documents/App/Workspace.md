@@ -10,21 +10,25 @@ app.workspace
 
 ## **`app.workspace.CheeseAPI: str = os.path.dirname(os.path.realpath(__file__))`**
 
-只读，当前CheeseAPI库的计算机路径。
+当前CheeseAPI库的计算机路径。
 
 ## **`app.workspace.base: str = os.getcwd()`**
 
-只读，项目的基础路径，目前为当前工作目录。
+项目的基础路径。
 
-## **`app.workspace.log: str = './static/'`**
+## **`app.workspace.static: str = './static/'`**
 
-项目静态资源文件夹。如果`app.workspace.log[0] != '.'`，则使用绝对路径进行查找，否则使用基于`app.workspace.base`档相对路径进行查找。
+项目静态资源文件夹。
 
-## **`app.workspace.logger: str | None = None`**
+## **`app.log: str = './logs/`**
 
-当`app.workspace.logger is None`时，CheeseAPI将不生成日志文件。
+日志文件的基础目录。
 
-当设置`app.workspace.logger = True`时，会自动设置`app.workspace.logger = '%Y_%m_%d-%H_%M_%S.log'`
+## **`app.workspace.logger: str | bool = False`**
+
+当`app.workspace.logger is False`时，CheeseAPI将不生成日志文件。
+
+当设置`app.workspace.logger is True`时，会自动设置`app.workspace.logger = '%Y_%m_%d-%H_%M_%S.log'`
 
 设置`app.workspace.logger`为字符串时，CheeseAPI会尝试将消息写入基于`app.workspace.log`路径的该文件夹。
 

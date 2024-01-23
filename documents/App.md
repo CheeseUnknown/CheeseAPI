@@ -50,7 +50,7 @@ app.modules = [ 'CheeseAPI_Websocket' ]
 
 ## **`app.localModules: List[str] | Literal[True] = True`**
 
-本地模块。当`app.localModules == True`时，在当前工作目录下，会自动导入文件夹中第一层的python文件（忽略隐藏文件夹、`__pycache__`、`__init__.py`以及一些`app.workspace`中使用的文件夹）；如果需要选择性的导入本地模块，请赋值`List[str]`，会遵循列表顺序依次加载模块：
+本地模块。当`app.localModules is True`时，在当前工作目录下，会自动导入文件夹中第一层的python文件（忽略隐藏文件夹、`__pycache__`、`__init__.py`以及一些`app.workspace`中使用的文件夹）；如果需要选择性的导入本地模块，请赋值`List[str]`，会遵循列表顺序依次加载模块：
 
 ```python
 from CheeseAPI import app
@@ -86,10 +86,16 @@ app.preferred_localModules = [ 'firstModule', 'secondModule' ]
 
 全局变量，你可以设置一些全局需要的额外参数。
 
-## **`def app.run()`**
+多worker下，在服务器启动之前修改内容可应用于所有worker；服务器运行中时，修改内容仅会应用于当前worker。
 
-启动服务器。
+## **`app.managers: Dict[str, multiprocessing.Manager]`**
 
-## **`def app.stop()`**
+全局参数，在多worker下可保存数据统一性。
 
-关闭服务器
+## **`def app.run(*, managers: Dict[str, multiprocessing.Manager] = {})`**
+
+启动服务器；请确保在`if __name__ == '__main__':`中执行。
+
+- `managers`
+
+    传入的数据可在`app.managers`中获取到。

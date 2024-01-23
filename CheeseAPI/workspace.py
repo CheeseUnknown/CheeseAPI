@@ -8,16 +8,19 @@ class Workspace:
         self.base: str = os.getcwd()
         self.static: str = './static/'
         self.log: str = './logs/'
-        self._logger: str | None = None
+        self._logger: str | bool = False
 
     @property
     def logger(self) -> str | None:
         return self._logger
 
     @logger.setter
-    def logger(self, value: str | None):
+    def logger(self, value: str | bool):
         if value is True:
             self._logger = datetime.datetime.now().strftime('%Y_%m_%d-%H_%M_%S.log')
+        elif value is False:
+            logger.filePath = None
+            return
         else:
             self._logger = datetime.datetime.now().strftime(str(value))
-        logger.filePath = self.base + '/' + self.log + self._logger
+        logger.filePath = self.log + self._logger

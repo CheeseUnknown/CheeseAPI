@@ -81,7 +81,6 @@ class Protocol:
 
         self.deque: Deque[Self] = deque()
         self.task = None
-        self.timeoutTask = None
 
 class HttpProtocol(asyncio.Protocol):
     managers: Dict[str, Manager] = {}
@@ -127,9 +126,6 @@ class HttpProtocol(asyncio.Protocol):
         app.httpWorker.connections.discard(self)
         if exc is None:
             self.protocol.transport.close()
-            if self.protocol.timeoutTask:
-                self.protocol.timeoutTask.cancel()
-                self.protocol.timeoutTask = None
 
     def on_url(self, url: bytes):
         self.protocol.request = Request(('https' if self.protocol.transport.get_extra_info('sslcontext') else 'http' + '://') + app.server.host + ':' + str(app.server.port) + url.decode())
@@ -149,15 +145,13 @@ class HttpProtocol(asyncio.Protocol):
         if self.protocol.parser.should_upgrade():
             return
 
-        if not self.protocol.request.headers.get('Content-Type'):
+        if self.protocol.task:
             self.protocol.transport.pause_reading()
-            if self.protocol.task:
-                self.protocol.transport.pause_reading()
-                self.protocol.deque.append(self.protocol)
-            else:
-                self.protocol.task = asyncio.get_event_loop().create_task(app.handle._httpHandle(self.protocol, app))
-                self.protocol.task.add_done_callback(app.httpWorker.tasks.discard)
-                app.httpWorker.tasks.add(self.protocol.task)
+            self.protocol.deque.append(self.protocol)
+        else:
+            self.protocol.task = asyncio.get_event_loop().create_task(app.handle._httpHandle(self.protocol, app))
+            self.protocol.task.add_done_callback(app.httpWorker.tasks.discard)
+            app.httpWorker.tasks.add(self.protocol.task)
 
     def on_body(self, body: bytes):
         if self.protocol.parser.should_upgrade():
@@ -168,11 +162,3 @@ class HttpProtocol(asyncio.Protocol):
 
         if len(self.protocol.request.body) == int(self.protocol.request.headers['Content-Length']):
             self.protocol.request.parseBody()
-            self.protocol.transport.pause_reading()
-            if self.protocol.task:
-                self.protocol.transport.pause_reading()
-                self.protocol.deque.append(self.protocol)
-            else:
-                self.protocol.task = asyncio.get_event_loop().create_task(app.handle._httpHandle(self.protocol, app))
-                self.protocol.task.add_done_callback(app.httpWorker.tasks.discard)
-                app.httpWorker.tasks.add(self.protocol.task)

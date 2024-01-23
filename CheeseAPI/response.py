@@ -411,24 +411,18 @@ class FileResponse(BaseResponse):
     def __init__(self, fileData: File, downloaded: bool = False, headers: Dict[str, str] = {}):
         ...
 
-    def __init__(self, data: str | File, downloaded: bool = False, headers: Dict[str, str] = {}):
-        if isinstance(data, str):
-            from CheeseAPI.app import app
-
-            if data[0] == '.':
-                filePath = app.workspace.base + '/' + data
-
+    def __init__(self, arg: str | File, downloaded: bool = False, headers: Dict[str, str] = {}):
+        if isinstance(arg, str):
             try:
-                with open(filePath, 'rb') as f:
+                with open(arg, 'rb') as f:
                     data = f.read()
             except:
                 raise FileNotFoundError('The file was not found')
 
-            fileSuffix = filePath.split('.')[-1]
-
-        elif isinstance(data, File):
-            fileSuffix = data.name
-            data = data.data
+            fileSuffix = arg.split('.')[-1]
+        elif isinstance(arg, File):
+            fileSuffix = arg.name
+            data = arg.data
 
         if downloaded or fileSuffix not in contentTypes:
             _headers = { 'content-type': 'application/octet-stream' }

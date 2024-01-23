@@ -71,11 +71,10 @@ class Handle:
 
     def server_beforeStartingHandle(self, func: Callable):
         self.server_beforeStartingHandles.append(func)
+        return func
 
-    def _server_beforeStartingHandle(self):
-        from CheeseAPI.app import app
-
-        app.g['timer'] = time.time()
+    def _server_beforeStartingHandle(self, app: 'App'):
+        app.g['startTimer'] = time.time()
 
         logger.starting(f'The master process {os.getpid()} started', f'The master process <blue>{os.getpid()}</blue> started')
 
@@ -153,29 +152,32 @@ Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
 
     def worker_beforeStartingHandle(self, func: Callable):
         self.worker_beforeStartingHandles.append(func)
+        return func
 
     def _worker_beforeStartingHandle(self):
         logger.debug(f'The subprocess {os.getpid()} started', f'The subprocess <blue>{os.getpid()}</blue> started')
 
     def worker_afterStartingHandle(self, func: Callable):
         self.worker_afterStartingHandles.append(func)
+        return func
 
     def server_afterStartingHandle(self, func: Callable):
         self.server_afterStartingHandles.append(func)
+        return func
 
-    def _server_afterStartingHandle(self):
-        from CheeseAPI.app import app
-
+    def _server_afterStartingHandle(self, app: 'App'):
         logger.starting(f'The server started on http://{app.server.host}:{app.server.port}', f'The server started on <cyan><underline>http://{app.server.host}:{app.server.port}</underline></cyan>')
 
-        timer = time.time() - app.g['timer']
+        timer = time.time() - app.g['startTimer']
         logger.starting('The server startup takes {:.6f} seconds'.format(timer), 'The server startup takes <blue>{:.6f}</blue> seconds'.format(timer))
 
     def context_beforeFirstRequestHandle(self, func: Callable):
         self.context_beforeFirstRequestHandles.append(func)
+        return func
 
     def http_beforeRequestHandle(self, func: Callable):
         self.http_beforeRequestHandles.append(func)
+        return func
 
     async def _http_staticHandle(self, protocol: 'Protocol', app: 'App'):
         return FileResponse(app.workspace.static[:-1] + protocol.request.path)
@@ -242,10 +244,6 @@ A usable BaseResponse is not returned''')
             if protocol.transport.is_closing():
                 return True
 
-            if protocol.timeoutTask:
-                protocol.timeoutTask.cancel()
-                protocol.timeoutTask = None
-            protocol.timeoutTask = asyncio.get_event_loop().call_later(5.0, protocol.transport.close)
             protocol.task = None
 
             protocol.transport.resume_reading()
@@ -262,6 +260,7 @@ A usable BaseResponse is not returned''')
 
     def http_afterResponseHandle(self, func: Callable):
         self.http_afterResponseHandles.append(func)
+        return func
 
     async def _websocket_requestHandle(self, protocol: 'WebsocketProtocol', app: 'App') -> Tuple[Callable, Dict[str, Any]] | HTTPResponse:
         try:
@@ -303,6 +302,7 @@ A usable BaseResponse is not returned''')
 
     def websocket_beforeConnectionHandle(self, func: Callable):
         self.websocket_beforeConnectionHandles.append(func)
+        return func
 
     async def _websocket_connectionHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
         try:
@@ -353,6 +353,7 @@ A usable BaseResponse is not returned''')
 
     def websocket_afterDisconnectionHandle(self, func: Callable):
         self.websocket_afterDisconnectionHandles.append(func)
+        return func
 
     def _websocket_disconnectionHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
         if not protocol.func:
@@ -375,17 +376,17 @@ A usable BaseResponse is not returned''')
 
     def worker_beforeStoppingHandle(self, func: Callable):
         self.worker_beforeStoppingHandles.append(func)
+        return func
 
-    def _worker_beforeStoppingHandle(self):
+    def _worker_beforeStoppingHandle(self, app: 'App'):
         logger.debug(f'The {os.getpid()} subprocess stopped', f'The <blue>{os.getpid()}</blue> subprocess stopped')
 
     def server_beforeStoppingHandle(self, func: Callable):
         self.server_beforeStoppingHandles.append(func)
+        return func
 
-    def _server_beforeStoppingHandle(self):
-        from CheeseAPI.app import app
-
-        timer = time.time() - app.g['timer']
+    def _server_beforeStoppingHandle(self, app: 'App'):
+        timer = time.time() - app.g['startTimer']
         message = 'The server runs for a total of '
         styledMessage = 'The server runs for a total of '
         days = int(timer // 86400)

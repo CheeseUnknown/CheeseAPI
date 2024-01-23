@@ -7,5 +7,4 @@ dist
 logs
 static
 media
-test*
-test.py
+app.py

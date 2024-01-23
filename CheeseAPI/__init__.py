@@ -1,3 +1,4 @@
+from CheeseAPI import exception
 from CheeseAPI.app import app
 from CheeseAPI.request import Request
 from CheeseAPI.response import Response, FileResponse, JsonResponse

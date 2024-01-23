@@ -25,7 +25,7 @@ class Test(WebsocketClient):
 
 ## **`request.path: str`**
 
-例如：`'/test'`
+例如：`'/test'`。
 
 ## **`request.fullPath: str`**
 
