@@ -56,7 +56,7 @@ class App:
                 process = multiprocessing.Process(target = run, args = (self, sock), name = f'CheeseAPI_Subprocess<{i}>', daemon = True)
                 process.start()
 
-            run(self, sock)
+            run(self, sock, True)
 
             while self.managers['startedWorkerNum'].value != 0:
                 time.sleep(0.1)
@@ -72,7 +72,7 @@ class App:
 
 app = App()
 
-async def _run(app: App, sock: socket.socket):
+async def _run(app: App, sock: socket.socket, master: bool = False):
     from CheeseAPI.protocol import HttpProtocol
 
     app.handle._worker_beforeStartingHandle()
@@ -114,6 +114,9 @@ async def _run(app: App, sock: socket.socket):
     with app.managers['lock']:
         app.managers['startedWorkerNum'].value -= 1
 
-def run(app, sock):
+    if not master:
+        logger.destory()
+
+def run(app, sock, master: bool = False):
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-    asyncio.run(_run(app, sock))
+    asyncio.run(_run(app, sock, master))
