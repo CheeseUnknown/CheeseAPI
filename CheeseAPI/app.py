@@ -12,7 +12,7 @@ class App:
         from CheeseAPI.server import Server
         from CheeseAPI.handle import Handle
         from CheeseAPI.worker import HttpWorker, WebsocketWorker
-        from CheeseAPI.route import Route
+        from CheeseAPI.route import Route, RouteBus
         from CheeseAPI.workspace import Workspace
         from CheeseAPI.cors import Cors
 
@@ -20,6 +20,7 @@ class App:
         self.server: Server = Server()
         self.httpWorker: HttpWorker = HttpWorker()
         self.websocketWorker: WebsocketWorker = WebsocketWorker()
+        self.routeBus: RouteBus = RouteBus()
         self.route: Route = Route()
         self.cors: Cors = Cors()
         self.managers: Dict[str, multiprocessing.Manager] = {}

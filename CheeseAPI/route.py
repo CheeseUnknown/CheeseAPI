@@ -8,16 +8,51 @@ class PathNode:
         self.key: str | None = None
         self.methods: Dict[str, Tuple[str, Callable]] | None = None
 
-class Path:
+class RouteBus:
     def __init__(self):
-        self.root: PathNode = PathNode()
+        self.patterns: List[Dict[str, Any]] = [
+            {
+                'key': 'uuid',
+                'pattern': r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
+                'type': uuid.UUID,
+                'weight': 10
+            },
+            {
+                'key': 'float',
+                'pattern': r'[-+]?[0-9]+\.[0-9]+',
+                'type': float,
+                'weight': 10
+            },
+            {
+                'key': 'int',
+                'pattern': r'[-+]?[0-9]+',
+                'type': int,
+                'weight': 10
+            },
+            {
+                'key': 'str',
+                'pattern': r'.+',
+                'type': str,
+                'weight': 0
+            }
+        ]
+        self._paths: PathNode = PathNode()
 
-    def insert(self, path: str, func: Callable, methods: List[http.HTTPMethod | str]):
+    def addPattern(self, key: str, pattern: re.Pattern, type: object, weight: int):
+        self.patterns.append({
+            'key': key,
+            'pattern': pattern,
+            'type': type,
+            'weight': weight
+        })
+        self.patterns = sorted(self.patterns, key = lambda x: x['weight'], reverse = True)
+
+    def _insert(self, path: str, func: Callable, methods: List[http.HTTPMethod | str]):
         for method in methods:
             if method != 'WEBSOCKET':
                 method = http.HTTPMethod(method)
 
-        node = self.root
+        node = self._paths
 
         for part in path.split('/')[1:]:
             if not node.children:
@@ -40,12 +75,12 @@ class Path:
         for method in methods:
             node.methods[method] = path, func
 
-    def match(self, path: str, method: http.HTTPMethod | Literal['WEBSOCKET']) -> Tuple[Callable, Dict[str, Any]]:
+    def _match(self, path: str, method: http.HTTPMethod | Literal['WEBSOCKET']) -> Tuple[Callable, Dict[str, Any]]:
         paths = path.split('/')[1:]
         if paths[-1] == '' and path != '/':
             paths = paths[:-1]
 
-        results = self._match(self.root, paths, {})
+        results = self.__match(self._paths, paths, {})
         if not results:
             raise KeyError(0)
         if method not in results:
@@ -56,21 +91,21 @@ class Path:
         for i in range(len(paths)):
             if re.match(r'<.*?:.*?>', _paths[i + 1]):
                 p = _paths[i + 1][1:-1].split(':')
-                for pattern in Route.patterns:
+                for pattern in self.patterns:
                     if pattern['key'] == p[1]:
                         kwargs[p[0]] = pattern['type'](unquote(paths[i]))
                         break
 
         return results[1], kwargs
 
-    def _match(self, node: PathNode, paths: List[str], results: Dict[http.HTTPMethod, Tuple[str, Callable]]) -> Dict[http.HTTPMethod, Tuple[str, Callable]]:
+    def __match(self, node: PathNode, paths: List[str], results: Dict[http.HTTPMethod, Tuple[str, Callable]]) -> Dict[http.HTTPMethod, Tuple[str, Callable]]:
         if paths and node.children:
             if paths[0] in node.children:
-                results = self._match(node.children[paths[0]], paths[1:], results)
+                results = self.__match(node.children[paths[0]], paths[1:], results)
             paths[0] = unquote(paths[0])
-            for pattern in Route.patterns:
+            for pattern in self.patterns:
                 if re.fullmatch(pattern['pattern'], paths[0]) and f'<:{pattern["key"]}>' in node.children:
-                    results = self._match(node.children[f'<:{pattern["key"]}>'], paths[1:], results)
+                    results = self.__match(node.children[f'<:{pattern["key"]}>'], paths[1:], results)
                     break
 
         if not paths and node.methods:
@@ -79,111 +114,94 @@ class Path:
                     results[key] = value
         return results
 
-paths: Path = Path()
-
 class Route:
-    patterns: List[Dict[str, Any]] = [
-        {
-            'key': 'uuid',
-            'pattern': r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
-            'type': uuid.UUID,
-            'weight': 10
-        },
-        {
-            'key': 'float',
-            'pattern': r'[-+]?[0-9]+\.[0-9]+',
-            'type': float,
-            'weight': 10
-        },
-        {
-            'key': 'int',
-            'pattern': r'[-+]?[0-9]+',
-            'type': int,
-            'weight': 10
-        },
-        {
-            'key': 'str',
-            'pattern': r'.+',
-            'type': str,
-            'weight': 0
-        }
-    ]
-
-    @staticmethod
-    def addPattern(key: str, pattern: re.Pattern, type: object, weight: int):
-        Route.patterns.append({
-            'key': key,
-            'pattern': pattern,
-            'type': type,
-            'weight': weight
-        })
-        Route.patterns = sorted(Route.patterns, key = lambda x: x['weight'], reverse = True)
-
     def __init__(self, prefix: str = ''):
         self.prefix: str = prefix
 
     def __call__(self, path: str, methods: List[ http.HTTPMethod | str ]):
         def decorator(func):
-            paths.insert(self.prefix + path, func, methods)
+            from CheeseAPI.app import app
+
+            app.routeBus._insert(self.prefix + path, func, methods)
             return func
         return decorator
 
     def get(self, path: str):
         def decorator(func):
-            paths.insert(self.prefix + path, func, [ http.HTTPMethod.GET ])
+            from CheeseAPI.app import app
+
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.GET ])
             return func
         return decorator
 
     def post(self, path: str):
         def decorator(func):
-            paths.insert(self.prefix + path, func, [ http.HTTPMethod.POST ])
+            from CheeseAPI.app import app
+
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.POST ])
             return func
         return decorator
 
     def delete(self, path: str):
         def decorator(func):
-            paths.insert(self.prefix + path, func, [ http.HTTPMethod.DELETE ])
+            from CheeseAPI.app import app
+
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.DELETE ])
             return func
         return decorator
 
     def put(self, path: str):
         def decorator(func):
-            paths.insert(self.prefix + path, func, [ http.HTTPMethod.PUT ])
+            from CheeseAPI.app import app
+
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.PUT ])
             return func
         return decorator
 
     def patch(self, path: str):
         def decorator(func):
-            paths.insert(self.prefix + path, func, [ http.HTTPMethod.PATCH ])
+            from CheeseAPI.app import app
+
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.PATCH ])
             return func
         return decorator
 
     def trace(self, path: str):
         def decorator(func):
-            paths.insert(self.prefix + path, func, [ http.HTTPMethod.TRACE ])
+            from CheeseAPI.app import app
+
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.TRACE ])
             return func
         return decorator
 
     def options(self, path: str):
         def decorator(func):
-            paths.insert(self.prefix + path, func, [ http.HTTPMethod.OPTIONS ])
+            from CheeseAPI.app import app
+
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.OPTIONS ])
             return func
         return decorator
 
     def head(self, path: str):
         def decorator(func):
-            paths.insert(self.prefix + path, func, [ http.HTTPMethod.HEAD ])
+            from CheeseAPI.app import app
+
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.HEAD ])
             return func
         return decorator
 
     def connect(self, path: str):
         def decorator(func):
-            paths.insert(self.prefix + path, func, [ http.HTTPMethod.CONNECT ])
+            from CheeseAPI.app import app
+
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.CONNECT ])
             return func
         return decorator
 
     def websocket(self, path: str):
         def decorator(cls):
-            paths.insert(self.prefix + path, cls, [ 'WEBSOCKET' ])
+            from CheeseAPI.app import app
+
+            app.routeBus._insert(self.prefix + path, cls, [ 'WEBSOCKET' ])
             return cls
         return decorator

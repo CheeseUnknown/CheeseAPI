@@ -5,7 +5,6 @@ import websockets
 from CheeseLog import logger, ProgressBar
 from websockets.legacy.server import HTTPResponse
 
-from CheeseAPI.route import paths
 from CheeseAPI.response import FileResponse, BaseResponse, Response
 from CheeseAPI.signal import signal
 from CheeseAPI.module import Module, LocalModule
@@ -38,7 +37,7 @@ class Handle:
                     ...
 
             try:
-                func, kwargs = paths.match(protocol.request.path, protocol.request.method)
+                func, kwargs = app.routeBus._match(protocol.request.path, protocol.request.method)
 
                 for http_beforeRequestHandle in self.http_beforeRequestHandles:
                     await http_beforeRequestHandle(**{ 'request': protocol.request })
@@ -264,7 +263,7 @@ A usable BaseResponse is not returned''')
 
     async def _websocket_requestHandle(self, protocol: 'WebsocketProtocol', app: 'App') -> Tuple[Callable, Dict[str, Any]] | HTTPResponse:
         try:
-            func, kwargs = paths.match(protocol.request.path, 'WEBSOCKET')
+            func, kwargs = app.routeBus._match(protocol.request.path, 'WEBSOCKET')
             kwargs['request'] = protocol.request
             return func(), kwargs
         except KeyError as e:
