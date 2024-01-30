@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 class Handle:
     def __init__(self):
+        self.afterInitHandles: List[Callable] = []
         self.server_beforeStartingHandles: List[Callable] = []
         self.worker_beforeStartingHandles: List[Callable] = []
         self.worker_afterStartingHandles: List[Callable] = []
@@ -69,6 +70,8 @@ class Handle:
         server.close()
 
     def _initHandle(self, app: 'App'):
+        app.g['startTimer'] = time.time()
+
         moduleNum = len(app.modules)
         if moduleNum:
             for i in range(moduleNum):
@@ -94,13 +97,20 @@ class Handle:
                 if module not in app.preferred_localModules:
                     LocalModule(app.workspace.base, module)
 
+        if signal.receiver('afterInitHandle'):
+            signal.send('afterInitHandle')
+        for afterInitHandle in app.handle.afterInitHandles:
+            afterInitHandle()
+
+    def afterInitHandle(self, func: Callable):
+        self.afterInitHandles.append(func)
+        return func
+
     def server_beforeStartingHandle(self, func: Callable):
         self.server_beforeStartingHandles.append(func)
         return func
 
     def _server_beforeStartingHandle(self, app: 'App'):
-        app.g['startTimer'] = time.time()
-
         logger.starting(f'The master process {os.getpid()} started', f'The master process <blue>{os.getpid()}</blue> started')
 
         logger.starting(f'''Workspace information:
