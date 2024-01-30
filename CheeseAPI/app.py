@@ -33,6 +33,12 @@ class App:
         self.handle: Handle = Handle()
         self.g: Dict[str, Any] = {}
 
+    def init(self):
+        try:
+            self.handle._initHandle(self)
+        except Exception as e:
+            sys.excepthook(Exception, e, sys.exc_info()[2])
+
     def run(self, *, managers: Dict[str, multiprocessing.Manager] = {}):
         try:
             self.managers.update(managers)

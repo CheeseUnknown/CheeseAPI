@@ -37,6 +37,8 @@ from CheeseAPI import app, Response
 async def test(**kwargs):
     return Response('您好，这里是CheeseAPI！')
 
+app.init() # 初始化app
+
 if __name__ == '__main__':
     app.run() # 默认的启动地址：'0.0.0.0'，默认的启动端口：5214
 ```

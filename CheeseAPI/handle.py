@@ -2,7 +2,7 @@ import os, time, http, traceback, asyncio
 from typing import TYPE_CHECKING, List, Callable, Tuple, Dict, Any
 
 import websockets
-from CheeseLog import logger, ProgressBar
+from CheeseLog import logger
 from websockets.legacy.server import HTTPResponse
 
 from CheeseAPI.response import FileResponse, BaseResponse, Response
@@ -68,6 +68,32 @@ class Handle:
     def _exitSignalHandle(self, server):
         server.close()
 
+    def _initHandle(self, app: 'App'):
+        moduleNum = len(app.modules)
+        if moduleNum:
+            for i in range(moduleNum):
+                Module(app.modules[i])
+
+        if app.localModules is True:
+            localModule = []
+            for foldername in os.listdir(app.workspace.base):
+                if foldername[0] == '.' or foldername == '__pycache__':
+                    continue
+                folderPath = os.path.join(app.workspace.base, foldername)
+                if os.path.isdir(folderPath):
+                    if (not app.workspace.static or not os.path.exists(os.path.join(app.workspace.base, app.workspace.static)) or not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.static))) and (not app.workspace.log or not os.path.exists(os.path.join(app.workspace.base, app.workspace.log)) or not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.log))) and foldername not in app.exclude_localModules:
+                        localModule.append(foldername)
+            app.localModules = localModule
+        else:
+            app.preferred_localModules = []
+        localModuleNum = len(app.localModules)
+        if localModuleNum:
+            for module in app.preferred_localModules:
+                LocalModule(app.workspace.base, module)
+            for module in app.localModules:
+                if module not in app.preferred_localModules:
+                    LocalModule(app.workspace.base, module)
+
     def server_beforeStartingHandle(self, func: Callable):
         self.server_beforeStartingHandles.append(func)
         return func
@@ -99,55 +125,13 @@ Port: <blue>{app.server.port}</blue>
 Workers: <blue>{app.server.workers}</blue>''' + (f'''
 Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
 
-        progressBar = ProgressBar(20)
-
-        moduleNum = len(app.modules)
-        if moduleNum:
+        if app.modules:
             logger.starting(f'''Modules:
-''' + ' | '.join(app.modules), f'''Modules:
-''' + ' | '.join(app.modules) + '''
-''')
-            timer = time.time()
-            for i in range(moduleNum):
-                message, styledMessage = progressBar(i * 1.0 / moduleNum)
-                logger.loading(message, styledMessage)
-                Module(app.modules[i])
-            timer = time.time() - timer
-            logger.loaded('The modules are loaded, which takes {:.6f} seconds'.format(timer), 'The modules are loaded, which takes <blue>{:.6f}</blue> seconds'.format(timer), refreshed = True)
+''' + ' | '.join(app.modules))
 
-        if app.localModules is True:
-            localModule = []
-            for foldername in os.listdir(app.workspace.base):
-                if foldername[0] == '.' or foldername == '__pycache__':
-                    continue
-                folderPath = os.path.join(app.workspace.base, foldername)
-                if os.path.isdir(folderPath):
-                    if (not app.workspace.static or not os.path.exists(os.path.join(app.workspace.base, app.workspace.static)) or not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.static))) and (not app.workspace.log or not os.path.exists(os.path.join(app.workspace.base, app.workspace.log)) or not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.log))) and foldername not in app.exclude_localModules:
-                        localModule.append(foldername)
-            app.localModules = localModule
-        else:
-            app.preferred_localModules = []
-        localModuleNum = len(app.localModules)
-        if localModuleNum:
+        if app.localModules:
             logger.starting(f'''Local Modules:
-''' + ' | '.join(app.localModules), f'''Local Modules:
-''' + ' | '.join(app.localModules) + '''
-''')
-            timer = time.time()
-            count = 0
-            for module in app.preferred_localModules:
-                message, styledMessage = progressBar(count * 1.0 / localModuleNum)
-                logger.loading(message, styledMessage)
-                LocalModule(app.workspace.base, module)
-                count += 1
-            for module in app.localModules:
-                if module not in app.preferred_localModules:
-                    message, styledMessage = progressBar(count * 1.0 / localModuleNum)
-                    logger.loading(message, styledMessage)
-                    LocalModule(app.workspace.base, module)
-                    count += 1
-            timer = time.time() - timer
-            logger.loaded('The local modules are loaded, which takes {:.6f} seconds'.format(timer), 'The local modules are loaded, which takes <blue>{:.6f}</blue> seconds'.format(timer), refreshed = True)
+''' + ' | '.join(app.localModules))
 
     def worker_beforeStartingHandle(self, func: Callable):
         self.worker_beforeStartingHandles.append(func)
@@ -166,9 +150,6 @@ Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
 
     def _server_afterStartingHandle(self, app: 'App'):
         logger.starting(f'The server started on http://{app.server.host}:{app.server.port}', f'The server started on <cyan><underline>http://{app.server.host}:{app.server.port}</underline></cyan>')
-
-        timer = time.time() - app.g['startTimer']
-        logger.starting('The server startup takes {:.6f} seconds'.format(timer), 'The server startup takes <blue>{:.6f}</blue> seconds'.format(timer))
 
     def context_beforeFirstRequestHandle(self, func: Callable):
         self.context_beforeFirstRequestHandles.append(func)

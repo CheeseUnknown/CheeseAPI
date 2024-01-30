@@ -2,7 +2,7 @@ blinker==1.7.0
 build==1.0.3
 certifi==2023.11.17
 charset-normalizer==3.3.2
-CheeseLog==0.2.0
+CheeseLog==0.2.2
 CheeseType==0.0.3
 docutils==0.20.1
 httptools==0.6.1

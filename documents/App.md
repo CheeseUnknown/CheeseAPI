@@ -92,6 +92,10 @@ app.preferred_localModules = [ 'firstModule', 'secondModule' ]
 
 全局参数，在多worker下可保存数据统一性。
 
+## **`def app.init()`**
+
+初始化app。
+
 ## **`def app.run(*, managers: Dict[str, multiprocessing.Manager] = {})`**
 
 启动服务器；请确保在`if __name__ == '__main__':`中执行。
