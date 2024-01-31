@@ -136,11 +136,11 @@ Workers: <blue>{app.server.workers}</blue>''' + (f'''
 Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
 
         if app.modules:
-            logger.starting(f'''Modules:
+            logger.loaded(f'''Modules:
 ''' + ' | '.join(app.modules))
 
         if app.localModules:
-            logger.starting(f'''Local Modules:
+            logger.loaded(f'''Local Modules:
 ''' + ' | '.join(app.localModules))
 
     def worker_beforeStartingHandle(self, func: Callable):
