@@ -1,4 +1,5 @@
 import blinker
+from ordered_set import OrderedSet
 
 class Signal(dict):
     def register(self, name: str):
@@ -31,6 +32,8 @@ class Signal(dict):
             raise KeyError('No signal with this name')
 
         await self[name].send_async(*args, **kwargs)
+
+blinker.Signal.set_class = OrderedSet
 
 signal = Signal()
 

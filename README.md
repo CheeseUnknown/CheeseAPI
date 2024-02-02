@@ -96,31 +96,28 @@ CheeseAPI采用类Django的结构：
 | model.py | 模型类 |
 | api.py | api接口 |
 | service.py | 业务逻辑实现 |
+| handle.py | 初始化逻辑 |
 
 ## **更多...**
 
-### 1. [**生命周期**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/生命周期.md)
+### 1. [**App**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/App.md)
 
-### 2. [**App**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/App.md)
+#### 1.1 [**Workspace**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/App/Workspace.md)
 
-#### 2.1 [**Workspace**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/App/Workspace.md)
+#### 1.2 [**Server**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/App/Server.md)
 
-#### 2.2 [**Server**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/App/Server.md)
+#### 1.3 [**Cors**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/App/Cors.md)
 
-#### 2.3 [**Cors**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/App/Cors.md)
+### 2. [**Route**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Route.md)
 
-#### 2.4 [**Handle**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/App/Handle.md)
+### 3. [**Request**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Request.md)
 
-### 3. [**Route**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Route.md)
+### 4. [**Response**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Response.md)
 
-### 4. [**Request**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Request.md)
+### 5. [**Websocket**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Websocket.md)
 
-### 5. [**Response**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Response.md)
+### 6. [**Module**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Module.md)
 
-### 6. [**Websocket**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Websocket.md)
-
-### 7. [**Module**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Module.md)
+### 7. [**Signal**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Signal.md)
 
 ### 8. [**File**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/File.md)
-
-### 9. [**Signal**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/documents/Signal.md)

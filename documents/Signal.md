@@ -2,6 +2,8 @@
 
 CheeseAPI使用了基于blinker的信号功能。对于项目来说，使用信号开发可以尽可能的解耦代码，但也要保证代码逻辑的清晰。
 
+信号函数会根据注册代码导入顺序按序执行。
+
 ## **自定义信号**
 
 ### **注册一个信号**
@@ -39,7 +41,7 @@ def test(*args, **kwargs):
     ...
 
 @singal.connect('async_myEvent')
-def async_test(*args, **kwargs):
+async def async_test(*args, **kwargs):
     ...
 ```
 
@@ -55,4 +57,64 @@ def test(*args, **kwargs):
     ...
 ```
 
-更多请查看[生命周期](./生命周期.md)。
+### **`@signal.connect('afterInitHandle')`**
+
+在`app.init()`后调用。
+
+### **`@signal.connect('server_beforeStartingHandle')`**
+
+在服务器启动之前调用。
+
+### **`@signal.connect('worker_beforeStartingHandle')`**
+
+支持异步函数。
+
+在worker启动之前调用；多worker下会调用多次。
+
+### **`@signal.connect('worker_afterStartingHandle')`**
+
+支持异步函数。
+
+在worker启动之后调用；多worker下会调用多次。
+
+### **`@signal.connect('server_afterStartingHandle')`**
+
+支持异步函数。
+
+在服务器启动之后调用。
+
+### **`@signal.connect('context_beforeFirstRequestHandle')`**
+
+在第一次请求处理前调用；比http_beforeRequestHandle更早。
+
+### **`@signal.connect('http_beforeRequestHandle')`**
+
+支持异步函数。
+
+在请求处理前调用。
+
+### **`@signal.connect('http_afterResponseHandle')`**
+
+支持异步函数。
+
+在响应生成后调用；此时该响应还未发送。
+
+### **`@signal.connect('websocket_beforeConnectionHandle')`**
+
+支持异步函数。
+
+在websocket连接前调用；此时websocket已经构建了连接，仅是在当前websocket的connectHandle调用之前执行。
+
+### **`@signal.connect('websocket_afterDisconnectionHandle')`**
+
+在websocket断开后调用。
+
+### **`@signal.connect('worker_beforeStoppingHandle')`**
+
+支持异步函数。
+
+在worker停止之后调用；多worker下会调用多次。
+
+### **`@signal.connect('server_beforeStoppingHandle')`**
+
+在服务器停止之后调用。

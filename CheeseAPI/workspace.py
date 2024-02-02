@@ -16,6 +16,8 @@ class Workspace:
 
     @logger.setter
     def logger(self, value: str | bool):
+        from CheeseAPI import app
+
         if value is True:
             self._logger = datetime.datetime.now().strftime('%Y_%m_%d-%H_%M_%S.log')
         elif value is False:
@@ -24,3 +26,6 @@ class Workspace:
         else:
             self._logger = datetime.datetime.now().strftime(str(value))
         logger.filePath = self.log + self._logger
+
+        if 'workspace.logger' in app._managers and app._managers['workspace.logger'].value != logger.filePath:
+            app._managers['workspace.logger'].value = self.logger

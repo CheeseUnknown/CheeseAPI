@@ -48,7 +48,7 @@ class WebsocketProtocol(WebSocketServerProtocol):
         super().connection_made(transport)
 
     async def process_request(self, *args, **kwargs) -> HTTPResponse | None:
-        result = await app.handle._websocket_requestHandle(self, app)
+        result = await app._handle._websocket_requestHandle(self, app)
         if len(result) == 3:
             return result
         self.func = result
@@ -56,13 +56,13 @@ class WebsocketProtocol(WebSocketServerProtocol):
         self.func[0].close = self.close
 
     def process_subprotocol(self, *args, **kwargs) -> str:
-        self.func[1]['subprotocol'] = app.handle._websocket_subprotocolHandle(self, app)
+        self.func[1]['subprotocol'] = app._handle._websocket_subprotocolHandle(self, app)
         if self.func[1]['subprotocol'] not in self.request.headers.get('Sec-Websocket-Protocol', '').split(', '):
             raise InvalidHandshake()
         return self.func[1]['subprotocol']
 
     async def ws_handler(self, *args, **kwargs):
-        await app.handle._websocket_handler(self, app)
+        await app._handle._websocket_handler(self, app)
 
     def connection_lost(self, exc: Exception | None) -> None:
         app.websocketWorker.connections.discard(self)
@@ -70,7 +70,7 @@ class WebsocketProtocol(WebSocketServerProtocol):
         if exc is None:
             self.transport.close()
 
-        app.handle._websocket_disconnectionHandle(self, app)
+        app._handle._websocket_disconnectionHandle(self, app)
 
 class Protocol:
     def __init__(self, parser):
@@ -87,8 +87,6 @@ class HttpProtocol(asyncio.Protocol):
 
     def __init__(self):
         if not HttpProtocol.managers['firstRequest'].value:
-            for context_beforeFirstRequestHandle in app.handle.context_beforeFirstRequestHandles:
-                context_beforeFirstRequestHandle()
             if signal.receiver('context_beforeFirstRequestHandle'):
                 signal.send('context_beforeFirstRequestHandle')
             HttpProtocol.managers['firstRequest'].value = True
@@ -149,7 +147,7 @@ class HttpProtocol(asyncio.Protocol):
             self.protocol.transport.pause_reading()
             self.protocol.deque.append(self.protocol)
         else:
-            self.protocol.task = asyncio.get_event_loop().create_task(app.handle._httpHandle(self.protocol, app))
+            self.protocol.task = asyncio.get_event_loop().create_task(app._handle._httpHandle(self.protocol, app))
             self.protocol.task.add_done_callback(app.httpWorker.tasks.discard)
             app.httpWorker.tasks.add(self.protocol.task)
 

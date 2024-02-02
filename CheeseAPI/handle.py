@@ -14,20 +14,6 @@ if TYPE_CHECKING:
     from CheeseAPI.protocol import WebsocketProtocol, Protocol
 
 class Handle:
-    def __init__(self):
-        self.afterInitHandles: List[Callable] = []
-        self.server_beforeStartingHandles: List[Callable] = []
-        self.worker_beforeStartingHandles: List[Callable] = []
-        self.worker_afterStartingHandles: List[Callable] = []
-        self.server_afterStartingHandles: List[Callable] = []
-        self.context_beforeFirstRequestHandles: List[Callable] = []
-        self.http_beforeRequestHandles: List[Callable] = []
-        self.http_afterResponseHandles: List[Callable] = []
-        self.websocket_beforeConnectionHandles: List[Callable] = []
-        self.websocket_afterDisconnectionHandles: List[Callable] = []
-        self.worker_beforeStoppingHandles: List[Callable] = []
-        self.server_beforeStoppingHandles: List[Callable] = []
-
     async def _httpHandle(self, protocol: 'Protocol', app: 'App'):
         try:
             if app.server.static and protocol.request.path.startswith(app.server.static) and protocol.request.method == http.HTTPMethod.GET:
@@ -40,8 +26,6 @@ class Handle:
             try:
                 func, kwargs = app.routeBus._match(protocol.request.path, protocol.request.method)
 
-                for http_beforeRequestHandle in self.http_beforeRequestHandles:
-                    await http_beforeRequestHandle(**{ 'request': protocol.request })
                 if signal.receiver('http_beforeRequestHandle'):
                     await signal.async_send('http_beforeRequestHandle', { 'request': protocol.request })
 
@@ -99,16 +83,6 @@ class Handle:
 
         if signal.receiver('afterInitHandle'):
             signal.send('afterInitHandle')
-        for afterInitHandle in app.handle.afterInitHandles:
-            afterInitHandle()
-
-    def afterInitHandle(self, func: Callable):
-        self.afterInitHandles.append(func)
-        return func
-
-    def server_beforeStartingHandle(self, func: Callable):
-        self.server_beforeStartingHandles.append(func)
-        return func
 
     def _server_beforeStartingHandle(self, app: 'App'):
         logger.starting(f'The master process {os.getpid()} started', f'The master process <blue>{os.getpid()}</blue> started')
@@ -143,31 +117,11 @@ Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
             logger.loaded(f'''Local Modules:
 ''' + ' | '.join(app.localModules))
 
-    def worker_beforeStartingHandle(self, func: Callable):
-        self.worker_beforeStartingHandles.append(func)
-        return func
-
     def _worker_beforeStartingHandle(self):
         logger.debug(f'The subprocess {os.getpid()} started', f'The subprocess <blue>{os.getpid()}</blue> started')
 
-    def worker_afterStartingHandle(self, func: Callable):
-        self.worker_afterStartingHandles.append(func)
-        return func
-
-    def server_afterStartingHandle(self, func: Callable):
-        self.server_afterStartingHandles.append(func)
-        return func
-
     def _server_afterStartingHandle(self, app: 'App'):
         logger.starting(f'The server started on http://{app.server.host}:{app.server.port}', f'The server started on <cyan><underline>http://{app.server.host}:{app.server.port}</underline></cyan>')
-
-    def context_beforeFirstRequestHandle(self, func: Callable):
-        self.context_beforeFirstRequestHandles.append(func)
-        return func
-
-    def http_beforeRequestHandle(self, func: Callable):
-        self.http_beforeRequestHandles.append(func)
-        return func
 
     async def _http_staticHandle(self, protocol: 'Protocol', app: 'App'):
         return FileResponse(app.workspace.static[:-1] + protocol.request.path)
@@ -200,11 +154,6 @@ A usable BaseResponse is not returned''')
         if isinstance(response, BaseResponse):
             if signal.receiver('http_afterResponseHandle'):
                 await signal.async_send('http_afterResponseHandle', {
-                    'response': response,
-                    'request': protocol.request
-                })
-            for http_afterResponseHandle in self.http_afterResponseHandles:
-                await http_afterResponseHandle(**{
                     'response': response,
                     'request': protocol.request
                 })
@@ -241,16 +190,12 @@ A usable BaseResponse is not returned''')
             if protocol.deque:
                 _protocol = protocol.deque.popleft()
                 _protocol.transport.resume_reading()
-                protocol.task = asyncio.get_event_loop().create_task(app.handle._httpHandle(_protocol, app))
+                protocol.task = asyncio.get_event_loop().create_task(app._handle._httpHandle(_protocol, app))
                 protocol.task.add_done_callback(app.httpWorker.tasks.discard)
                 app.httpWorker.tasks.add(protocol.task)
 
             return True
         return False
-
-    def http_afterResponseHandle(self, func: Callable):
-        self.http_afterResponseHandles.append(func)
-        return func
 
     async def _websocket_requestHandle(self, protocol: 'WebsocketProtocol', app: 'App') -> Tuple[Callable, Dict[str, Any]] | HTTPResponse:
         try:
@@ -270,14 +215,12 @@ A usable BaseResponse is not returned''')
     async def _websocket_405Handle(self, protocol: 'WebsocketProtocol', app: 'App') -> Response:
         return Response(status = http.HTTPStatus.METHOD_NOT_ALLOWED)
 
-    async def _websocket_responseHandle(self, protocol: 'WebsocketProtocol', app: 'App', response) -> HTTPResponse:
-        for http_afterResponseHandle in self.http_afterResponseHandles:
-            _response = await http_afterResponseHandle(**{
+    async def _websocket_responseHandle(self, protocol: 'WebsocketProtocol', app: 'App', response: BaseResponse) -> HTTPResponse:
+        if signal.receiver('http_afterResponseHandle'):
+            await signal.async_send('http_afterResponseHandle', {
                 'response': response,
                 'request': protocol.request
             })
-            if isinstance(_response, BaseResponse):
-                response = _response
 
         logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed WEBSOCKET {protocol.request.fullPath} and returned {response.status}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>WEBSOCKET ' + logger.encode(protocol.request.fullPath) + f'</cyan> and returned <blue>{response.status}</blue>')
 
@@ -289,10 +232,6 @@ A usable BaseResponse is not returned''')
             'subprotocols': protocol.request.headers.get('Sec-Websocket-Protocol', '').split(', ')
         })
         return protocol.func[0].subprotocolHandle(**kwargs)
-
-    def websocket_beforeConnectionHandle(self, func: Callable):
-        self.websocket_beforeConnectionHandles.append(func)
-        return func
 
     async def _websocket_connectionHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
         try:
@@ -307,15 +246,13 @@ A usable BaseResponse is not returned''')
 
     async def _websocket_handler(self, protocol: 'WebsocketProtocol', app: 'App'):
         try:
-            for websocket_beforeConnectionHandle in app.handle.websocket_beforeConnectionHandles:
-                await websocket_beforeConnectionHandle(**protocol.func[1])
             if signal.receiver('websocket_beforeConnectionHandle'):
                 await signal.async_send('websocket_beforeConnectionHandle', protocol.func[1])
 
-            await app.handle._websocket_connectionHandle(protocol, app)
+            await app._handle._websocket_connectionHandle(protocol, app)
 
             while not protocol.closed:
-                await app.handle._websocket_messageHandle(protocol, app)
+                await app._handle._websocket_messageHandle(protocol, app)
         except:
             message = logger.encode(traceback.format_exc()[:-1])
             logger.danger(f'''An error occurred while receiving WEBSOCKET {protocol.request.fullPath} message:
@@ -341,10 +278,6 @@ A usable BaseResponse is not returned''')
 {message}''', f'''An error occurred while receiving <cyan>WEBSOCKET {protocol.request.fullPath}</cyan> message:
 {message}''')
 
-    def websocket_afterDisconnectionHandle(self, func: Callable):
-        self.websocket_afterDisconnectionHandles.append(func)
-        return func
-
     def _websocket_disconnectionHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
         if not protocol.func:
             return
@@ -356,24 +289,14 @@ A usable BaseResponse is not returned''')
 
             if signal.receiver('websocket_afterDisconnectionHandle'):
                 signal.send('websocket_afterDisconnectionHandle', protocol.func[1])
-            for websocket_afterDisconnectionHandle in app.handle.websocket_afterDisconnectionHandles:
-                websocket_afterDisconnectionHandle(**protocol.func[1])
         except:
             message = logger.encode(traceback.format_exc()[:-1])
             logger.danger(f'''An error occurred while disconnecting WEBSOCKET {protocol.request.fullPath}:
 {message}''', f'''An error occurred while disconnecting <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>:
 {message}''')
 
-    def worker_beforeStoppingHandle(self, func: Callable):
-        self.worker_beforeStoppingHandles.append(func)
-        return func
-
     def _worker_beforeStoppingHandle(self, app: 'App'):
         logger.debug(f'The {os.getpid()} subprocess stopped', f'The <blue>{os.getpid()}</blue> subprocess stopped')
-
-    def server_beforeStoppingHandle(self, func: Callable):
-        self.server_beforeStoppingHandles.append(func)
-        return func
 
     def _server_beforeStoppingHandle(self, app: 'App'):
         timer = time.time() - app.g['startTimer']

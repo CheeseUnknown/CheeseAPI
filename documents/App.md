@@ -78,25 +78,21 @@ from CheeseAPI import app
 app.preferred_localModules = [ 'firstModule', 'secondModule' ]
 ```
 
-## **`app.handle: Handle`**
-
-插槽，更多请查看[App - Handle](./App/Handle.md)。
-
 ## **`app.g: Dict[str, Any] = {}`**
 
 全局变量，你可以设置一些全局需要的额外参数。
 
 多worker下，在服务器启动之前修改内容可应用于所有worker；服务器运行中时，修改内容仅会应用于当前worker。
 
-## **`app.managers: Dict[str, multiprocessing.Manager]`**
+## **`app.managers: Dict[str, Any] = { 'lock': multiprocessing.Lock() }`**
 
-全局参数，在多worker下可保存数据统一性。
+全局参数，value使用multiprocessing生成的内容，在多worker下可保存数据统一性。
 
 ## **`def app.init()`**
 
 初始化app。
 
-## **`def app.run(*, managers: Dict[str, multiprocessing.Manager] = {})`**
+## **`def app.run(*, managers: Dict[str, Any] = {})`**
 
 启动服务器；请确保在`if __name__ == '__main__':`中执行。
 
