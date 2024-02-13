@@ -10,7 +10,7 @@
 
 3. Websocket支持。
 
-目前项目仍处于开发阶段，有大部分功能尚未提供。
+目前项目仍处于开发阶段，有大部分功能尚未提供，文档极不稳定，对于一些功能未来不确保能一直支持。
 
 ## **安装**
 
@@ -55,13 +55,13 @@ $ python app.py
     Host: 0.0.0.0
     Port: 5214
     Workers: 1
-(STARTING) 2023-08-24 12:20:56.934619 > Local Modules:
+(LOADED) 2023-08-24 12:20:56.934619 > Local Modules:
     CheeseAPI
-(LOADED) 2023-08-24 12:20:56.937603 > The local modules are loaded, which takes 0.002867 seconds
 (DEBUG) 2023-08-24 12:20:56.938326 > The subprocess 700506 started
 (STARTING) 2023-08-24 12:20:56.939158 > The server started on http://0.0.0.0:5214
-(STARTING) 2023-08-24 12:20:56.939279 > The server startup takes 0.006139 seconds
 ```
+
+请不要在尚未完全启动时关闭服务器，这可能导致部分进程无法被销毁。
 
 使用`ctrl + c`或`kill <pid>`杀死进程，会打印完剩下的内容：
 

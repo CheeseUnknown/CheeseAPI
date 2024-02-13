@@ -8,6 +8,7 @@ class Server:
         self.port: Port = 5214
         self._workers: NonNegativeInt = 1
         self.static: str | None = None
+        self.backlog: int = 128
 
     @property
     def workers(self) -> NonNegativeInt:

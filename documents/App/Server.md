@@ -29,3 +29,7 @@ from CheeseAPI import app
 
 app.server.static = '/'
 ```
+
+## **`app.server.backlog: int = 128`**
+
+等待处理的请求；建议与QPS相同，过大的参数会拖累性能。

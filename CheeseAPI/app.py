@@ -1,8 +1,7 @@
-import asyncio, multiprocessing, socket, time, sys
+import asyncio, multiprocessing, socket, time, sys, platform
 import signal as pySignal
 from typing import Dict, Any, List, Literal
 
-import uvloop
 from CheeseLog import logger
 
 from CheeseAPI.signal import signal
@@ -61,6 +60,7 @@ class App:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 sock.bind((self.server.host, self.server.port))
+                sock.listen(self.server.backlog)
                 sock.set_inheritable(True)
 
                 multiprocessing.allow_connection_pickling()
@@ -71,7 +71,10 @@ class App:
                 run(self, sock, True)
 
                 while self._managers['startedWorkerNum'].value != 0:
-                    time.sleep(0.01)
+                    try:
+                        time.sleep(0.01)
+                    except KeyboardInterrupt:
+                        continue
             except Exception as e:
                 sys.excepthook(Exception, e, sys.exc_info()[2])
 
@@ -99,8 +102,9 @@ async def _run(_app: App, sock: socket.socket, master: bool = False):
 
     loop = asyncio.get_running_loop()
     server = await loop.create_server(HttpProtocol, sock = sock)
-    loop.add_signal_handler(pySignal.SIGINT, app._handle._exitSignalHandle, server)
-    loop.add_signal_handler(pySignal.SIGTERM, app._handle._exitSignalHandle, server)
+    if platform.system() != 'Windows':
+        loop.add_signal_handler(pySignal.SIGINT, app._handle._exitSignalHandle, server)
+        loop.add_signal_handler(pySignal.SIGTERM, app._handle._exitSignalHandle, server)
 
     if signal.receiver('worker_afterStartingHandle'):
         await signal.async_send('worker_afterStartingHandle')
@@ -116,7 +120,10 @@ async def _run(_app: App, sock: socket.socket, master: bool = False):
         if app._managers['workspace.logger'].value != app.workspace.logger:
             app.workspace.logger = app._managers['workspace.logger'].value
 
-        await asyncio.sleep(0.01)
+        try:
+            await asyncio.sleep(0.01)
+        except asyncio.exceptions.CancelledError:
+            break
 
     if signal.receiver('worker_beforeStoppingHandle'):
         await signal.async_send('worker_beforeStoppingHandle')
@@ -129,9 +136,20 @@ async def _run(_app: App, sock: socket.socket, master: bool = False):
         logger.destroy()
 
 def run(app, sock, master: bool = False):
-    import setproctitle
+    try:
+        import setproctitle
 
-    setproctitle.setproctitle('CheeseAPI_masterProcess' if master else 'CheeseAPI_subprocess')
+        setproctitle.setproctitle('CheeseAPI_masterProcess' if master else 'CheeseAPI_subprocess')
 
-    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-    asyncio.run(_run(app, sock, master))
+        if platform.system() == 'Windows':
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        else:
+            import uvloop
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    except KeyboardInterrupt:
+        ...
+
+    try:
+        asyncio.run(_run(app, sock, master))
+    except InterruptedError:
+        ...

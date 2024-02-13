@@ -4,18 +4,21 @@ build-backend = "hatchling.build"
 
 [project]
 name = "CheeseAPI"
-version = "0.3.6"
+version = "0.3.7"
 description = "一款web协程框架。"
 readme = "README.md"
+license-files = { paths = [ "LICENSE" ] }
 authors = [
     { name = "Cheese Unknown", email = "cheese@cheese.ren" }
 ]
+keywords = [ 'API', 'BackEnd' ]
+
 dependencies = [
     "CheeseLog",
     "xmltodict",
     "blinker",
     "websockets",
-    "uvloop",
+    "uvloop; platform_system != 'Windows'",
     "httptools",
     "ordered_set"
 ]
