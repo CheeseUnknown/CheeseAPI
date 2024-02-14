@@ -1,5 +1,5 @@
 import os, time, http, traceback, asyncio
-from typing import TYPE_CHECKING, List, Callable, Tuple, Dict, Any
+from typing import TYPE_CHECKING, Callable, Tuple, Dict, Any
 
 import websockets
 from CheeseLog import logger

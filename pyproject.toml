@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = [ "hatchling" ]
 build-backend = "hatchling.build"
 
 [project]
 name = "CheeseAPI"
-version = "0.3.7"
+version = "0.3.8"
 description = "一款web协程框架。"
 readme = "README.md"
 license-files = { paths = [ "LICENSE" ] }
@@ -18,7 +18,7 @@ dependencies = [
     "xmltodict",
     "blinker",
     "websockets",
-    "uvloop; platform_system != 'Windows'",
+    "uvloop",
     "httptools",
     "ordered_set"
 ]
@@ -27,4 +27,4 @@ dependencies = [
 Source = "https://github.com/CheeseUnknown/CheeseAPI"
 
 [tool.hatch.build.targets.sdist]
-include = ["/CheeseAPI"]
+include = [ "/CheeseAPI" ]
