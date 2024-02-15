@@ -88,7 +88,7 @@ Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
             for i in range(moduleNum):
                 Module(app.modules[i])
                 message, styledMessage = progressBar((i + 1) / moduleNum)
-                logger.loading(message, styledMessage)
+                logger.loading('Modules: ' + message + ' ' + app.modules[i], 'Modules: ' + styledMessage + ' ' + app.modules[i])
 
             logger.loaded(f'''Modules:
 ''' + ' | '.join(app.modules), refreshed = True)
@@ -115,13 +115,13 @@ Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
                 LocalModule(app.workspace.base, module)
                 i += 1
                 message, styledMessage = progressBar(i / localModuleNum)
-                logger.loading(message, styledMessage)
+                logger.loading('Local Modules: ' + message + ' ' + module, 'Local Modules: ' + styledMessage + ' ' + module)
             for module in app.localModules:
                 if module not in app.preferred_localModules:
                     LocalModule(app.workspace.base, module)
                     i += 1
                     message, styledMessage = progressBar(i / localModuleNum)
-                    logger.loading(message, styledMessage)
+                    logger.loading('Local Modules: ' + message + ' ' + module, 'Local Modules: ' + styledMessage + ' ' + module)
 
             logger.loaded(f'''Local Modules:
 ''' + ' | '.join(app.localModules), refreshed = True)
