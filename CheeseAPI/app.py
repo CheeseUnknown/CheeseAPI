@@ -39,42 +39,33 @@ class App:
             'startedWorkerNum': multiprocessing.Value('i', 0)
         }
 
-    def init(self):
+    def run(self, *, managers: Dict[str, Any] = {}):
         try:
-            self._handle._initHandle(self)
+            self.managers.update(managers)
+            manager = multiprocessing.Manager()
+            self._managers['workspace.logger'] = manager.Value(str, self.workspace.logger)
+
+            self._handle._server_beforeStartingHandle(self)
+            if signal.receiver('server_beforeStartingHandle'):
+                signal.send('server_beforeStartingHandle')
+
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((self.server.host, self.server.port))
+            sock.listen(self.server.backlog)
+            sock.set_inheritable(True)
+
+            multiprocessing.allow_connection_pickling()
+            for i in range(0, self.server.workers - 1):
+                process = multiprocessing.Process(target = run, args = (self, sock), name = f'CheeseAPI_subprocess')
+                process.start()
+
+            run(self, sock, True)
+
+            while self._managers['startedWorkerNum'].value != 0:
+                time.sleep(0.01)
         except Exception as e:
             sys.excepthook(Exception, e, sys.exc_info()[2])
-
-    def run(self, *, managers: Dict[str, Any] = {}):
-        if 'startTimer' not in app.g:
-            logger.error('The app has not yet been initiated')
-        else:
-            try:
-                self.managers.update(managers)
-                manager = multiprocessing.Manager()
-                self._managers['workspace.logger'] = manager.Value(str, self.workspace.logger)
-
-                self._handle._server_beforeStartingHandle(self)
-                if signal.receiver('server_beforeStartingHandle'):
-                    signal.send('server_beforeStartingHandle')
-
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                sock.bind((self.server.host, self.server.port))
-                sock.listen(self.server.backlog)
-                sock.set_inheritable(True)
-
-                multiprocessing.allow_connection_pickling()
-                for i in range(0, self.server.workers - 1):
-                    process = multiprocessing.Process(target = run, args = (self, sock), name = f'CheeseAPI_subprocess')
-                    process.start()
-
-                run(self, sock, True)
-
-                while self._managers['startedWorkerNum'].value != 0:
-                    time.sleep(0.01)
-            except Exception as e:
-                sys.excepthook(Exception, e, sys.exc_info()[2])
 
         if signal.receiver('server_beforeStoppingHandle'):
             signal.send('server_beforeStoppingHandle')

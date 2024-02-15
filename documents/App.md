@@ -12,8 +12,7 @@ app.server.workers = 0 # 修改worker数量为自动
 app.workspace.logger = True # 自动生成日志文件
 app.server.static = '/' # 启用静态资源，访问地址为GET /
 
-if __name__ == '__main__':
-    app.run()
+app.run()
 ```
 
 ## **`app.workspace: Workspace`**
@@ -88,13 +87,9 @@ app.preferred_localModules = [ 'firstModule', 'secondModule' ]
 
 全局参数，value使用multiprocessing生成的内容，在多worker下可保存数据统一性。
 
-## **`def app.init()`**
-
-初始化app。
-
 ## **`def app.run(*, managers: Dict[str, Any] = {})`**
 
-启动服务器；请确保在`if __name__ == '__main__':`中执行。
+启动服务器。
 
 - `managers`
 

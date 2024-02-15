@@ -37,7 +37,6 @@ blinker.Signal.set_class = OrderedSet
 
 signal = Signal()
 
-signal.register('afterInitHandle')
 signal.register('server_beforeStartingHandle')
 signal.register('worker_beforeStartingHandle')
 signal.register('worker_afterStartingHandle')

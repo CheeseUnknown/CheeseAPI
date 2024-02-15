@@ -57,10 +57,6 @@ def test(*args, **kwargs):
     ...
 ```
 
-### **`@signal.connect('afterInitHandle')`**
-
-在`app.init()`后调用。
-
 ### **`@signal.connect('server_beforeStartingHandle')`**
 
 在服务器启动之前调用。

@@ -39,10 +39,7 @@ from CheeseAPI import app, Response
 async def test(**kwargs):
     return Response('您好，这里是CheeseAPI！')
 
-app.init() # 初始化app
-
-if __name__ == '__main__':
-    app.run() # 默认的启动地址：'0.0.0.0'，默认的启动端口：5214
+app.run() # 默认的启动地址：0.0.0.0，默认的启动端口：5214
 ```
 
 运行`app.py`，可以看到打印了一些基础信息，当当前代码的最后一行启动时，代表系统已经可以访问：
@@ -62,8 +59,6 @@ $ python app.py
 (DEBUG) 2023-08-24 12:20:56.938326 > The subprocess 700506 started
 (STARTING) 2023-08-24 12:20:56.939158 > The server started on http://0.0.0.0:5214
 ```
-
-请不要在尚未完全启动时关闭服务器，这可能导致部分进程无法被销毁。
 
 使用`ctrl + c`或`kill <pid>`杀死进程，会打印完剩下的内容：
 
@@ -98,6 +93,7 @@ CheeseAPI采用类Django的结构：
 | model.py | 模型类 |
 | api.py | api接口 |
 | service.py | 业务逻辑实现 |
+| model.py | ORM |
 | handle.py | 初始化逻辑 |
 
 ## **更多...**
