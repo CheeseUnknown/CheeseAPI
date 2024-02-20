@@ -83,12 +83,10 @@ Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
         moduleNum = len(app.modules)
         if moduleNum:
             progressBar = ProgressBar()
-            message, styledMessage = progressBar(0)
-            logger.loading(message, styledMessage, refreshed = False)
             for i in range(moduleNum):
-                Module(app.modules[i])
-                message, styledMessage = progressBar((i + 1) / moduleNum)
+                message, styledMessage = progressBar(i / moduleNum)
                 logger.loading('Modules: ' + message + ' ' + app.modules[i], 'Modules: ' + styledMessage + ' ' + app.modules[i])
+                Module(app.modules[i])
 
             logger.loaded(f'''Modules:
 ''' + ' | '.join(app.modules), refreshed = True)
@@ -109,19 +107,17 @@ Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
         if localModuleNum:
             progressBar = ProgressBar()
             i = 0
-            message, styledMessage = progressBar(i / localModuleNum)
-            logger.loading(message, styledMessage, refreshed = False)
             for module in app.preferred_localModules:
-                LocalModule(app.workspace.base, module)
-                i += 1
                 message, styledMessage = progressBar(i / localModuleNum)
                 logger.loading('Local Modules: ' + message + ' ' + module, 'Local Modules: ' + styledMessage + ' ' + module)
+                LocalModule(app.workspace.base, module)
+                i += 1
             for module in app.localModules:
                 if module not in app.preferred_localModules:
-                    LocalModule(app.workspace.base, module)
-                    i += 1
                     message, styledMessage = progressBar(i / localModuleNum)
                     logger.loading('Local Modules: ' + message + ' ' + module, 'Local Modules: ' + styledMessage + ' ' + module)
+                    LocalModule(app.workspace.base, module)
+                    i += 1
 
             logger.loaded(f'''Local Modules:
 ''' + ' | '.join(app.localModules), refreshed = True)
