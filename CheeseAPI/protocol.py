@@ -33,6 +33,7 @@ class WebsocketProtocol(WebSocketServerProtocol):
 
         self.request: Request | None = None
         self.func: Tuple['WebsocketClient', Dict[str, Any]] | None = None
+        self.is_alive: bool = False
 
         super().__init__(
             ws_handler = self.ws_handler,
@@ -70,7 +71,8 @@ class WebsocketProtocol(WebSocketServerProtocol):
         if exc is None:
             self.transport.close()
 
-        app._handle._websocket_disconnectionHandle(self, app)
+        if self.is_alive:
+            app._handle._websocket_disconnectionHandle(self, app)
 
 class Protocol:
     def __init__(self, parser):

@@ -255,6 +255,8 @@ A usable BaseResponse is not returned''')
 
     async def _websocket_handler(self, protocol: 'WebsocketProtocol', app: 'App'):
         try:
+            protocol.is_alive = True
+
             if signal.receiver('websocket_beforeConnectionHandle'):
                 await signal.async_send('websocket_beforeConnectionHandle', protocol.func[1])
 
