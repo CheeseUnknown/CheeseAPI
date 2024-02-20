@@ -145,13 +145,14 @@ class HttpProtocol(asyncio.Protocol):
         if self.protocol.parser.should_upgrade():
             return
 
-        if self.protocol.task:
-            self.protocol.transport.pause_reading()
-            self.protocol.deque.append(self.protocol)
-        else:
-            self.protocol.task = asyncio.get_event_loop().create_task(app._handle._httpHandle(self.protocol, app))
-            self.protocol.task.add_done_callback(app.httpWorker.tasks.discard)
-            app.httpWorker.tasks.add(self.protocol.task)
+        if 'Content-Length' not in self.protocol.request.headers:
+            if self.protocol.task:
+                self.protocol.transport.pause_reading()
+                self.protocol.deque.append(self.protocol)
+            else:
+                self.protocol.task = asyncio.get_event_loop().create_task(app._handle._httpHandle(self.protocol, app))
+                self.protocol.task.add_done_callback(app.httpWorker.tasks.discard)
+                app.httpWorker.tasks.add(self.protocol.task)
 
     def on_body(self, body: bytes):
         if self.protocol.parser.should_upgrade():
@@ -162,3 +163,11 @@ class HttpProtocol(asyncio.Protocol):
 
         if len(self.protocol.request.body) == int(self.protocol.request.headers['Content-Length']):
             self.protocol.request.parseBody()
+
+        if self.protocol.task:
+            self.protocol.transport.pause_reading()
+            self.protocol.deque.append(self.protocol)
+        else:
+            self.protocol.task = asyncio.get_event_loop().create_task(app._handle._httpHandle(self.protocol, app))
+            self.protocol.task.add_done_callback(app.httpWorker.tasks.discard)
+            app.httpWorker.tasks.add(self.protocol.task)
