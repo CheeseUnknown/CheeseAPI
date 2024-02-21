@@ -41,8 +41,8 @@ class App:
 
     def run(self):
         try:
-            manager = multiprocessing.Manager()
-            self._managers['workspace.logger'] = manager.Value(str, self.workspace.logger)
+            self._managers['workspace.logger'] = multiprocessing.Array('c', 1024)
+            self._managers['workspace.logger'].value = self.workspace.logger.encode()
 
             self._handle._server_beforeStartingHandle(self)
             if signal.receiver('server_beforeStartingHandle'):
@@ -59,7 +59,8 @@ class App:
                 process = multiprocessing.Process(target = run, args = (self, sock), name = 'CheeseAPI:Processing')
                 process.start()
 
-            run(self, sock)
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+            asyncio.run(_run(app, sock))
 
             while self._managers['startedWorkerNum'].value != 0:
                 time.sleep(0.01)
@@ -80,7 +81,7 @@ async def _run(_app: App, sock: socket.socket):
     app.managers = _app.managers
     app._managers = _app._managers
 
-    app.workspace.logger = app._managers['workspace.logger'].value
+    app.workspace.logger = app._managers['workspace.logger'].value.decode()
 
     app._handle._worker_beforeStartingHandle()
     if signal.receiver('worker_beforeStartingHandle'):
@@ -104,10 +105,11 @@ async def _run(_app: App, sock: socket.socket):
                 await signal.async_send('server_afterStartingHandle')
 
     while server.is_serving():
-        if app._managers['workspace.logger'].value != app.workspace.logger:
-            app.workspace._logger = app._managers['workspace.logger'].value
+        logger = app._managers['workspace.logger'].value.decode()
+        if logger != app.workspace.logger:
+            app.workspace._logger = logger
 
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.016)
 
     if signal.receiver('worker_beforeStoppingHandle'):
         await signal.async_send('worker_beforeStoppingHandle')
@@ -118,8 +120,7 @@ async def _run(_app: App, sock: socket.socket):
 
 def run(app, sock):
     import setproctitle
-    if setproctitle.getproctitle() != 'CheeseAPI':
-        setproctitle.setproctitle('CheeseAPI:Processing')
+    setproctitle.setproctitle('CheeseAPI:Processing')
 
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     asyncio.run(_run(app, sock))
