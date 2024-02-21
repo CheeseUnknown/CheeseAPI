@@ -58,7 +58,7 @@ class WebsocketProtocol(WebSocketServerProtocol):
 
     def process_subprotocol(self, *args, **kwargs) -> str:
         self.func[1]['subprotocol'] = app._handle._websocket_subprotocolHandle(self, app)
-        if self.func[1]['subprotocol'] not in self.request.headers.get('Sec-Websocket-Protocol', '').split(', '):
+        if self.func[1]['subprotocol'] and self.func[1]['subprotocol'] not in self.request.headers.get('Sec-Websocket-Protocol', '').split(', '):
             raise InvalidHandshake()
         return self.func[1]['subprotocol']
 
@@ -85,7 +85,7 @@ class Protocol:
         self.task = None
 
 class HttpProtocol(asyncio.Protocol):
-    managers: Dict[str, Manager] = {}
+    managers: Dict[str, Any] = {}
 
     def __init__(self):
         if not HttpProtocol.managers['firstRequest'].value:
