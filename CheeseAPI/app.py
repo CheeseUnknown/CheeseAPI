@@ -39,9 +39,8 @@ class App:
             'startedWorkerNum': multiprocessing.Value('i', 0)
         }
 
-    def run(self, *, managers: Dict[str, Any] = {}):
+    def run(self):
         try:
-            self.managers.update(managers)
             manager = multiprocessing.Manager()
             self._managers['workspace.logger'] = manager.Value(str, self.workspace.logger)
 
@@ -60,7 +59,7 @@ class App:
                 process = multiprocessing.Process(target = run, args = (self, sock), name = 'CheeseAPI:Processing')
                 process.start()
 
-            run(self, sock, True)
+            run(self, sock)
 
             while self._managers['startedWorkerNum'].value != 0:
                 time.sleep(0.01)

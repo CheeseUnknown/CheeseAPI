@@ -87,10 +87,6 @@ app.preferred_localModules = [ 'firstModule', 'secondModule' ]
 
 全局参数，value使用multiprocessing生成的内容，在多worker下可保存数据统一性。
 
-## **`def app.run(*, managers: Dict[str, Any] = {})`**
+## **`def app.run()`**
 
 启动服务器。
-
-- `managers`
-
-    传入的数据可在`app.managers`中获取到。
