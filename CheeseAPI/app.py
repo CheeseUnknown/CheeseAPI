@@ -57,7 +57,7 @@ class App:
 
             multiprocessing.allow_connection_pickling()
             for i in range(0, self.server.workers - 1):
-                process = multiprocessing.Process(target = run, args = (self, sock), name = f'CheeseAPI_subprocess')
+                process = multiprocessing.Process(target = run, args = (self, sock), name = 'CheeseAPI:Processing')
                 process.start()
 
             run(self, sock, True)
@@ -117,9 +117,10 @@ async def _run(_app: App, sock: socket.socket):
     with app.managers['lock']:
         app._managers['startedWorkerNum'].value -= 1
 
-def run(app, sock, master: bool = False):
+def run(app, sock):
     import setproctitle
-    setproctitle.setproctitle('CheeseAPI_masterProcess' if master else 'CheeseAPI_subprocess')
+    if setproctitle.getproctitle() != 'CheeseAPI':
+        setproctitle.setproctitle('CheeseAPI:Processing')
 
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     asyncio.run(_run(app, sock))
