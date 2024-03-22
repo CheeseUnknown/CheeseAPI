@@ -1,50 +1,58 @@
+from typing import TYPE_CHECKING, Any, Callable
+
 import blinker
 from ordered_set import OrderedSet
 
-class Signal(dict):
-    def register(self, name: str):
-        if name in self:
-            raise KeyError('The name has been registered')
+if TYPE_CHECKING:
+    from CheeseAPI.app import App
 
-        self[name] = blinker.signal(name)
+class _Signal:
+    def __init__(self, app: 'App'):
+        self.app: 'App' = app
 
-    def connect(self, name: str):
-        if name not in self:
-            raise KeyError('No signal with this name')
-        def decorator(func):
-            self[name].connect(func, weak = False)
-        return decorator
+        self.server_beforeStarting: Signal = Signal()
+        self.server_afterStarting: Signal = Signal()
+        self.server_running: Signal = Signal()
+        self.server_beforeStopping: Signal = Signal()
+        self.server_afterStopping: Signal = Signal()
 
-    def receiver(self, name: str):
-        if name not in self:
-            raise KeyError('No signal with this name')
+        self.worker_beforeStarting: Signal = Signal()
+        self.worker_afterStarting: Signal = Signal()
+        self.worker_running: Signal = Signal()
+        self.worker_beforeStopping: Signal = Signal()
+        self.worker_afterStopping: Signal = Signal()
 
-        return self[name].receivers
+        self.http_beforeRequest: Signal = Signal()
+        self.http_afterRequest: Signal = Signal()
+        self.http_static: Signal = Signal()
+        self.http_custom: Signal = Signal()
+        self.http_404: Signal = Signal()
+        self.http_options: Signal = Signal()
+        self.http_405: Signal = Signal()
+        self.http_500: Signal = Signal()
+        self.http_beforeResponse: Signal = Signal()
+        self.http_afterResponse: Signal = Signal()
 
-    def send(self, name: str, *args, **kwargs):
-        if name not in self:
-            raise KeyError('No signal with this name')
+        self.websocket_afterRequest: Signal = Signal()
+        self.websocket_404: Signal = Signal()
+        self.websocket_405: Signal = Signal()
+        self.websocket_500: Signal = Signal()
+        self.websocket_beforeResponse: Signal = Signal()
+        self.websocket_afterResponse: Signal = Signal()
+        self.websocket_beforeSubprotocol: Signal = Signal()
+        self.websocket_afterSubprotocol: Signal = Signal()
+        self.websocket_beforeConnection: Signal = Signal()
+        self.websocket_afterConnection: Signal = Signal()
+        self.websocket_beforeMessage: Signal = Signal()
+        self.websocket_afterMessage: Signal = Signal()
+        self.websocket_beforeSending: Signal = Signal()
+        self.websocket_afterSending: Signal = Signal()
+        self.websocket_beforeClosing: Signal = Signal()
+        self.websocket_afterClosing: Signal = Signal()
+        self.websocket_afterDisconnection: Signal = Signal()
 
-        self[name].send(*args, **kwargs)
+class Signal(blinker.Signal):
+    def connect_via(self, sender: Any = blinker.ANY, weak: TYPE_CHECKING = False) -> Callable:
+        return super().connect_via(sender, weak)
 
-    async def async_send(self, name: str, *args, **kwargs):
-        if name not in self:
-            raise KeyError('No signal with this name')
-
-        await self[name].send_async(*args, **kwargs)
-
-blinker.Signal.set_class = OrderedSet
-
-signal = Signal()
-
-signal.register('server_beforeStartingHandle')
-signal.register('worker_beforeStartingHandle')
-signal.register('worker_afterStartingHandle')
-signal.register('server_afterStartingHandle')
-signal.register('context_beforeFirstRequestHandle')
-signal.register('http_beforeRequestHandle')
-signal.register('http_afterResponseHandle')
-signal.register('websocket_beforeConnectionHandle')
-signal.register('websocket_afterDisconnectionHandle')
-signal.register('worker_beforeStoppingHandle')
-signal.register('server_beforeStoppingHandle')
+Signal.set_class = OrderedSet

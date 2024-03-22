@@ -1,19 +1,97 @@
-import asyncio, http
-from typing import TYPE_CHECKING, Dict, Any, Tuple, Deque, Self
-from multiprocessing import Manager
-from collections import deque
+import http
+from typing import TYPE_CHECKING, Dict, Any, Tuple
 
-import httptools
-from websockets.legacy.server import HTTPResponse
+import asyncio, httptools
 from websockets.server import WebSocketServerProtocol
-from websockets.exceptions import InvalidHandshake
 
-from CheeseAPI.app import app
 from CheeseAPI.request import Request
-from CheeseAPI.signal import signal
+from CheeseAPI.app import app
 
 if TYPE_CHECKING:
-    from CheeseAPI.websocket import WebsocketClient
+    from CheeseAPI.response import BaseResponse
+    from CheeseAPI.websocket import WebsocketServer
+
+class HttpProtocol(asyncio.Protocol):
+    def __init__(self):
+        self.transport: asyncio.Transport | None = None
+        self.parser = httptools.HttpRequestParser(self)
+        self.request: Request | None = None
+        self.response: 'BaseResponse' | None = None
+        self.kwargs: Dict[str, Any] = {}
+
+    def connection_made(self, transport: asyncio.Transport):
+        self.transport = transport
+
+    def data_received(self, data: bytes) -> None:
+        self.request = None
+        self.response = None
+        self.kwargs = {}
+
+        try:
+            self.parser.feed_data(data)
+
+            if self.request.body:
+                self.request._parseBody()
+
+            asyncio.get_event_loop().create_task(app._handle.http(self))
+        except httptools.HttpParserUpgrade:
+            self.request._upgrade()
+
+            websocketProtocol = WebsocketProtocol(self)
+            websocketProtocol.connection_made(self.transport)
+            websocketProtocol.data_received(data)
+            self.transport.set_protocol(websocketProtocol)
+
+    def on_url(self, url: bytes):
+        self.request = Request(http.HTTPMethod(self.parser.get_method().decode()), self.transport.get_extra_info('sslcontext'), url.decode())
+
+        self.request.client = self.transport.get_extra_info('socket').getpeername()[0]
+        self.request.origin = f'{self.transport.get_extra_info('socket').getsockname()[0]}:{self.transport.get_extra_info('socket').getsockname()[1]}'
+
+    def on_header(self, key: bytes, value: bytes):
+        self.request.headers['-'.join([t.capitalize() for t in key.decode().split('-')])] = value.decode()
+
+    def on_body(self, body: bytes):
+        if self.request.body is None:
+            self.request.body = b''
+        self.request.body += body
+
+    def connection_lost(self, exc: Exception | None):
+        self.transport.close()
+
+class WebsocketProtocol(WebSocketServerProtocol):
+    def __init__(self, httpProcotol: HttpProtocol):
+        self.transport: asyncio.Transport = httpProcotol.transport
+        self.server: 'WebsocketServer' | None = None
+        self.request: Request = httpProcotol.request
+        self.response: 'BaseResponse' | None = None
+        self.kwargs: Dict[str, Any] = httpProcotol.kwargs
+
+        super().__init__(
+            ws_handler = self.ws_handle,
+            ws_server = FakeWebsocketServer()
+        )
+
+    async def process_request(self, *args, **kwargs) -> Tuple[int, Dict[str, str], bytes] | None:
+        results = await app._handle.websocket_request(self)
+        if results:
+            return results
+
+        self.server.send = self._send
+        self.server.close = self._close
+
+    async def ws_handle(self, *args, **kwargs):
+        await app._handle.websocket(self)
+
+    def connection_lost(self, exc: Exception | None):
+        self.transport.close()
+        super().connection_lost(exc)
+
+    async def _send(self, message: str | bytes):
+        await app._handle.websocket_send(self, message)
+
+    async def _close(self, code: int = 1000, reason: str = ''):
+        await app._handle.websocket_close(self, code, reason)
 
 class FakeWebsocketServer:
     closing = False
@@ -26,148 +104,3 @@ class FakeWebsocketServer:
 
     def is_serving(self) -> bool:
         return not self.closing
-
-class WebsocketProtocol(WebSocketServerProtocol):
-    def __init__(self):
-        self.transport: asyncio.Transport | None = None
-
-        self.request: Request | None = None
-        self.func: Tuple['WebsocketClient', Dict[str, Any]] | None = None
-        self.is_alive: bool = False
-
-        super().__init__(
-            ws_handler = self.ws_handler,
-            ws_server = FakeWebsocketServer()
-        )
-
-    def connection_made(self, transport, request):
-        self.transport = transport
-        self.request = request
-
-        app.websocketWorker.connections.add(self)
-
-        super().connection_made(transport)
-
-    async def process_request(self, *args, **kwargs) -> HTTPResponse | None:
-        result = await app._handle._websocket_requestHandle(self, app)
-        if len(result) == 3:
-            return result
-        self.func = result
-        self.func[0].send = self.send
-        self.func[0].close = self.close
-
-    def process_subprotocol(self, *args, **kwargs) -> str:
-        self.func[1]['subprotocol'] = app._handle._websocket_subprotocolHandle(self, app)
-        if self.func[1]['subprotocol'] and self.func[1]['subprotocol'] not in self.request.headers.get('Sec-Websocket-Protocol', '').split(', '):
-            raise InvalidHandshake()
-        return self.func[1]['subprotocol']
-
-    async def ws_handler(self, *args, **kwargs):
-        await app._handle._websocket_handler(self, app)
-
-    def connection_lost(self, exc: Exception | None) -> None:
-        app.websocketWorker.connections.discard(self)
-        super().connection_lost(exc)
-        if exc is None:
-            self.transport.close()
-
-        if self.is_alive:
-            app._handle._websocket_disconnectionHandle(self, app)
-
-class Protocol:
-    def __init__(self, parser):
-        self.transport: asyncio.Transport | None = None
-        self.parser = parser
-
-        self.request: Request = None
-
-        self.deque: Deque[Self] = deque()
-        self.task = None
-
-class HttpProtocol(asyncio.Protocol):
-    managers: Dict[str, Any] = {}
-
-    def __init__(self):
-        if not HttpProtocol.managers['firstRequest'].value:
-            if signal.receiver('context_beforeFirstRequestHandle'):
-                signal.send('context_beforeFirstRequestHandle')
-            HttpProtocol.managers['firstRequest'].value = True
-
-        self.protocol: Protocol = Protocol(httptools.HttpRequestParser(self))
-
-    def connection_made(self, transport: asyncio.Transport):
-        self.protocol.transport = transport
-
-        app.httpWorker.connections.add(self)
-
-    def data_received(self, data: bytes) -> None:
-        try:
-            self.protocol.parser.feed_data(data)
-        except httptools.HttpParserUpgrade:
-            if self.protocol.request.headers.get('Upgrade') == 'websocket':
-                app.httpWorker.connections.discard(self)
-                content = [ self.protocol.request.method.value.encode(), b' ', self.protocol.request.fullPath.encode(), b' HTTP/1.1\r\n' ]
-                for key, value in self.protocol.request.headers.items():
-                    content += [ key.encode(), b': ', value.encode(), b'\r\n' ]
-                content.append(b'\r\n')
-
-                self.protocol.request.url = self.protocol.request.url.replace('http', 'ws')
-                self.protocol.request.method = None
-                self.protocol.request.body = None
-                self.protocol.request.form = None
-                self.protocol.request.scheme = self.protocol.request.scheme.replace('http', 'ws')
-
-                websocketProtocol = WebsocketProtocol()
-                websocketProtocol.connection_made(self.protocol.transport, self.protocol.request)
-                websocketProtocol.data_received(b''.join(content))
-                self.protocol.transport.set_protocol(websocketProtocol)
-
-    def connection_lost(self, exc: Exception | None) -> None:
-        app.httpWorker.connections.discard(self)
-        if exc is None:
-            self.protocol.transport.close()
-
-    def on_url(self, url: bytes):
-        self.protocol.request = Request(('https' if self.protocol.transport.get_extra_info('sslcontext') else 'http' + '://') + app.server.host + ':' + str(app.server.port) + url.decode())
-
-        self.protocol.request.headers['X-Forwarded-For'] = self.protocol.transport.get_extra_info('socket').getpeername()[0]
-
-    def on_header(self, name: bytes, value: bytes):
-        name = '-'.join([ n.capitalize() for n in name.decode().split('-') ])
-        value = value.decode()
-
-        self.protocol.request.headers[name] = value
-        if name == 'Host':
-            self.protocol.request.url = self.protocol.request.url.replace(f'://{app.server.host}:{app.server.port}/', f'://{value}/')
-
-    def on_headers_complete(self):
-        self.protocol.request.method = http.HTTPMethod(self.protocol.parser.get_method().decode())
-        if self.protocol.parser.should_upgrade():
-            return
-
-        if 'Content-Length' not in self.protocol.request.headers:
-            if self.protocol.task:
-                self.protocol.transport.pause_reading()
-                self.protocol.deque.append(self.protocol)
-            else:
-                self.protocol.task = asyncio.get_event_loop().create_task(app._handle._httpHandle(self.protocol, app))
-                self.protocol.task.add_done_callback(app.httpWorker.tasks.discard)
-                app.httpWorker.tasks.add(self.protocol.task)
-
-    def on_body(self, body: bytes):
-        if self.protocol.parser.should_upgrade():
-            return
-        if self.protocol.request.body is None:
-            self.protocol.request.body = b''
-        self.protocol.request.body += body
-
-        if len(self.protocol.request.body) == int(self.protocol.request.headers['Content-Length']):
-            self.protocol.request.parseBody()
-
-        if self.protocol.task:
-            self.protocol.transport.pause_reading()
-            self.protocol.deque.append(self.protocol)
-        else:
-            self.protocol.task = asyncio.get_event_loop().create_task(app._handle._httpHandle(self.protocol, app))
-            self.protocol.task.add_done_callback(app.httpWorker.tasks.discard)
-            app.httpWorker.tasks.add(self.protocol.task)

@@ -1,31 +1,58 @@
-import os, datetime
+import os, datetime, sys
+
+from typing import TYPE_CHECKING
 
 from CheeseLog import logger
 
+if TYPE_CHECKING:
+    from CheeseAPI.app import App
+
 class Workspace:
-    def __init__(self):
-        self.CheeseAPI: str = os.path.dirname(os.path.realpath(__file__))
-        self.base: str = os.getcwd()
+    def __init__(self, app: 'App'):
+        self._app: 'App' = app
+
+        self._base: str = os.getcwd()
         self.static: str = './static/'
-        self.log: str = './logs/'
-        self._logger: str | bool = False
+        self._log: str = './logs/'
+        self._logger: str = ''
 
     @property
-    def logger(self) -> str | None:
+    def base(self) -> str:
+        return self._base
+
+    @base.setter
+    def base(self, value: str):
+        sys.path.remove(self._base)
+        self._base = value
+        sys.path.append(self._base)
+
+    @property
+    def log(self) -> str:
+        return self._log
+
+    @log.setter
+    def log(self, value: str):
+        self._log = value
+
+        if self.log and self.logger:
+            logger.filePath = os.path.join(self.log, self.logger)
+        else:
+            logger.filePath = ''
+
+    @property
+    def logger(self) -> str:
         return self._logger
 
     @logger.setter
     def logger(self, value: str | bool):
-        from CheeseAPI import app
-
         if value is True:
-            self._logger = datetime.datetime.now().strftime('%Y_%m_%d-%H_%M_%S.log')
+            self._logger = datetime.datetime.now().strftime(self._app._text.logger)
         elif value is False:
-            logger.filePath = None
-            return
+            self._logger = ''
         else:
-            self._logger = datetime.datetime.now().strftime(str(value))
-        logger.filePath = self.log + self._logger
+            self._logger = datetime.datetime.now().strftime(value)
 
-        if 'workspace.logger' in app._managers and app._managers['workspace.logger'].value.decode() != logger.filePath:
-            app._managers['workspace.logger'].value = self.logger.encode()
+        if self.log and self.logger:
+            logger.filePath = os.path.join(self.log, self.logger)
+        else:
+            logger.filePath = ''

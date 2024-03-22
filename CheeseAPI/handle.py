@@ -1,327 +1,743 @@
-import os, time, http, traceback, asyncio
-from typing import TYPE_CHECKING, Callable, Tuple, Dict, Any
+import time, os, inspect, socket, multiprocessing, signal, http, ipaddress
+from typing import TYPE_CHECKING, Dict, Tuple
 
-import websockets
-from CheeseLog import logger, ProgressBar
-from websockets.legacy.server import HTTPResponse
+import asyncio, uvloop, setproctitle, websockets
+from CheeseLog import logger
 
-from CheeseAPI.response import FileResponse, BaseResponse, Response
-from CheeseAPI.signal import signal
-from CheeseAPI.module import Module, LocalModule
+from CheeseAPI.response import BaseResponse, FileResponse, Response
 
 if TYPE_CHECKING:
     from CheeseAPI.app import App
-    from CheeseAPI.protocol import WebsocketProtocol, Protocol
+    from CheeseAPI.protocol import HttpProtocol, WebsocketProtocol
 
 class Handle:
-    async def _httpHandle(self, protocol: 'Protocol', app: 'App'):
+    def __init__(self, app: 'App'):
+        self._app: 'App' = app
+
+    def server_beforeStarting(self):
+        self._app.g['startTime'] = time.time()
+
+        for text in self._app._text.server_information():
+            logger.starting(text[0], text[1])
+
+        self.loadModules()
+        self.loadLocalModules()
+
+    def loadModule(self, name: str):
+        module = __import__(name)
+
+        # 依赖
+        dependencies = getattr(module, 'CheeseAPI_module_dependencies', [])
+        if dependencies:
+            for dependency in dependencies:
+                self.loadModule(dependency)
+
+        type = getattr(module, 'CheeseAPI_module_type', 'single')
+        modulePath = os.path.dirname(inspect.getfile(module))
+        # 单模块
+        if type == 'single':
+            for filename in os.listdir(modulePath):
+                filePath = os.path.join(modulePath, filename)
+                if os.path.isfile(filePath) and filename.endswith('.py'):
+                    __import__(f'{name}.{filename[:-3]}', fromlist = [''])
+        # 多模块
+        elif type == 'multiple':
+            foldernames = os.listdir(modulePath)
+            for foldername in getattr(module, 'CheeseAPI_module_preferredSubModules', []):
+                if foldername in foldernames:
+                    foldernames.remove(foldername)
+                    foldernames.insert(0, foldername)
+
+            for foldername in foldernames:
+                if foldername == '__pycache__':
+                    continue
+
+                folderPath = os.path.join(modulePath, foldername)
+                for filename in os.listdir(folderPath):
+                    filePath = os.path.join(folderPath, filename)
+                    if os.path.isfile(filePath) and filename.endswith('.py'):
+                        __import__(f'{name}.{foldername}.{filename[:-3]}', fromlist = [''])
+
+    def loadModules(self):
+        moduleNum = len(self._app.modules)
+        if moduleNum:
+            print()
+
+            for i in range(moduleNum):
+                message, styledMessage = self._app._text.loadingModule(i / moduleNum, self._app.modules[i])
+                logger.loading(message, styledMessage)
+
+                self.loadModule(self._app.modules[i])
+
+            for text in self._app._text.loadedModules():
+                logger.loaded(text[0], text[1], refreshed = True)
+
+    def loadLocalModule(self, name: str):
+        modulePath = os.path.join(self._app.workspace.base, name)
+        for filename in os.listdir(modulePath):
+            filePath = os.path.join(modulePath, filename)
+            if os.path.isfile(filePath) and filename.endswith('.py'):
+                __import__(f'{name}.{filename[:-3]}', fromlist = [''])
+
+    def loadLocalModules(self):
+        foldernames = self._app.localModules.copy()
+        for foldername in self._app.preferred_localModules:
+            if foldername in foldernames:
+                foldernames.remove(foldername)
+                foldernames.insert(0, foldername)
+        for foldername in self._app.exclude_localModules:
+            if foldername in foldernames:
+                foldernames.remove(foldername)
+
+        moduleNum = len(foldernames)
+        if moduleNum:
+            print()
+
+            for i in range(moduleNum):
+                message, styledMessage = self._app._text.loadingLocalModule(i / moduleNum, foldernames[i])
+                logger.loading(message, styledMessage)
+
+                self.loadLocalModule(foldernames[i])
+
+            for text in self._app._text.loadedLocalModules():
+                logger.loaded(text[0], text[1], refreshed = True)
+
+    def server_start(self):
+        self._app._handle.server_beforeStarting()
+        if self._app.signal.server_beforeStarting.receivers:
+            self._app.signal.server_beforeStarting.send()
+
         try:
-            if app.server.static and protocol.request.path.startswith(app.server.static) and protocol.request.method == http.HTTPMethod.GET:
-                try:
-                    await self._http_responseHandle(protocol, app, await self._http_staticHandle(protocol, app))
-                    return
-                except:
-                    ...
+            ipaddress.IPv4Address(self._app.server.host)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        except ipaddress.AddressValueError:
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((self._app.server.host, self._app.server.port))
+        sock.listen(self._app.server.backlog)
+        sock.set_inheritable(True)
+
+        processes = []
+        multiprocessing.allow_connection_pickling()
+        for i in range(self._app.server.workers - 1):
+            process = multiprocessing.Process(target = self.worker_start, args = (sock,), name = self._app._text.workerProcess_title)
+            process.start()
+            processes.append(process)
+
+        self.worker_start(sock, True)
+
+        for process in processes:
+            process.join()
+
+    def worker_beforeStarting(self):
+        for text in self._app._text.worker_starting():
+            logger.debug(text[0], text[1])
+
+    def worker_start(self, sock, master: bool = False):
+        if not master:
+            setproctitle.setproctitle(self._app._text.workerProcess_title)
+
+        self.worker_beforeStarting()
+        if self._app.signal.worker_beforeStarting.receivers:
+            self._app.signal.worker_beforeStarting.send()
+
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        asyncio.run(self.worker_run(sock, master))
+
+        with self._app._managers['lock']:
+            self._app._managers['server.workers'].value -= 1
+
+            for text in self._app._text.worker_stopping():
+                logger.debug(text[0], text[1])
+
+            self.worker_afterStopping()
+            if self._app.signal.worker_afterStopping.receivers:
+                self._app.signal.worker_afterStopping.send()
+
+            if self._app._managers['server.workers'].value == 0:
+                for text in self._app._text.server_stopping():
+                    logger.ending(text[0], text[1])
+
+                self.server_afterStopping()
+                if self._app.signal.server_afterStopping.receivers:
+                    self._app.signal.server_afterStopping.send_async()
+
+    async def worker_run(self, sock, master: bool):
+        from CheeseAPI.app import app
+        from CheeseAPI.protocol import HttpProtocol
+
+        app.g = self._app.g
+        app.managers = self._app.managers
+        app._managers = self._app._managers
+
+        loop = asyncio.get_running_loop()
+        server = await loop.create_server(HttpProtocol, sock = sock)
+        loop.add_signal_handler(signal.SIGINT, lambda server: server.close(), server)
+        loop.add_signal_handler(signal.SIGTERM, lambda server: server.close(), server)
+
+        await self.worker_afterStarting()
+        if self._app.signal.worker_afterStarting.receivers:
+            await self._app.signal.worker_afterStarting.send_async()
+
+        with self._app._managers['lock']:
+            self._app._managers['server.workers'].value += 1
+            if self._app._managers['server.workers'].value == self._app.server.workers:
+                for text in self._app._text.server_starting():
+                    logger.starting(text[0], text[1])
+
+                await self.server_afterStarting()
+                if self._app.signal.server_afterStarting.receivers:
+                    await self._app.signal.server_afterStarting.send_async()
+
+        while server.is_serving():
+            if master:
+                await self.server_running()
+                if self._app.signal.server_running.receivers:
+                    await self._app.signal.server_running.send_async()
+
+            await self.worker_running()
+            if self._app.signal.worker_running.receivers:
+                await self._app.signal.worker_running.send_async()
+
+            await asyncio.sleep(self._app.server.intervalTime)
+
+        with self._app._managers['lock']:
+            if self._app._managers['server.workers'].value == self._app.server.workers:
+                await self.server_beforeStopping()
+                if self._app.signal.server_beforeStopping.receivers:
+                    await self._app.signal.server_beforeStopping.send_async()
+
+            await self.worker_beforeStopping()
+            if self._app.signal.worker_beforeStopping.receivers:
+                await self._app.signal.worker_beforeStopping.send_async()
+
+    async def worker_afterStarting(self):
+        ...
+
+    async def server_afterStarting(self):
+        ...
+
+    async def server_running(self):
+        ...
+
+    async def worker_running(self):
+        ...
+
+    async def http_beforeRequest(self, protocol: 'HttpProtocol'):
+        ...
+
+    async def http_afterRequest(self, protocol: 'HttpProtocol'):
+        ...
+
+    async def http(self, protocol: 'HttpProtocol'):
+        try:
+            await self._app._handle.http_beforeRequest(self)
+            if self._app.signal.http_beforeRequest.receivers:
+                await self._app.signal.http_beforeRequest.send_async()
+
+            await self.http_static(protocol)
+            if isinstance(protocol.response, BaseResponse):
+                if self._app.signal.http_static.receivers:
+                    await self._app.signal.http_static.send_async(**{
+                        'request': protocol.request,
+                        'response': protocol.response,
+                        **protocol.kwargs
+                    })
+                await self.http_response(protocol)
+                return
 
             try:
-                func, kwargs = app.routeBus._match(protocol.request.path, protocol.request.method)
-
-                if signal.receiver('http_beforeRequestHandle'):
-                    await signal.async_send('http_beforeRequestHandle', { 'request': protocol.request })
-
-                kwargs['request'] = protocol.request
-                response = await func(**kwargs)
-                if await self._http_responseHandle(protocol, app, response):
-                    return
-
-                await self._http_responseHandle(protocol, app, await self._http_noResponseHandle(protocol, app))
+                func, protocol.kwargs = self._app.routeBus._match(protocol.request.path, protocol.request.method)
             except KeyError as e:
-                if protocol.request.method == http.HTTPMethod.OPTIONS and (app.cors.origin == '*' or protocol.request.method in app.cors.origin):
-                    await self._http_responseHandle(protocol, app, await self._http_optionsHandle(protocol, app))
-                    return
+                await self.http_afterRequest(protocol)
+                if self._app.signal.http_afterRequest.receivers:
+                    await self._app.signal.http_afterRequest.send_async(**{
+                        'request': protocol.request,
+                        **protocol.kwargs
+                    })
 
                 if e.args[0] == 0:
-                    await self._http_responseHandle(protocol, app, await self._http_404Handle(protocol, app))
+                    await self.http_404(protocol)
+                    if self._app.signal.http_404.receivers:
+                        await self._app.signal.http_404.send_async(**{
+                            'request': protocol.request,
+                            'response': protocol.response,
+                            **protocol.kwargs
+                        })
+                    await self.http_response(protocol)
                     return
 
                 if e.args[0] == 1:
-                    await self._http_responseHandle(protocol, app, await self._http_405Handle(protocol, app))
+                    await self.http_options(protocol)
+                    if isinstance(protocol.response, BaseResponse):
+                        if self._app.signal.http_options.receivers:
+                            await self._app.signal.http_options.send_async(**{
+                                'request': protocol.request,
+                                'response': protocol.response,
+                                **protocol.kwargs
+                            })
+                        await self.http_response(protocol)
+                        return
+
+                    await self.http_405(protocol)
+                    if self._app.signal.http_405.receivers:
+                        await self._app.signal.http_405.send_async(**{
+                            'request': protocol.request,
+                            'response': protocol.response,
+                            'e': e,
+                            **protocol.kwargs
+                        })
+                    await self.http_response(protocol)
                     return
+
+                raise e
+
+            await self.http_afterRequest(protocol)
+            if self._app.signal.http_afterRequest.receivers:
+                await self._app.signal.http_afterRequest.send_async(**{
+                    'request': protocol.request,
+                    **protocol.kwargs
+            })
+
+            protocol.response = await func(**{
+                'request': protocol.request,
+                **protocol.kwargs
+            })
+
+            await self.http_response(protocol)
         except BaseException as e:
-            await self._http_responseHandle(protocol, app, await self._http_500Handle(protocol, app, e))
-
-    def _exitSignalHandle(self, server):
-        server.close()
-
-    def _server_beforeStartingHandle(self, app: 'App'):
-        app.g['startTimer'] = time.time()
-
-        logger.starting(f'The master process {os.getpid()} started', f'The master process <blue>{os.getpid()}</blue> started')
-
-        logger.starting(f'''Workspace information:
-CheeseAPI: {app.workspace.CheeseAPI}
-Base: {app.workspace.base}''' + (f'''
-Static: {app.workspace.static}''' if app.server.static else '') + (f'''
-Log: {app.workspace.log}''' if app.workspace.logger else '') + (f'''
-Logger: {app.workspace.logger}''' if app.workspace.logger else ''), f'''Workspace information:
-CheeseAPI: <cyan><underline>{app.workspace.CheeseAPI}</underline></cyan>
-Base: <cyan><underline>{app.workspace.base}</underline></cyan>''' + (f'''
-Static: <cyan><underline>{app.workspace.static}</underline></cyan>''' if app.server.static else '') + (f'''
-Log: <cyan><underline>{app.workspace.log}</underline></cyan>''' if app.workspace.logger else '') + (f'''
-Logger: <cyan><underline>{app.workspace.logger}</underline></cyan>''' if app.workspace.logger else ''))
-
-        logger.starting(f'''Server information:
-Host: {app.server.host}
-Port: {app.server.port}
-Workers: {app.server.workers}''' + (f'''
-Static: {app.server.static}''' if app.server.static else ''), f'''Server information:
-Host: <cyan>{app.server.host}</cyan>
-Port: <blue>{app.server.port}</blue>
-Workers: <blue>{app.server.workers}</blue>''' + (f'''
-Static: <cyan>{app.server.static}</cyan>''' if app.server.static else ''))
-
-        moduleNum = len(app.modules)
-        if moduleNum:
-            progressBar = ProgressBar()
-            for i in range(moduleNum):
-                message, styledMessage = progressBar(i / moduleNum)
-                logger.loading('Modules: ' + message + ' ' + app.modules[i], 'Modules: ' + styledMessage + ' ' + app.modules[i])
-                Module(app.modules[i])
-
-            logger.loaded(f'''Modules:
-''' + ' | '.join(app.modules), refreshed = True)
-
-        if app.localModules is True:
-            localModule = []
-            for foldername in os.listdir(app.workspace.base):
-                if foldername[0] == '.' or foldername == '__pycache__':
-                    continue
-                folderPath = os.path.join(app.workspace.base, foldername)
-                if os.path.isdir(folderPath):
-                    if (not app.workspace.static or not os.path.exists(os.path.join(app.workspace.base, app.workspace.static)) or not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.static))) and (not app.workspace.log or not os.path.exists(os.path.join(app.workspace.base, app.workspace.log)) or not os.path.samefile(folderPath, os.path.join(app.workspace.base, app.workspace.log))) and foldername not in app.exclude_localModules:
-                        localModule.append(foldername)
-            app.localModules = localModule
-        else:
-            app.preferred_localModules = []
-        localModuleNum = len(app.localModules)
-        if localModuleNum:
-            progressBar = ProgressBar()
-            i = 0
-            for module in app.preferred_localModules:
-                message, styledMessage = progressBar(i / localModuleNum)
-                logger.loading('Local Modules: ' + message + ' ' + module, 'Local Modules: ' + styledMessage + ' ' + module)
-                LocalModule(app.workspace.base, module)
-                i += 1
-            for module in app.localModules:
-                if module not in app.preferred_localModules:
-                    message, styledMessage = progressBar(i / localModuleNum)
-                    logger.loading('Local Modules: ' + message + ' ' + module, 'Local Modules: ' + styledMessage + ' ' + module)
-                    LocalModule(app.workspace.base, module)
-                    i += 1
-
-            logger.loaded(f'''Local Modules:
-''' + ' | '.join(app.localModules), refreshed = True)
-
-    def _worker_beforeStartingHandle(self):
-        logger.debug(f'The subprocess {os.getpid()} started', f'The subprocess <blue>{os.getpid()}</blue> started')
-
-    def _server_afterStartingHandle(self, app: 'App'):
-        logger.starting(f'The server started on http://{app.server.host}:{app.server.port}', f'The server started on <cyan><underline>http://{app.server.host}:{app.server.port}</underline></cyan>')
-
-    async def _http_staticHandle(self, protocol: 'Protocol', app: 'App'):
-        return FileResponse(app.workspace.static[:-1] + protocol.request.path)
-
-    async def _http_404Handle(self, protocol: 'Protocol', app: 'App'):
-        return Response(status = http.HTTPStatus.NOT_FOUND)
-
-    async def _http_optionsHandle(self, protocol: 'Protocol', app: 'App'):
-        return Response(status = http.HTTPStatus.OK)
-
-    async def _http_405Handle(self, protocol: 'Protocol', app: 'App'):
-        return Response(status = http.HTTPStatus.METHOD_NOT_ALLOWED)
-
-    async def _http_noResponseHandle(self, protocol: 'Protocol', app: 'App'):
-        logger.danger(f'''An error occurred while accessing {protocol.request.method} {protocol.request.fullPath}:
-A usable BaseResponse is not returned''', f'''An error occurred while accessing <cyan>{protocol.request.method} {protocol.request.fullPath}</cyan>:
-A usable BaseResponse is not returned''')
-
-        return Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
-
-    async def _http_500Handle(self, protocol: 'Protocol', app: 'App', e: BaseException):
-        message = logger.encode(traceback.format_exc()[:-1])
-        logger.danger(f'''An error occurred while accessing {protocol.request.method} {protocol.request.fullPath}:
-{message}''', f'''An error occurred while accessing <cyan>{protocol.request.method} {protocol.request.fullPath}</cyan>:
-{message}''')
-
-        return Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
-
-    async def _http_responseHandle(self, protocol: 'Protocol', app: 'App', response: 'Response') -> bool:
-        if isinstance(response, BaseResponse):
-            if signal.receiver('http_afterResponseHandle'):
-                await signal.async_send('http_afterResponseHandle', {
-                    'response': response,
-                    'request': protocol.request
-                })
-
-            if app.cors.origin == '*':
-                response.headers['Access-Control-Allow-Origin'] = app.cors.origin
-            if len(app.cors.origin):
-                response.headers['Access-Control-Allow-Origin'] = ', '.join(app.cors.origin)
-            if len(app.cors.methods):
-                response.headers['Access-Control-Allow-Methods'] = ', '.join(app.cors.methods)
-            if app.cors.headers == '*':
-                response.headers['Access-Control-Allow-Headers'] = app.cors.headers
-            if len(app.cors.headers):
-                response.headers['Access-Control-Allow-Headers'] = ', '.join(app.cors.headers)
-
             try:
-                protocol.transport.write(await response())
-                streamed = True
-                while streamed:
-                    content, streamed = await response()
-                    protocol.transport.write(content)
-            except:
+                await self.http_500(protocol, e)
+                if self._app.signal.http_500.receivers:
+                    await self._app.signal.http_500.send_async(**{
+                        'request': protocol.request,
+                        'response': protocol.response,
+                        'e': e,
+                        **protocol.kwargs
+                    })
+                await self.http_response(protocol)
+            except BaseException as e:
+                await self.http_500(protocol, e, True)
+                await self.http_response(protocol, True)
+
+    async def http_static(self, protocol: 'HttpProtocol'):
+        if self._app.server.static and self._app.workspace.static and protocol.request.path.startswith(self._app.server.static) and protocol.request.method == http.HTTPMethod.GET:
+            try:
+                protocol.response = FileResponse(os.path.join(self._app.workspace.static, protocol.request.path[1:]))
+
+                await self.http_afterRequest(protocol)
+                if self._app.signal.http_afterRequest.receivers:
+                    await self._app.signal.http_afterRequest.send_async(**{
+                        'request': protocol.request,
+                        **protocol.kwargs
+                    })
+
+                if self._app.signal.http_static.receivers:
+                    await self._app.signal.http_static.send_async(**{
+                        'request': protocol.request,
+                        **protocol.kwargs
+                    })
+            except (FileNotFoundError, IsADirectoryError):
                 ...
 
-            logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed {protocol.request.method} {protocol.request.fullPath} and returned {response.status}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>{protocol.request.method} ' + logger.encode(protocol.request.fullPath) + f'</cyan> and returned <blue>{response.status}</blue>')
+    async def http_404(self, protocol: 'HttpProtocol'):
+        protocol.response = Response(status = http.HTTPStatus.NOT_FOUND)
 
-            if protocol.transport.is_closing():
-                return True
+    async def http_options(self, protocol: 'HttpProtocol'):
+        if (
+            protocol.request.method == http.HTTPMethod.OPTIONS
+            and (
+                protocol.request.origin not in self._app.cors.exclude_origin
+                and
+                (
+                    self._app.cors.origin == '*'
+                    or
+                    protocol.request.origin in self._app.cors.origin
+                )
+            )
+            and (
+                self._app.cors.methods == '*'
+                or
+                protocol.request.method in self._app.cors.methods
+            )
+        ):
+            protocol.response = Response(status = http.HTTPStatus.OK)
 
-            protocol.task = None
+            protocol.response.headers['Access-Control-Allow-Origin'] = protocol.request.origin
 
-            protocol.transport.resume_reading()
+            if self._app.cors.methods:
+                protocol.response.headers['Access-Control-Allow-Methods'] = ', '.join(self._app.cors.methods - self._app.cors.exclude_methods)
 
-            if protocol.deque:
-                _protocol = protocol.deque.popleft()
-                _protocol.transport.resume_reading()
-                protocol.task = asyncio.get_event_loop().create_task(app._handle._httpHandle(_protocol, app))
-                protocol.task.add_done_callback(app.httpWorker.tasks.discard)
-                app.httpWorker.tasks.add(protocol.task)
+            if self._app.cors.headers == '*':
+                protocol.response.headers['Access-Control-Allow-Headers'] = self._app.cors.headers
+            elif self._app.cors.headers:
+                protocol.response.headers['Access-Control-Allow-Headers'] = ', '.join(self._app.cors.headers)
 
-            return True
-        return False
+    async def http_405(self, protocol: 'HttpProtocol'):
+        protocol.response = Response(status = http.HTTPStatus.METHOD_NOT_ALLOWED)
 
-    async def _websocket_requestHandle(self, protocol: 'WebsocketProtocol', app: 'App') -> Tuple[Callable, Dict[str, Any]] | HTTPResponse:
+    async def http_500(self, protocol: 'HttpProtocol', e: BaseException, recycled: bool = False):
+        protocol.response = Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        if not recycled:
+            for text in self._app._text.http_500(protocol, e):
+                logger.danger(text[0], text[1])
+
+    async def http_response(self, protocol: 'HttpProtocol', recycled: bool = False):
+        if not isinstance(protocol.response, BaseResponse):
+            await self.noResponse(protocol)
+
+        if not recycled:
+            await self.http_beforeResponse(protocol)
+            if self._app.signal.http_beforeResponse.receivers:
+                await self._app.signal.http_beforeResponse.send_async(**{
+                    'request': protocol.request,
+                    'response': protocol.response,
+                    **protocol.kwargs
+                })
+
+        content, streamed = await protocol.response()
+        protocol.transport.write(content)
+        while streamed:
+            content, streamed = await protocol.response()
+            protocol.transport.write(content)
+
+        if not recycled:
+            await self.http_afterResponse(protocol)
+            if self._app.signal.http_afterResponse.receivers:
+                await self._app.signal.http_afterResponse.send_async(**{
+                    'request': protocol.request,
+                    'response': protocol.response,
+                    **protocol.kwargs
+                })
+
+    async def noResponse(self, protocol: 'HttpProtocol') -> BaseResponse:
+        protocol.response = Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    async def http_beforeResponse(self, protocol: 'HttpProtocol') -> BaseResponse | None:
+        ...
+
+    async def http_afterResponse(self, protocol: 'HttpProtocol'):
+        for text in self._app._text.http(protocol):
+            logger.http(text[0], text[1])
+
+    async def websocket_request(self, protocol: 'WebsocketProtocol'):
         try:
-            func, kwargs = app.routeBus._match(protocol.request.path, 'WEBSOCKET')
-            kwargs['request'] = protocol.request
-            return func(), kwargs
-        except KeyError as e:
-            if e.args[0] == 0:
-                return await self._websocket_responseHandle(protocol, app, await self._websocket_404Handle(protocol, app))
+            try:
+                Server, kwargs = self._app.routeBus._match(protocol.request.path, 'WEBSOCKET')
+                protocol.kwargs.update(kwargs)
+            except KeyError as e:
+                await self.websocket_afterRequest(protocol)
+                if self._app.signal.websocket_afterRequest.receivers:
+                    await self._app.signal.websocket_afterRequest.send_async(**{
+                        'request': protocol.request,
+                        **protocol.kwargs
+                    })
 
-            if e.args[0] == 1:
-                return await self._websocket_responseHandle(protocol, app, await self._websocket_405Handle(protocol, app))
+                if e.args[0] == 0:
+                    self.websocket_404(protocol)
+                    if self._app.signal.websocket_404.receivers:
+                        await self._app.signal.websocket_404.send_async(**{
+                            'request': protocol.request,
+                            'response': protocol.response,
+                            **protocol.kwargs
+                        })
+                    return await self.websocket_response(protocol)
 
-    async def _websocket_404Handle(self, protocol: 'WebsocketProtocol', app: 'App') -> Response:
-        return Response(status = http.HTTPStatus.NOT_FOUND)
+                elif e.args[0] == 1:
+                    self.websocket_405(protocol)
+                    if self._app.signal.websocket_405.receivers:
+                        await self._app.signal.websocket_405.send_async(**{
+                            'request': protocol.request,
+                            'response': protocol.response,
+                            **protocol.kwargs
+                        })
+                    return await self.websocket_response(protocol)
 
-    async def _websocket_405Handle(self, protocol: 'WebsocketProtocol', app: 'App') -> Response:
-        return Response(status = http.HTTPStatus.METHOD_NOT_ALLOWED)
+                raise e
 
-    async def _websocket_responseHandle(self, protocol: 'WebsocketProtocol', app: 'App', response: BaseResponse) -> HTTPResponse:
-        if signal.receiver('http_afterResponseHandle'):
-            await signal.async_send('http_afterResponseHandle', {
-                'response': response,
-                'request': protocol.request
-            })
+            protocol.server = Server()
 
-        logger.http(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} accessed WEBSOCKET {protocol.request.fullPath} and returned {response.status}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> accessed <cyan>WEBSOCKET ' + logger.encode(protocol.request.fullPath) + f'</cyan> and returned <blue>{response.status}</blue>')
+            await self.websocket_afterRequest(protocol)
+            if self._app.signal.websocket_afterRequest.receivers:
+                await self._app.signal.websocket_afterRequest.send_async(**{
+                    'request': protocol.request,
+                    **protocol.kwargs
+                })
 
-        return response.status, response.headers, response.body if isinstance(response.body, bytes) else str(response.body).encode()
+            await self.websocket_subprotocol(protocol)
 
-    def _websocket_subprotocolHandle(self, protocol: 'WebsocketProtocol', app: 'App') -> str | None:
-        kwargs = protocol.func[1]
-        kwargs.update({
-            'subprotocols': protocol.request.headers.get('Sec-Websocket-Protocol', '').split(', ')
-        })
-        return protocol.func[0].subprotocolHandle(**kwargs)
+            return await self.websocket_response(protocol)
+        except BaseException as e:
+            try:
+                await self.websocket_500(protocol, e)
+                if self._app.signal.websocket_500.receivers:
+                    await self._app.signal.websocket_500.send_async(**{
+                        'request': protocol.request,
+                        'response': protocol.response,
+                        'e': e,
+                        **protocol.kwargs
+                    })
+                await self.websocket_response(protocol)
+            except BaseException as e:
+                await self.websocket_500(protocol, e, True)
+                await self.websocket_response(protocol, True)
 
-    async def _websocket_connectionHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
-        try:
-            logger.websocket(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} connected WEBSOCKET {protocol.request.fullPath}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> connected <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>')
+    async def websocket_afterRequest(self, protocol: 'WebsocketProtocol'):
+        ...
 
-            await protocol.func[0].connectionHandle(**protocol.func[1])
-        except:
-            message = logger.encode(traceback.format_exc()[:-1])
-            logger.danger(f'''An error occurred while connecting WEBSOCKET {protocol.request.fullPath}:
-{message}''', f'''An error occurred while connecting <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>:
-{message}''')
+    async def websocket_404(self, protocol: 'WebsocketProtocol'):
+        protocol.response = Response(status = http.HTTPStatus.NOT_FOUND)
+        del protocol.response.headers['Transfer-Encoding']
 
-    async def _websocket_handler(self, protocol: 'WebsocketProtocol', app: 'App'):
-        try:
-            protocol.is_alive = True
+    async def websocket_405(self, protocol: 'WebsocketProtocol'):
+        protocol.response = Response(status = http.HTTPStatus.METHOD_NOT_ALLOWED)
+        del protocol.response.headers['Transfer-Encoding']
 
-            if signal.receiver('websocket_beforeConnectionHandle'):
-                await signal.async_send('websocket_beforeConnectionHandle', protocol.func[1])
+    async def websocket_500(self, protocol: 'WebsocketProtocol', e: BaseException, recycled: bool = False, connected: bool = False):
+        if not connected:
+            protocol.response = Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
+            del protocol.response.headers['Transfer-Encoding']
 
-            await app._handle._websocket_connectionHandle(protocol, app)
+        if not recycled:
+            for text in self._app._text.websocket_500(protocol, e):
+                logger.danger(text[0], text[1])
 
-            while not protocol.closed:
-                await app._handle._websocket_messageHandle(protocol, app)
-        except:
-            message = logger.encode(traceback.format_exc()[:-1])
-            logger.danger(f'''An error occurred while receiving WEBSOCKET {protocol.request.fullPath} message:
-{message}''', f'''An error occurred while receiving <cyan>WEBSOCKET {protocol.request.fullPath}</cyan> message:
-{message}''')
-
-    async def _websocket_messageHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
-        try:
-            kwargs = protocol.func[1].copy()
-            kwargs.update({
-                'message': await protocol.recv()
-            })
-            await protocol.func[0].messageHandle(**kwargs)
-        except websockets.exceptions.ConnectionClosedError:
-            ...
-        except websockets.exceptions.ConnectionClosedOK:
-            ...
-        except asyncio.exceptions.CancelledError:
-            ...
-        except:
-            message = logger.encode(traceback.format_exc()[:-1])
-            logger.danger(f'''An error occurred while receiving WEBSOCKET {protocol.request.fullPath} message:
-{message}''', f'''An error occurred while receiving <cyan>WEBSOCKET {protocol.request.fullPath}</cyan> message:
-{message}''')
-
-    def _websocket_disconnectionHandle(self, protocol: 'WebsocketProtocol', app: 'App'):
-        if not protocol.func:
+    async def websocket_response(self, protocol: 'WebsocketProtocol', recycled: bool = False) -> Tuple[int, Dict[str, str], bytes]:
+        if not protocol.response or protocol.response.status == 200:
             return
 
+        if not recycled:
+            await self.websocket_beforeResponse(protocol)
+            if self._app.signal.websocket_beforeResponse.receivers:
+                await self._app.signal.websocket_beforeResponse.send_async(**{
+                    'request': protocol.request,
+                    'response': protocol.response,
+                    **protocol.kwargs
+                })
+
+        results = int(protocol.response.status), protocol.response.headers, protocol.response.body.encode()
+
+        if not recycled:
+            for text in self._app._text.websocket_response(protocol):
+                logger.websocket(text[0], text[1])
+
+            await self.websocket_afterResponse(protocol)
+            if self._app.signal.websocket_afterResponse.receivers:
+                await self._app.signal.websocket_afterResponse.send_async(**{
+                    'request': protocol.request,
+                    'response': protocol.response,
+                    **protocol.kwargs
+                })
+
+        return results
+
+    async def websocket_beforeResponse(self, protocol: 'WebsocketProtocol'):
+        ...
+
+    async def websocket_afterResponse(self, protocol: 'WebsocketProtocol'):
+        ...
+
+    async def websocket_subprotocol(self, protocol: 'WebsocketProtocol') -> str:
+        if not protocol.request.headers.get('Sec-Websocket-Subprotocols', None):
+            return
+
+        protocol.request.subprotocols = protocol.request.headers['Sec-Websocket-Subprotocols'].split(', ')
+
+        await self.websocket_beforeSubprotocol(protocol)
+        if self._app.signal.websocket_beforeSubprotocol.receivers:
+            await self._app.signal.websocket_beforeSubprotocol.send_async(**{
+                'request': protocol.request,
+                **protocol.kwargs
+            })
+
+        protocol.request.subprotocol = await protocol.server.subprotocol(**{
+            'request': protocol.request,
+            **protocol.kwargs
+        })
+        if protocol.request.subprotocol not in protocol.request.subprotocols:
+            protocol.response = Response(status = http.HTTPStatus.BAD_REQUEST)
+            del protocol.response.headers['Transfer-Encoding']
+
+        await self.websocket_afterSubprotocol(protocol)
+        if self._app.signal.websocket_afterSubprotocol.receivers:
+            await self._app.signal.websocket_afterSubprotocol.send_async(**{
+                'request': protocol.request,
+                'response': protocol.response,
+                **protocol.kwargs
+            })
+
+    async def websocket_beforeSubprotocol(self, protocol: 'WebsocketProtocol'):
+        ...
+
+    async def websocket_afterSubprotocol(self, protocol: 'WebsocketProtocol'):
+        ...
+
+    async def websocket(self, protocol: 'WebsocketProtocol'):
         try:
-            protocol.func[0].disconnectionHandle(**protocol.func[1])
+            await self.websocket_beforeConnection(protocol)
+            if self._app.signal.websocket_beforeConnection.receivers:
+                await self._app.signal.websocket_beforeConnection.send_async(**{
+                    'request': protocol.request,
+                    **protocol.kwargs
+                })
 
-            logger.websocket(f'The {protocol.request.headers.get("X-Forwarded-For").split(", ")[0]} disconnected WEBSOCKET {protocol.request.fullPath}', f'The <cyan>{protocol.request.headers.get("X-Forwarded-For").split(", ")[0]}</cyan> disconnected <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>')
+            await self.websocket_connection(protocol)
+            await protocol.server.connection(**{
+                'request': protocol.request,
+                **protocol.kwargs
+            })
 
-            if signal.receiver('websocket_afterDisconnectionHandle'):
-                signal.send('websocket_afterDisconnectionHandle', protocol.func[1])
-        except:
-            message = logger.encode(traceback.format_exc()[:-1])
-            logger.danger(f'''An error occurred while disconnecting WEBSOCKET {protocol.request.fullPath}:
-{message}''', f'''An error occurred while disconnecting <cyan>WEBSOCKET {protocol.request.fullPath}</cyan>:
-{message}''')
+            await self.websocket_afterConnection(protocol)
+            if self._app.signal.websocket_afterConnection.receivers:
+                await self._app.signal.websocket_afterConnection.send_async(**{
+                    'request': protocol.request,
+                    **protocol.kwargs
+                })
 
-    def _worker_beforeStoppingHandle(self, app: 'App'):
-        logger.debug(f'The {os.getpid()} subprocess stopped', f'The <blue>{os.getpid()}</blue> subprocess stopped')
+            try:
+                while not protocol.transport.is_closing():
+                    await self._app._handle.websocket_message(protocol)
+            except asyncio.CancelledError:
+                ...
 
-    def _server_beforeStoppingHandle(self, app: 'App'):
-        timer = time.time() - app.g['startTimer']
-        message = 'The server runs for a total of '
-        styledMessage = 'The server runs for a total of '
-        days = int(timer // 86400)
-        if days:
-            message += f'{days} days'
-            styledMessage += f'<blue>{days}</blue> days '
-        hours = int(timer % 24 // 3600)
-        if days or hours:
-            message += f'{hours} hours'
-            styledMessage += f'<blue>{hours}</blue> hours '
-        minutes = int(timer % 3600 // 60)
-        if days or hours or minutes:
-            message += f'{minutes} minutes '
-            styledMessage += f'<blue>{minutes}</blue> minutes '
-        message += '{:.6f} seconds'.format(timer % 60)
-        styledMessage += '<blue>{:.6f}</blue> seconds'.format(timer % 60)
-        logger.ending(message, styledMessage)
-        logger.ending(f'The master process {os.getpid()} stopped', f'The master process <blue>{os.getpid()}</blue> stopped')
+            await self.websocket_disconnection(protocol)
+            await self.websocket_afterDisconnection()
+            if self._app.signal.websocket_afterDisconnection.receivers:
+                await self._app.signal.websocket_afterDisconnection.send_async(**{
+                    'request': protocol.request,
+                    **protocol.kwargs
+                })
+        except BaseException as e:
+            try:
+                await self.websocket_500(protocol, e, False, True)
+                if self._app.signal.websocket_500.receivers:
+                    await self._app.signal.websocket_500.send_async(**{
+                        'request': protocol.request,
+                        'response': protocol.response,
+                        'e': e,
+                        **protocol.kwargs
+                    })
+            except BaseException as e:
+                await self.websocket_500(protocol, e, True, True)
+
+    async def websocket_beforeConnection(self, protocol: 'WebsocketProtocol'):
+        ...
+
+    async def websocket_connection(self, protocol: 'WebsocketProtocol'):
+        for text in self._app._text.websocket_connection(protocol):
+            logger.websocket(text[0], text[1])
+
+    async def websocket_afterConnection(self, protocol: 'WebsocketProtocol'):
+        ...
+
+    async def websocket_beforeConnection(self, protocol: 'WebsocketProtocol'):
+        ...
+
+    async def websocket_message(self, protocol: 'WebsocketProtocol'):
+        try:
+            message = await asyncio.wait_for(protocol.recv(), timeout = self._app.server.intervalTime)
+
+            await self.websocket_beforeMessage(protocol, message)
+            if self._app.signal.websocket_beforeMessage.receivers:
+                await self._app.signal.websocket_beforeMessage.send_async(**{
+                    'request': protocol.request,
+                    'message': message,
+                    **protocol.kwargs
+                })
+
+            await protocol.server.message(**{
+                'message': message
+            })
+
+            await self.websocket_afterMessage(protocol, message)
+            if self._app.signal.websocket_afterMessage.receivers:
+                await self._app.signal.websocket_afterMessage.send_async({
+                    'request': protocol.request,
+                    'message': message,
+                    **protocol.kwargs
+                })
+        except (websockets.exceptions.ConnectionClosed, websockets.exceptions.ConnectionClosedError, websockets.exceptions.ConnectionClosedOK, asyncio.TimeoutError):
+            ...
+
+    async def websocket_beforeMessage(self, protocol: 'WebsocketProtocol', message: str | bytes):
+        ...
+
+    async def websocket_afterMessage(self, protocol: 'WebsocketProtocol', message: str | bytes):
+        ...
+
+    async def websocket_send(self, protocol: 'WebsocketProtocol', message: str | bytes):
+        await self.websocket_beforeSending(protocol, message)
+        if self._app.signal.websocket_beforeSending.receivers:
+            await self._app.signal.websocket_beforeSending.send_async(**{
+                'request': protocol.request,
+                'message': message,
+                **protocol.kwargs
+            })
+
+        await protocol.server.send(message)
+
+        await self.websocket_afterSending(protocol, message)
+        if self._app.signal.websocket_afterSending.receivers:
+            await self._app.signal.websocket_afterSending.send_async(**{
+                'request': protocol.request,
+                'message': message,
+                **protocol.kwargs
+            })
+
+    async def websocket_beforeSending(self, protocol: 'WebsocketProtocol', message: str | bytes):
+        ...
+
+    async def websocket_afterSending(self, protocol: 'WebsocketProtocol', message: str | bytes):
+        ...
+
+    async def websocket_close(self, protocol: 'WebsocketProtocol', code: int, reason: str):
+        await self.websocket_beforeClosing(protocol, code, reason)
+        if self._app.signal.websocket_beforeClosing.receivers:
+            await self._app.signal.websocket_beforeClosing.send_async(**{
+                'request': protocol.request,
+                'code': code,
+                'reason': reason,
+                **protocol.kwargs
+            })
+
+        await protocol.server.close(code, reason)
+
+        await self.websocket_afterSending(protocol, code, reason)
+        if self._app.signal.websocket_afterSending.receivers:
+            await self._app.signal.websocket_afterSending.send_async(**{
+                'request': protocol.request,
+                'code': code,
+                'reason': reason,
+                **protocol.kwargs
+            })
+
+    async def websocket_beforeClosing(self, protocol: 'WebsocketProtocol', code: int, reason: str):
+        ...
+
+    async def websocket_afterSending(self, protocol: 'WebsocketProtocol', code: int, reason: str):
+        ...
+
+    async def websocket_disconnection(self, protocol: 'WebsocketProtocol'):
+        await protocol.server.disconnection(**{
+            'request': protocol.request,
+            **protocol.kwargs
+        })
+
+        for text in self._app._text.websocket_disconnection(protocol):
+            logger.websocket(text[0], text[1])
+
+    async def websocket_afterDisconnection(self):
+        ...
+
+    async def server_beforeStopping(self):
+        ...
+
+    async def worker_beforeStopping(self):
+        ...
+
+    def worker_afterStopping(self):
+        ...
+
+    def server_afterStopping(self):
+        ...

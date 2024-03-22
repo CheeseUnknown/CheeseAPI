@@ -1,126 +1,59 @@
-import asyncio, multiprocessing, socket, time, sys
-import signal as pySignal
-from typing import Dict, Any, List, Literal
+import multiprocessing, os
+from typing import Dict, Any, List
 
-import uvloop
-from CheeseLog import logger
-
-from CheeseAPI.signal import signal
+from CheeseAPI.text import Text
+from CheeseAPI.server import Server
+from CheeseAPI.workspace import Workspace
+from CheeseAPI.handle import Handle
+from CheeseAPI.signal import _Signal
+from CheeseAPI.route import Route, RouteBus
+from CheeseAPI.cors import Cors
 
 class App:
     def __init__(self):
-        from CheeseAPI.server import Server
-        from CheeseAPI.handle import Handle
-        from CheeseAPI.worker import HttpWorker, WebsocketWorker
-        from CheeseAPI.route import Route, RouteBus
-        from CheeseAPI.workspace import Workspace
-        from CheeseAPI.cors import Cors
-
-        self.workspace: Workspace = Workspace()
-        self.server: Server = Server()
-        self.routeBus: RouteBus = RouteBus()
-        self.route: Route = Route()
-        self.cors: Cors = Cors()
-        self.g: Dict[str, Any] = {}
-        self.managers: Dict[str, Any] = {
-            'lock': multiprocessing.Lock()
+        self.server: Server = Server(self)
+        self.workspace: Workspace = Workspace(self)
+        self.signal: _Signal = _Signal(self)
+        self.managers: Dict[str, Any] = {}
+        self.g: Dict[str, Any] = {
+            'startTime': None
         }
+        self.route: Route = Route()
+        self.routeBus: RouteBus = RouteBus()
+        self.cors: Cors = Cors()
 
         self.modules: List[str] = []
-        self.localModules: List[str] | Literal[True] = True
+        self.localModules: List[str] = []
         self.exclude_localModules: List[str] = []
         self.preferred_localModules: List[str] = []
 
-        self.httpWorker: HttpWorker = HttpWorker()
-        self.websocketWorker: WebsocketWorker = WebsocketWorker()
-        self._handle: Handle = Handle()
+        self._text: Text = Text(self)
         self._managers: Dict[str, Any] = {
-            'firstRequest': multiprocessing.Value('b', False),
-            'startedWorkerNum': multiprocessing.Value('i', 0)
+            'server.workers': multiprocessing.Value('i', 0),
+            'lock': multiprocessing.Lock()
         }
+        self._handle: Handle = Handle(self)
+
+        # 初始化本地模块
+        for foldername in os.listdir(self.workspace.base):
+            if foldername[0] == '.' or foldername == '__pycache__':
+                continue
+
+            folderPath = os.path.join(self.workspace.base, foldername)
+            if not os.path.isdir(folderPath):
+                continue
+
+            staticPath = os.path.join(self.workspace.base, self.workspace.static)
+            if self.workspace.static and os.path.exists(staticPath) and os.path.samefile(folderPath, staticPath):
+                continue
+
+            logPath = os.path.join(self.workspace.base, self.workspace.log)
+            if self.workspace.log and os.path.exists(logPath) and os.path.samefile(folderPath, logPath):
+                continue
+
+            self.localModules.append(foldername)
 
     def run(self):
-        try:
-            self._managers['workspace.logger'] = multiprocessing.Array('c', 1024)
-            self._managers['workspace.logger'].value = self.workspace.logger.encode()
+        self._handle.server_start()
 
-            self._handle._server_beforeStartingHandle(self)
-            if signal.receiver('server_beforeStartingHandle'):
-                signal.send('server_beforeStartingHandle')
-
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind((self.server.host, self.server.port))
-            sock.listen(self.server.backlog)
-            sock.set_inheritable(True)
-
-            multiprocessing.allow_connection_pickling()
-            for i in range(0, self.server.workers - 1):
-                process = multiprocessing.Process(target = run, args = (self, sock), name = 'CheeseAPI:Processing')
-                process.start()
-
-            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-            asyncio.run(_run(app, sock))
-
-            while self._managers['startedWorkerNum'].value != 0:
-                time.sleep(0.01)
-        except Exception as e:
-            sys.excepthook(Exception, e, sys.exc_info()[2])
-
-        if signal.receiver('server_beforeStoppingHandle'):
-            signal.send('server_beforeStoppingHandle')
-        self._handle._server_beforeStoppingHandle(self)
-        logger.destroy()
-
-app = App()
-
-async def _run(_app: App, sock: socket.socket):
-    from CheeseAPI.protocol import HttpProtocol
-
-    app.g = _app.g
-    app.managers = _app.managers
-    app._managers = _app._managers
-
-    app.workspace.logger = app._managers['workspace.logger'].value.decode()
-
-    app._handle._worker_beforeStartingHandle()
-    if signal.receiver('worker_beforeStartingHandle'):
-        await signal.async_send('worker_beforeStartingHandle')
-
-    HttpProtocol.managers = app._managers
-
-    loop = asyncio.get_running_loop()
-    server = await loop.create_server(HttpProtocol, sock = sock)
-    loop.add_signal_handler(pySignal.SIGINT, app._handle._exitSignalHandle, server)
-    loop.add_signal_handler(pySignal.SIGTERM, app._handle._exitSignalHandle, server)
-
-    if signal.receiver('worker_afterStartingHandle'):
-        await signal.async_send('worker_afterStartingHandle')
-
-    with app.managers['lock']:
-        app._managers['startedWorkerNum'].value += 1
-        if app._managers['startedWorkerNum'].value == app.server.workers:
-            app._handle._server_afterStartingHandle(app)
-            if signal.receiver('server_afterStartingHandle'):
-                await signal.async_send('server_afterStartingHandle')
-
-    while server.is_serving():
-        logger = app._managers['workspace.logger'].value.decode()
-        if logger != app.workspace.logger:
-            app.workspace._logger = logger
-
-        await asyncio.sleep(0.016)
-
-    if signal.receiver('worker_beforeStoppingHandle'):
-        await signal.async_send('worker_beforeStoppingHandle')
-    app._handle._worker_beforeStoppingHandle(app)
-
-    with app.managers['lock']:
-        app._managers['startedWorkerNum'].value -= 1
-
-def run(app, sock):
-    import setproctitle
-    setproctitle.setproctitle('CheeseAPI:Processing')
-
-    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-    asyncio.run(_run(app, sock))
+app: App = App()

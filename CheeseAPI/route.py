@@ -1,12 +1,12 @@
-import re, uuid, http
-from typing import Callable, Dict, List, Tuple, Any, Literal
+import uuid, re, http
+from typing import Dict, Tuple, Callable, List, Any, Literal
 from urllib.parse import unquote
 
-class PathNode:
+class RouteNode:
     def __init__(self):
-        self.children: Dict[str, PathNode] = None
+        self.children: Dict[str, RouteNode] = {}
         self.key: str | None = None
-        self.methods: Dict[str, Tuple[str, Callable]] | None = None
+        self.methods: Dict[str, Tuple[str, Callable]] = {}
 
 class RouteBus:
     def __init__(self):
@@ -36,7 +36,7 @@ class RouteBus:
                 'weight': 0
             }
         ]
-        self._paths: PathNode = PathNode()
+        self._node: RouteNode = RouteNode()
 
     def addPattern(self, key: str, pattern: re.Pattern, type: object, weight: int):
         self.patterns.append({
@@ -52,22 +52,19 @@ class RouteBus:
             if method != 'WEBSOCKET':
                 method = http.HTTPMethod(method)
 
-        node = self._paths
+        node = self._node
 
         for part in path.split('/')[1:]:
-            if not node.children:
-                node.children = {}
-
             if re.match(r'<\w+:\w+>', part):
                 part = part[1:-1].split(':')
                 _part = f'<:{part[1]}>'
                 if _part not in node.children:
-                    node.children[_part] = PathNode()
+                    node.children[_part] = RouteNode()
                 node.children[_part].key = part[0]
                 part = _part
             else:
                 if part not in node.children:
-                    node.children[part] = PathNode()
+                    node.children[part] = RouteNode()
             node = node.children[part]
 
         if not node.methods:
@@ -80,7 +77,7 @@ class RouteBus:
         if paths[-1] == '' and path != '/':
             paths = paths[:-1]
 
-        results = self.__match(self._paths, paths, {})
+        results = self.__match(self._node, paths, {})
         if not results:
             raise KeyError(0)
         if method not in results:
@@ -98,7 +95,7 @@ class RouteBus:
 
         return results[1], kwargs
 
-    def __match(self, node: PathNode, paths: List[str], results: Dict[http.HTTPMethod, Tuple[str, Callable]]) -> Dict[http.HTTPMethod, Tuple[str, Callable]]:
+    def __match(self, node: RouteNode, paths: List[str], results: Dict[http.HTTPMethod, Tuple[str, Callable]]) -> Dict[http.HTTPMethod, Tuple[str, Callable]]:
         if paths and node.children:
             if paths[0] in node.children:
                 results = self.__match(node.children[paths[0]], paths[1:], results)

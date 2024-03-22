@@ -1,5 +1,5 @@
-import http, time, json
-from typing import Dict, Callable, Any, AsyncIterator, Tuple, overload
+import http, json, time
+from typing import Callable, Dict, AsyncIterator, Tuple, overload
 from email.utils import formatdate
 
 from CheeseAPI.file import File
@@ -337,96 +337,95 @@ contentTypes = {
 }
 
 class BaseResponse:
-    def __init__(self, body: str | bytes | Callable | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
+    def __init__(self, body: str | bytes | Callable | AsyncIterator | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
+        from CheeseAPI.app import app
+
         self.status: http.HTTPStatus = http.HTTPStatus(status)
         self.headers: Dict[str, str] = {
-            'Server': 'CheeseAPI',
-            'Transfer-Encoding': 'chunked'
+            'Server': app._text.response_server,
+            'Transfer-Encoding': 'chunked',
+            **headers
         }
-        self.headers.update(headers)
-        self.body: str | bytes | Callable = body
-        if self.body is None:
-            self.body = self.status.description
-
-        self.transfering: bool = False
+        self.body: str | bytes | Callable | AsyncIterator = self.status.description if body is None else body
+        self._transfering: bool = False
 
     async def __call__(self) -> Tuple[bytes, bool]:
-        if not self.transfering:
-            content = [ b''.join([ b'HTTP/1.1 ', str(self.status).encode(), b' ', http.HTTPStatus(self.status).phrase.encode(), b'\r\n' ]) ]
+        if self._transfering:
+            try:
+                value = await anext(self.body)
+            except:
+                self._transfering = False
+                return b'0\r\n\r\n', False
 
-            if isinstance(content, AsyncIterator):
-                self.headers['Transfer-Encoding'] = 'chunked'
-            self.headers['Date'] = formatdate(time.time(), usegmt = True)
-            for key, value in self.headers.items():
-                content.extend([ key.encode(), b': ', value.encode(), b'\r\n' ])
+            if isinstance(value, str):
+                value = value.encode()
 
-            content.append(b'\r\n')
-            self.transfering = True
-            return b''.join(content)
+            value = b'%x\r\n' % len(value) + value + b'\r\n'
+            return value, self._transfering
         else:
-            self.transfering = False
+            if isinstance(self.body, AsyncIterator):
+                self._transfering = True
 
-            content = self.body
-            if isinstance(content, Callable):
-                content = content()
-            elif isinstance(content, AsyncIterator):
-                try:
-                    content = await anext(content)
-                    self.transfering = True
-                except StopAsyncIteration:
-                    return b'0\r\n\r\n', False
+            self.headers['Data'] = formatdate(time.time(), usegmt = True)
 
-            if not isinstance(content, bytes):
-                content = str(content).encode()
+            value = b'HTTP/1.1 ' + str(self.status).encode() + b' ' + http.HTTPStatus(self.status).phrase.encode() + b'\r\n'
+            for key, _value in self.headers.items():
+                value += key.encode() + b': ' + str(_value).encode() + b'\r\n'
+            value += b'\r\n'
 
-            if self.headers.get('Transfer-Encoding') == 'chunked':
-                content = [ b'%x\r\n' % len(content), content, b'\r\n' ]
-                if not self.transfering:
-                    content.append(b'0\r\n\r\n')
+            _value = None
+            if isinstance(self.body, Callable):
+                _value = self.body().encode()
+            elif isinstance(self.body, str):
+                _value = self.body.encode()
+            elif isinstance(self.body, bytes):
+                _value += self.body
+            if _value:
+                value += b'%x\r\n' % len(_value) + _value + b'\r\n0\r\n\r\n'
 
-            return b''.join(content), self.transfering
+            return value, self._transfering
 
 class Response(BaseResponse):
-    def __init__(self, body: str | bytes | Callable | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
-        _headers = {
-            'content-type': 'text/plain; charset=utf-8'
-        }
-        _headers.update(headers)
-        super().__init__(body, status, _headers)
+    def __init__(self, body: str | bytes | Callable | AsyncIterator | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
+        super().__init__(body, status, {
+            'Content-Type': 'text/plain',
+            **headers
+        })
 
 class JsonResponse(BaseResponse):
-    def __init__(self, body: Dict[str, Any] = {}, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
-        _headers = {
-            'Content-Type': 'application/json; charset=utf-8'
-        }
-        _headers.update(headers)
-        super().__init__(json.dumps(body), status, _headers)
+    def __init__(self, body: dict | list = {}, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
+        super().__init__(json.dumps(body), status, {
+            'Content-Type': 'application/json; charset=utf-8',
+            **headers
+        })
 
 class FileResponse(BaseResponse):
     @overload
-    def __init__(self, filePath: str, downloaded: bool = False, headers: Dict[str, str] = {}):
+    def __init__(self, path: str, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1024 * 1024):
         ...
 
     @overload
-    def __init__(self, fileData: File, downloaded: bool = False, headers: Dict[str, str] = {}):
+    def __init__(self, data: File, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1024 * 1024):
         ...
 
-    def __init__(self, arg: str | File, downloaded: bool = False, headers: Dict[str, str] = {}):
-        if isinstance(arg, str):
-            try:
-                with open(arg, 'rb') as f:
-                    data = f.read()
-            except:
-                raise FileNotFoundError('The file was not found')
+    def __init__(self, arg: str | File, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1024 * 1024):
+        self.file: File = File(arg) if isinstance(arg, str) else arg
+        self.downloaded: bool = downloaded
+        self.chunkSize: int = chunkSize
 
-            fileSuffix = arg.split('.')[-1]
-        elif isinstance(arg, File):
-            fileSuffix = arg.name
-            data = arg.data
-
-        if downloaded or fileSuffix not in contentTypes:
-            _headers = { 'content-type': 'application/octet-stream' }
+        suffix = self.file.name.split('.')[-1]
+        if downloaded or suffix not in contentTypes:
+            headers['Content-Type'] = 'application/octet-stream'
         else:
-            _headers = { 'content-type': contentTypes[fileSuffix] }
-        _headers.update(headers)
-        super().__init__(data, http.HTTPStatus.OK, _headers)
+            headers['Content-Type'] = contentTypes[suffix]
+
+        super().__init__(self._chunk(), http.HTTPStatus.OK, headers = headers)
+
+    async def _chunk(self):
+        length = len(self.file.data)
+        index = 0
+
+        while index < length:
+            endIndex = min(index + self.chunkSize, length)
+            yield self.file.data[index:endIndex]
+            index = endIndex
