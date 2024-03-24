@@ -18,7 +18,7 @@ async def index(*args, request: Request, **kwargs):
 
 不带参数的路由，例如：`'/test'`。
 
-## **`request.scheme: Literal['http', 'https', 'ws', 'wss']`**
+## **`request.scheme: Literal['http', 'https', 'ws', 'wss'] | None`**
 
 协议名称。
 

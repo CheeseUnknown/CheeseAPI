@@ -6,10 +6,10 @@ import xmltodict
 from CheeseAPI.file import File
 
 class Request:
-    def __init__(self, method: http.HTTPMethod, ssl: bool, url: str):
+    def __init__(self, method: http.HTTPMethod, url: str):
         self.fullPath: str = url
         self.path: str = self.fullPath.split('?')[0]
-        self.scheme: Literal['http', 'https', 'ws', 'wss'] = 'https' if ssl else 'http'
+        self.scheme: Literal['http', 'https', 'ws', 'wss'] | None = None
         self.headers: Dict[str, str] = {}
         self.args: Dict[str, str] = {}
         self.method: http.HTTPMethod | Literal['WEBSOCKET'] = method
@@ -65,6 +65,6 @@ class Request:
 
     @property
     def url(self) -> str | None:
-        if not self.origin:
+        if not self.scheme or not self.origin:
             return None
         return self.scheme + '://' + self.origin + self.fullPath

@@ -169,4 +169,4 @@ CheeseAPI_module_type = 'multiple'
 
     可选的。
 
-    对某些子模块进行优先加载。
+    对当前模块的某些子模块进行优先加载。

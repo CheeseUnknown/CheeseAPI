@@ -25,14 +25,15 @@ class Handle:
 
     def loadModule(self, name: str):
         module = __import__(name)
+        type = getattr(module, 'CheeseAPI_module_type', 'single')
+        dependencies = getattr(module, 'CheeseAPI_module_dependencies', [])
+        preferredSubModules = getattr(module, 'CheeseAPI_module_preferredSubModules', [])
 
         # 依赖
-        dependencies = getattr(module, 'CheeseAPI_module_dependencies', [])
         if dependencies:
             for dependency in dependencies:
                 self.loadModule(dependency)
 
-        type = getattr(module, 'CheeseAPI_module_type', 'single')
         modulePath = os.path.dirname(inspect.getfile(module))
         # 单模块
         if type == 'single':
@@ -43,20 +44,22 @@ class Handle:
         # 多模块
         elif type == 'multiple':
             foldernames = os.listdir(modulePath)
-            for foldername in getattr(module, 'CheeseAPI_module_preferredSubModules', []):
+            for foldername in preferredSubModules:
+                foldername = f'{name}.{foldername}'
                 if foldername in foldernames:
                     foldernames.remove(foldername)
-                    foldernames.insert(0, foldername)
+                foldernames.insert(0, foldername)
 
             for foldername in foldernames:
                 if foldername == '__pycache__':
                     continue
 
                 folderPath = os.path.join(modulePath, foldername)
-                for filename in os.listdir(folderPath):
-                    filePath = os.path.join(folderPath, filename)
-                    if os.path.isfile(filePath) and filename.endswith('.py'):
-                        __import__(f'{name}.{foldername}.{filename[:-3]}', fromlist = [''])
+                if os.path.isdir(folderPath):
+                    for filename in os.listdir(folderPath):
+                        filePath = os.path.join(folderPath, filename)
+                        if os.path.isfile(filePath) and filename.endswith('.py'):
+                            __import__(f'{name}.{foldername}.{filename[:-3]}', fromlist = [''])
 
     def loadModules(self):
         moduleNum = len(self._app.modules)
@@ -160,7 +163,7 @@ class Handle:
 
                 self.server_afterStopping()
                 if self._app.signal.server_afterStopping.receivers:
-                    self._app.signal.server_afterStopping.send_async()
+                    self._app.signal.server_afterStopping.send()
 
     async def worker_run(self, sock, master: bool):
         from CheeseAPI.app import app
@@ -396,11 +399,14 @@ class Handle:
                     **protocol.kwargs
                 })
 
-        content, streamed = await protocol.response()
-        protocol.transport.write(content)
-        while streamed:
+        try:
             content, streamed = await protocol.response()
             protocol.transport.write(content)
+            while streamed:
+                content, streamed = await protocol.response()
+                protocol.transport.write(content)
+        except RuntimeError:
+            ...
 
         if not recycled:
             await self.http_afterResponse(protocol)
@@ -539,10 +545,10 @@ class Handle:
         ...
 
     async def websocket_subprotocol(self, protocol: 'WebsocketProtocol') -> str:
-        if not protocol.request.headers.get('Sec-Websocket-Subprotocols', None):
+        if not protocol.request.headers.get('Sec-Websocket-Protocol', None):
             return
 
-        protocol.request.subprotocols = protocol.request.headers['Sec-Websocket-Subprotocols'].split(', ')
+        protocol.request.subprotocols = protocol.request.headers['Sec-Websocket-Protocol'].split(', ')
 
         await self.websocket_beforeSubprotocol(protocol)
         if self._app.signal.websocket_beforeSubprotocol.receivers:
@@ -675,7 +681,7 @@ class Handle:
                 **protocol.kwargs
             })
 
-        await protocol.server.send(message)
+        await protocol.send(message)
 
         await self.websocket_afterSending(protocol, message)
         if self._app.signal.websocket_afterSending.receivers:
@@ -701,9 +707,9 @@ class Handle:
                 **protocol.kwargs
             })
 
-        await protocol.server.close(code, reason)
+        await protocol.close(code, reason)
 
-        await self.websocket_afterSending(protocol, code, reason)
+        await self.websocket_afterClosing(protocol, code, reason)
         if self._app.signal.websocket_afterSending.receivers:
             await self._app.signal.websocket_afterSending.send_async(**{
                 'request': protocol.request,
@@ -715,7 +721,7 @@ class Handle:
     async def websocket_beforeClosing(self, protocol: 'WebsocketProtocol', code: int, reason: str):
         ...
 
-    async def websocket_afterSending(self, protocol: 'WebsocketProtocol', code: int, reason: str):
+    async def websocket_afterClosing(self, protocol: 'WebsocketProtocol', code: int, reason: str):
         ...
 
     async def websocket_disconnection(self, protocol: 'WebsocketProtocol'):

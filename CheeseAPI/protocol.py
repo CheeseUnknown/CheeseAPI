@@ -43,13 +43,15 @@ class HttpProtocol(asyncio.Protocol):
             self.transport.set_protocol(websocketProtocol)
 
     def on_url(self, url: bytes):
-        self.request = Request(http.HTTPMethod(self.parser.get_method().decode()), self.transport.get_extra_info('sslcontext'), url.decode())
-
-        self.request.client = self.transport.get_extra_info('socket').getpeername()[0]
-        self.request.origin = f'{self.transport.get_extra_info('socket').getsockname()[0]}:{self.transport.get_extra_info('socket').getsockname()[1]}'
+        self.request = Request(http.HTTPMethod(self.parser.get_method().decode()), url.decode())
 
     def on_header(self, key: bytes, value: bytes):
         self.request.headers['-'.join([t.capitalize() for t in key.decode().split('-')])] = value.decode()
+
+    def on_headers_complete(self):
+        self.request.client = self.request.headers.get('X-Real-Ip', None)
+        self.request.origin = self.request.headers.get('Origin', None)
+        self.request.scheme = self.request.headers.get('X-Forwarded-Proto', None)
 
     def on_body(self, body: bytes):
         if self.request.body is None:
@@ -79,6 +81,9 @@ class WebsocketProtocol(WebSocketServerProtocol):
 
         self.server.send = self._send
         self.server.close = self._close
+
+    def process_subprotocol(self, *args, **kwargs) -> str | None:
+        return self.request.subprotocol
 
     async def ws_handle(self, *args, **kwargs):
         await app._handle.websocket(self)
