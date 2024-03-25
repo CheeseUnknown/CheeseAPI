@@ -1,5 +1,5 @@
 import time, os, inspect, socket, multiprocessing, signal, http, ipaddress
-from typing import TYPE_CHECKING, Dict, Tuple
+from typing import TYPE_CHECKING, Dict, Tuple, List
 
 import asyncio, uvloop, setproctitle, websockets
 from CheeseLog import logger
@@ -120,7 +120,7 @@ class Handle:
         sock.listen(self._app.server.backlog)
         sock.set_inheritable(True)
 
-        processes = []
+        processes: List[multiprocessing.Process] = []
         multiprocessing.allow_connection_pickling()
         for i in range(self._app.server.workers - 1):
             process = multiprocessing.Process(target = self.worker_start, args = (sock,), name = self._app._text.workerProcess_title)
@@ -130,7 +130,20 @@ class Handle:
         self.worker_start(sock, True)
 
         for process in processes:
+            os.kill(process.pid, signal.SIGKILL)
             process.join()
+
+        for text in self._app._text.server_stopping():
+            logger.ending(text[0], text[1])
+
+        self.server_afterStopping()
+        if self._app.signal.server_afterStopping.receivers:
+            self._app.signal.server_afterStopping.send()
+
+        while logger._queue.full():
+            time.sleep(self._app.server.intervalTime)
+
+        os.kill(os.getpid(), signal.SIGKILL)
 
     def worker_beforeStarting(self):
         for text in self._app._text.worker_starting():
@@ -156,14 +169,6 @@ class Handle:
             self.worker_afterStopping()
             if self._app.signal.worker_afterStopping.receivers:
                 self._app.signal.worker_afterStopping.send()
-
-            if self._app._managers['server.workers'].value == 0:
-                for text in self._app._text.server_stopping():
-                    logger.ending(text[0], text[1])
-
-                self.server_afterStopping()
-                if self._app.signal.server_afterStopping.receivers:
-                    self._app.signal.server_afterStopping.send()
 
     async def worker_run(self, sock, master: bool):
         from CheeseAPI.app import app

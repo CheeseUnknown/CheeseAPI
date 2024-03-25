@@ -61,10 +61,19 @@ Static: <cyan>{self._app.server.static}</cyan>''' if self._app.workspace.static 
         return f'Local Modules: {message} {module}', f'Local Modules: {styledMessage} {module}'
 
     def loadedLocalModules(self) -> List[Tuple[str, str]]:
+        foldernames = self._app.localModules.copy()
+        for foldername in self._app.preferred_localModules:
+            if foldername in foldernames:
+                foldernames.remove(foldername)
+                foldernames.insert(0, foldername)
+        for foldername in self._app.exclude_localModules:
+            if foldername in foldernames:
+                foldernames.remove(foldername)
+
         return [
             (f'''Local Modules:
-''' + ' | '.join(self._app.localModules), f'''Local Modules:
-''' + ' | '.join(self._app.localModules))
+''' + ' | '.join(foldernames), f'''Local Modules:
+''' + ' | '.join(foldernames))
         ]
 
     def worker_starting(self) -> List[Tuple[str, str]]:
@@ -138,8 +147,7 @@ Static: <cyan>{self._app.server.static}</cyan>''' if self._app.workspace.static 
         styledMessage += '<blue>{:.6f}</blue> seconds'.format(timer % 60)
 
         return [
-            (message, styledMessage),
-            (f'The master process {os.getpid()} stopped', f'The master process <blue>{os.getpid()}</blue> stopped')
+            (message, styledMessage)
         ]
 
     @property
