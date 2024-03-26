@@ -29,11 +29,6 @@ class HttpProtocol(asyncio.Protocol):
 
         try:
             self.parser.feed_data(data)
-
-            if self.request.body:
-                self.request._parseBody()
-
-            asyncio.get_event_loop().create_task(app._handle.http(self))
         except httptools.HttpParserUpgrade:
             self.request._upgrade()
 
@@ -53,10 +48,17 @@ class HttpProtocol(asyncio.Protocol):
         self.request.origin = self.request.headers.get('Origin', f'{self.transport.get_extra_info("socket").getsockname()[0]}:{self.transport.get_extra_info("socket").getsockname()[1]}')
         self.request.scheme = self.request.headers.get('X-Forwarded-Proto', 'https' if self.transport.get_extra_info('sslcontext') else 'http')
 
+        if not self.parser.should_upgrade() and not int(self.request.headers.get('Content-Length', 0)):
+            asyncio.get_event_loop().create_task(app._handle.http(self))
+
     def on_body(self, body: bytes):
         if self.request.body is None:
             self.request.body = b''
         self.request.body += body
+
+        if len(self.request.body) == int(self.request.headers.get('Content-Length', 0)):
+            self.request._parseBody()
+            asyncio.get_event_loop().create_task(app._handle.http(self))
 
     def connection_lost(self, exc: Exception | None):
         self.transport.close()
