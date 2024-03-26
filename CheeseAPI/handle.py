@@ -658,7 +658,8 @@ class Handle:
                 })
 
             await protocol.server.message(**{
-                'message': message
+                'message': message,
+                **protocol.kwargs
             })
 
             await self.websocket_afterMessage(protocol, message)
