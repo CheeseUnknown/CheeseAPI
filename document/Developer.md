@@ -22,10 +22,6 @@ Response请求headers中的Server项。
 
 程序子进程的进程名。
 
-### **`app._text.logger: str = '%Y_%m_%d-%H_%M_%S.log'`**
-
-`app.workspace.logger`为`True`时自动设置的值。
-
 ### **`app._text.server_information() -> List[Tuple[str, str]]`**
 
 Server的基础信息。

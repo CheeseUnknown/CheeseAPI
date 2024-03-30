@@ -1,4 +1,4 @@
-import os, datetime, sys
+import os, sys
 
 from typing import TYPE_CHECKING
 
@@ -46,11 +46,11 @@ class Workspace:
     @logger.setter
     def logger(self, value: str | bool):
         if value is True:
-            self._logger = datetime.datetime.now().strftime(self._app._text.logger)
+            self._logger = self._app._text.logger
         elif value is False:
             self._logger = ''
         else:
-            self._logger = datetime.datetime.now().strftime(value)
+            self._logger = value
 
         if self.log and self.logger:
             logger.filePath = os.path.join(self.log, self.logger)

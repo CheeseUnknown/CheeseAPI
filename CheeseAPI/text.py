@@ -16,7 +16,7 @@ class Text:
         self.response_server: str = 'CheeseAPI'
         self._process_title: str = 'CheeseAPI'
         self.workerProcess_title: str = 'CheeseAPI:Process'
-        self.logger: str = '%Y_%m_%d-%H_%M_%S.log'
+        self.logger: str = '%Y_%m_%d.log'
 
         setproctitle.setproctitle(self._process_title)
 

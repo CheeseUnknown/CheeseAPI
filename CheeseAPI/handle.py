@@ -140,8 +140,7 @@ class Handle:
         if self._app.signal.server_afterStopping.receivers:
             self._app.signal.server_afterStopping.send()
 
-        while logger._queue.full():
-            time.sleep(self._app.server.intervalTime)
+        logger.destroy()
 
         os.kill(os.getpid(), signal.SIGKILL)
 
