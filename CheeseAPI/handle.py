@@ -445,7 +445,7 @@ class Handle:
                     })
 
                 if e.args[0] == 0:
-                    self.websocket_404(protocol)
+                    await self.websocket_404(protocol)
                     if self._app.signal.websocket_404.receivers:
                         await self._app.signal.websocket_404.send_async(**{
                             'request': protocol.request,
@@ -455,7 +455,7 @@ class Handle:
                     return await self.websocket_response(protocol)
 
                 elif e.args[0] == 1:
-                    self.websocket_405(protocol)
+                    await self.websocket_405(protocol)
                     if self._app.signal.websocket_405.receivers:
                         await self._app.signal.websocket_405.send_async(**{
                             'request': protocol.request,

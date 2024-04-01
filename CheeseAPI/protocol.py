@@ -23,10 +23,6 @@ class HttpProtocol(asyncio.Protocol):
         self.transport = transport
 
     def data_received(self, data: bytes) -> None:
-        self.request = None
-        self.response = None
-        self.kwargs = {}
-
         try:
             self.parser.feed_data(data)
         except httptools.HttpParserUpgrade:
@@ -39,6 +35,8 @@ class HttpProtocol(asyncio.Protocol):
 
     def on_url(self, url: bytes):
         self.request = Request(http.HTTPMethod(self.parser.get_method().decode()), url.decode())
+        self.response = None
+        self.kwargs = {}
 
     def on_header(self, key: bytes, value: bytes):
         self.request.headers['-'.join([t.capitalize() for t in key.decode().split('-')])] = value.decode()
