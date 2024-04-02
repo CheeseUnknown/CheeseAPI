@@ -130,7 +130,7 @@ class Handle:
         self.worker_start(sock, True)
 
         for process in processes:
-            os.kill(process.pid, signal.SIGKILL)
+            process.terminate()
             process.join()
 
         for text in self._app._text.server_stopping():
@@ -142,7 +142,7 @@ class Handle:
 
         logger.destroy()
 
-        os.kill(os.getpid(), signal.SIGKILL)
+        os.killpg(os.getpid(), signal.SIGKILL)
 
     def worker_beforeStarting(self):
         for text in self._app._text.worker_starting():

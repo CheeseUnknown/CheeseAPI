@@ -22,7 +22,10 @@ class Workspace:
 
     @base.setter
     def base(self, value: str):
-        sys.path.remove(self._base)
+        try:
+            sys.path.remove(self._base)
+        except:
+            ...
         self._base = value
         sys.path.append(self._base)
 
