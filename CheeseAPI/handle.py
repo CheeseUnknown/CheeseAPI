@@ -275,7 +275,6 @@ class Handle:
                     return
 
                 if e.args[0] == 1:
-                    await self.http_options(protocol)
                     if isinstance(protocol.response, BaseResponse):
                         if self._app.signal.http_options.receivers:
                             await self._app.signal.http_options.send_async(**{
@@ -350,10 +349,31 @@ class Handle:
     async def http_404(self, protocol: 'HttpProtocol'):
         protocol.response = Response(status = http.HTTPStatus.NOT_FOUND)
 
-    async def http_options(self, protocol: 'HttpProtocol'):
+    async def http_405(self, protocol: 'HttpProtocol'):
+        protocol.response = Response(status = http.HTTPStatus.METHOD_NOT_ALLOWED)
+
+    async def http_500(self, protocol: 'HttpProtocol', e: BaseException, recycled: bool = False):
+        protocol.response = Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        if not recycled:
+            for text in self._app._text.http_500(protocol, e):
+                logger.danger(text[0], text[1])
+
+    async def http_response(self, protocol: 'HttpProtocol', recycled: bool = False):
+        if not isinstance(protocol.response, BaseResponse):
+            await self.noResponse(protocol)
+
+        if not recycled:
+            await self.http_beforeResponse(protocol)
+            if self._app.signal.http_beforeResponse.receivers:
+                await self._app.signal.http_beforeResponse.send_async(**{
+                    'request': protocol.request,
+                    'response': protocol.response,
+                    **protocol.kwargs
+                })
+
         if (
-            protocol.request.method == http.HTTPMethod.OPTIONS
-            and (
+            (
                 protocol.request.origin not in self._app.cors.exclude_origin
                 and
                 (
@@ -379,29 +399,6 @@ class Handle:
                 protocol.response.headers['Access-Control-Allow-Headers'] = self._app.cors.headers
             elif self._app.cors.headers:
                 protocol.response.headers['Access-Control-Allow-Headers'] = ', '.join(self._app.cors.headers)
-
-    async def http_405(self, protocol: 'HttpProtocol'):
-        protocol.response = Response(status = http.HTTPStatus.METHOD_NOT_ALLOWED)
-
-    async def http_500(self, protocol: 'HttpProtocol', e: BaseException, recycled: bool = False):
-        protocol.response = Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
-
-        if not recycled:
-            for text in self._app._text.http_500(protocol, e):
-                logger.danger(text[0], text[1])
-
-    async def http_response(self, protocol: 'HttpProtocol', recycled: bool = False):
-        if not isinstance(protocol.response, BaseResponse):
-            await self.noResponse(protocol)
-
-        if not recycled:
-            await self.http_beforeResponse(protocol)
-            if self._app.signal.http_beforeResponse.receivers:
-                await self._app.signal.http_beforeResponse.send_async(**{
-                    'request': protocol.request,
-                    'response': protocol.response,
-                    **protocol.kwargs
-                })
 
         try:
             content, streamed = await protocol.response()
