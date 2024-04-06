@@ -1,5 +1,5 @@
-import http, json, time
-from typing import Callable, Dict, AsyncIterator, Tuple, overload
+import http, json, time, datetime
+from typing import Callable, Dict, AsyncIterator, Tuple, overload, Literal
 from email.utils import formatdate
 
 from CheeseAPI.file import File
@@ -370,7 +370,11 @@ class BaseResponse:
 
             value = b'HTTP/1.1 ' + str(self.status).encode() + b' ' + http.HTTPStatus(self.status).phrase.encode() + b'\r\n'
             for key, _value in self.headers.items():
-                value += key.encode() + b': ' + str(_value).encode() + b'\r\n'
+                if key == 'Set-Cookies':
+                    for _, __value in _value.items():
+                        value += 'Set-Cookie: ' + __value
+                else:
+                    value += key.encode() + b': ' + str(_value).encode() + b'\r\n'
             value += b'\r\n'
 
             _value = None
@@ -384,6 +388,33 @@ class BaseResponse:
                 value += b'%x\r\n' % len(_value) + _value + b'\r\n0\r\n\r\n'
 
             return value, self._transfering
+
+    def setCookie(self, key: str, value: str, *, path: str = '/', secure: bool = False, httpOnly: bool = False, domain: str = '', sameSite: Literal['Strict', 'Lax', 'None'] = 'Lax', expires: datetime.datetime | str | None = None, maxAge: datetime.timedelta | int | None = None):
+        if 'Set-Cookies' not in self.headers:
+            self.headers['Set-Cookies'] = {}
+
+        s = f'{key}={value};'
+        if path:
+            s += f' Path={path};'
+        if sameSite == 'None' or secure:
+            s += ' Secure;'
+        if httpOnly:
+            s += ' HttpOnly;'
+        if domain:
+            s += f' Domain={domain};'
+        if sameSite != 'Lax':
+            s += f' SameSite={sameSite};'
+        if expires:
+            if isinstance(expires, str):
+                s += f' Expires={expires};'
+            elif isinstance(expires, datetime.datetime):
+                s += f' Expires={expires.strftime("%a, %d-%b-%Y %H:%M:%S GMT")};'
+        if maxAge:
+            if isinstance(maxAge, int):
+                s += f' Max-Age={maxAge};'
+            elif isinstance(maxAge, datetime.timedelta):
+                s += f' Max-Age={maxAge.total_seconds()};'
+        self.headers['Set-Cookies'][key] = s
 
 class Response(BaseResponse):
     def __init__(self, body: str | bytes | Callable | AsyncIterator | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):

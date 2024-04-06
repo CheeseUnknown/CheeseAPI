@@ -19,6 +19,7 @@ class Request:
         # Http
         self.body: list | dict | str | bytes | None = None
         self.form: Dict[str, str | File] | None = None
+        self.cookie: Dict[str, str] | None = None
 
         # Websocket
         self.subprotocols: List[str] | None = None

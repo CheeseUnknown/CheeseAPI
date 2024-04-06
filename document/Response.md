@@ -16,6 +16,10 @@ async def index(*args, **kwargs):
         ...
 ```
 
+### **`def setCookie(self, key: str, value: str, *, path: str = '/', secure: bool = False, httpOnly: bool = False, domain: str = '', sameSite: Literal['Strict', 'Lax', 'None'] = 'Lax', expires: datetime.datetime | str | None = None, maxAge: datetime.timedelta | int | None = None)`**
+
+设置cookie。
+
 ## **`class Response(BaseResponse)`**
 
 最基础的response。

@@ -46,6 +46,11 @@ class HttpProtocol(asyncio.Protocol):
         self.request.origin = self.request.headers.get('Origin', f'{self.transport.get_extra_info("socket").getsockname()[0]}:{self.transport.get_extra_info("socket").getsockname()[1]}')
         self.request.scheme = self.request.headers.get('X-Forwarded-Proto', 'https' if self.transport.get_extra_info('sslcontext') else 'http')
 
+        if 'Cookie' in self.request.headers:
+            self.request.cookie = {
+                t.split('=')[0]: t.split('=')[1] for t in self.request.headers['Cookie'].split('; ')
+            }
+
         if not self.parser.should_upgrade() and not int(self.request.headers.get('Content-Length', 0)):
             asyncio.get_event_loop().create_task(app._handle.http(self))
 

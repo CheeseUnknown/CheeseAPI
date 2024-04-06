@@ -48,11 +48,15 @@ async def index(*args, request: Request, **kwargs):
 
 ## **`request.body: list | dict | str | bytes | None`**
 
-请求的body；在websocket请求中为`None`。
+请求的body。
 
 ## **`request.form: Dict[str, str | File] | None`**
 
-从请求body中解析出的表单信息；在websocket请求中为`None`。
+从请求body中解析出的表单信息。
+
+## **`request.cookie: Dict[str, str] | None`**
+
+从请求headers中解析出的cookie信息。
 
 ## **`request.subprotocols: List[str] | None`**
 
