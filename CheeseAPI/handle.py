@@ -275,7 +275,9 @@ class Handle:
                     return
 
                 if e.args[0] == 1:
-                    if isinstance(protocol.response, BaseResponse):
+                    if protocol.request.method == http.HTTPMethod.OPTIONS:
+                        protocol.response = Response(status = 200)
+
                         if self._app.signal.http_options.receivers:
                             await self._app.signal.http_options.send_async(**{
                                 'request': protocol.request,
@@ -346,6 +348,9 @@ class Handle:
             except (FileNotFoundError, IsADirectoryError):
                 ...
 
+    async def http_options(self, protocol: 'HttpProtocol'):
+        protocol.response = Response(status = http.HTTPStatus.OK)
+
     async def http_404(self, protocol: 'HttpProtocol'):
         protocol.response = Response(status = http.HTTPStatus.NOT_FOUND)
 
@@ -388,8 +393,6 @@ class Handle:
                 protocol.request.method in self._app.cors.methods
             )
         ):
-            protocol.response = Response(status = http.HTTPStatus.OK)
-
             protocol.response.headers['Access-Control-Allow-Origin'] = protocol.request.origin
 
             if self._app.cors.methods:
