@@ -657,6 +657,7 @@ class Handle:
                 })
 
             await protocol.server.message(**{
+                'request': protocol.request,
                 'message': message,
                 **protocol.kwargs
             })

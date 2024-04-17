@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "CheeseAPI"
-version = "0.4.11"
+version = "1.0.0"
 description = "一款web协程框架。"
 readme = "README.md"
 license-files = { paths = [ "LICENSE" ] }
@@ -14,7 +14,7 @@ authors = [
 keywords = [ 'API', 'BackEnd' ]
 
 dependencies = [
-    "CheeseLog",
+    "CheeseLog==1.0.*",
     "xmltodict",
     "blinker",
     "websockets",
