@@ -312,6 +312,13 @@ class Handle:
                 **protocol.kwargs
             })
 
+            if self._app.signal.http_custom.receivers:
+                await self._app.signal.http_custom.async_send(**{
+                    'request': protocol.request,
+                    'response': protocol.response,
+                    **protocol.kwargs
+                })
+
             await self.http_response(protocol)
         except BaseException as e:
             try:
