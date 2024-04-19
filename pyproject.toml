@@ -16,11 +16,10 @@ keywords = [ 'API', 'BackEnd' ]
 dependencies = [
     "CheeseLog==1.0.*",
     "xmltodict",
-    "blinker",
     "websockets",
     "uvloop",
     "httptools",
-    "ordered_set"
+    "CheeseSignal==1.0.*"
 ]
 
 [project.urls]

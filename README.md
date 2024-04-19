@@ -14,7 +14,7 @@
 
 系统要求：Linux。
 
-Python要求：目前仅保证支持3.11及以上版本的Python，新版本会优先支持Python的最新稳定版本。
+Python要求：目前仅保证支持3.12版本的Python，新版本会优先支持Python的最新稳定版本。
 
 ```
 pip install CheeseAPI

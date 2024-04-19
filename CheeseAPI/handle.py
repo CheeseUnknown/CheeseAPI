@@ -184,7 +184,7 @@ class Handle:
 
         await self.worker_afterStarting()
         if self._app.signal.worker_afterStarting.receivers:
-            await self._app.signal.worker_afterStarting.send_async()
+            await self._app.signal.worker_afterStarting.async_send()
 
         with self._app._managers['lock']:
             self._app._managers['server.workers'].value += 1
@@ -194,17 +194,17 @@ class Handle:
 
                 await self.server_afterStarting()
                 if self._app.signal.server_afterStarting.receivers:
-                    await self._app.signal.server_afterStarting.send_async()
+                    await self._app.signal.server_afterStarting.async_send()
 
         while server.is_serving():
             if master:
                 await self.server_running()
                 if self._app.signal.server_running.receivers:
-                    await self._app.signal.server_running.send_async()
+                    await self._app.signal.server_running.async_send()
 
             await self.worker_running()
             if self._app.signal.worker_running.receivers:
-                await self._app.signal.worker_running.send_async()
+                await self._app.signal.worker_running.async_send()
 
             await asyncio.sleep(self._app.server.intervalTime)
 
@@ -212,11 +212,11 @@ class Handle:
             if self._app._managers['server.workers'].value == self._app.server.workers:
                 await self.server_beforeStopping()
                 if self._app.signal.server_beforeStopping.receivers:
-                    await self._app.signal.server_beforeStopping.send_async()
+                    await self._app.signal.server_beforeStopping.async_send()
 
             await self.worker_beforeStopping()
             if self._app.signal.worker_beforeStopping.receivers:
-                await self._app.signal.worker_beforeStopping.send_async()
+                await self._app.signal.worker_beforeStopping.async_send()
 
     async def worker_afterStarting(self):
         ...
@@ -240,12 +240,12 @@ class Handle:
         try:
             await self._app._handle.http_beforeRequest(self)
             if self._app.signal.http_beforeRequest.receivers:
-                await self._app.signal.http_beforeRequest.send_async()
+                await self._app.signal.http_beforeRequest.async_send()
 
             await self.http_static(protocol)
             if isinstance(protocol.response, BaseResponse):
                 if self._app.signal.http_static.receivers:
-                    await self._app.signal.http_static.send_async(**{
+                    await self._app.signal.http_static.async_send(**{
                         'request': protocol.request,
                         'response': protocol.response,
                         **protocol.kwargs
@@ -258,7 +258,7 @@ class Handle:
             except KeyError as e:
                 await self.http_afterRequest(protocol)
                 if self._app.signal.http_afterRequest.receivers:
-                    await self._app.signal.http_afterRequest.send_async(**{
+                    await self._app.signal.http_afterRequest.async_send(**{
                         'request': protocol.request,
                         **protocol.kwargs
                     })
@@ -266,7 +266,7 @@ class Handle:
                 if e.args[0] == 0:
                     await self.http_404(protocol)
                     if self._app.signal.http_404.receivers:
-                        await self._app.signal.http_404.send_async(**{
+                        await self._app.signal.http_404.async_send(**{
                             'request': protocol.request,
                             'response': protocol.response,
                             **protocol.kwargs
@@ -279,7 +279,7 @@ class Handle:
                         protocol.response = Response(status = 200)
 
                         if self._app.signal.http_options.receivers:
-                            await self._app.signal.http_options.send_async(**{
+                            await self._app.signal.http_options.async_send(**{
                                 'request': protocol.request,
                                 'response': protocol.response,
                                 **protocol.kwargs
@@ -289,7 +289,7 @@ class Handle:
 
                     await self.http_405(protocol)
                     if self._app.signal.http_405.receivers:
-                        await self._app.signal.http_405.send_async(**{
+                        await self._app.signal.http_405.async_send(**{
                             'request': protocol.request,
                             'response': protocol.response,
                             'e': e,
@@ -302,7 +302,7 @@ class Handle:
 
             await self.http_afterRequest(protocol)
             if self._app.signal.http_afterRequest.receivers:
-                await self._app.signal.http_afterRequest.send_async(**{
+                await self._app.signal.http_afterRequest.async_send(**{
                     'request': protocol.request,
                     **protocol.kwargs
             })
@@ -317,7 +317,7 @@ class Handle:
             try:
                 await self.http_500(protocol, e)
                 if self._app.signal.http_500.receivers:
-                    await self._app.signal.http_500.send_async(**{
+                    await self._app.signal.http_500.async_send(**{
                         'request': protocol.request,
                         'response': protocol.response,
                         'e': e,
@@ -335,13 +335,13 @@ class Handle:
 
                 await self.http_afterRequest(protocol)
                 if self._app.signal.http_afterRequest.receivers:
-                    await self._app.signal.http_afterRequest.send_async(**{
+                    await self._app.signal.http_afterRequest.async_send(**{
                         'request': protocol.request,
                         **protocol.kwargs
                     })
 
                 if self._app.signal.http_static.receivers:
-                    await self._app.signal.http_static.send_async(**{
+                    await self._app.signal.http_static.async_send(**{
                         'request': protocol.request,
                         **protocol.kwargs
                     })
@@ -371,7 +371,7 @@ class Handle:
         if not recycled:
             await self.http_beforeResponse(protocol)
             if self._app.signal.http_beforeResponse.receivers:
-                await self._app.signal.http_beforeResponse.send_async(**{
+                await self._app.signal.http_beforeResponse.async_send(**{
                     'request': protocol.request,
                     'response': protocol.response,
                     **protocol.kwargs
@@ -415,7 +415,7 @@ class Handle:
         if not recycled:
             await self.http_afterResponse(protocol)
             if self._app.signal.http_afterResponse.receivers:
-                await self._app.signal.http_afterResponse.send_async(**{
+                await self._app.signal.http_afterResponse.async_send(**{
                     'request': protocol.request,
                     'response': protocol.response,
                     **protocol.kwargs
@@ -439,7 +439,7 @@ class Handle:
             except KeyError as e:
                 await self.websocket_afterRequest(protocol)
                 if self._app.signal.websocket_afterRequest.receivers:
-                    await self._app.signal.websocket_afterRequest.send_async(**{
+                    await self._app.signal.websocket_afterRequest.async_send(**{
                         'request': protocol.request,
                         **protocol.kwargs
                     })
@@ -447,7 +447,7 @@ class Handle:
                 if e.args[0] == 0:
                     await self.websocket_404(protocol)
                     if self._app.signal.websocket_404.receivers:
-                        await self._app.signal.websocket_404.send_async(**{
+                        await self._app.signal.websocket_404.async_send(**{
                             'request': protocol.request,
                             'response': protocol.response,
                             **protocol.kwargs
@@ -457,7 +457,7 @@ class Handle:
                 elif e.args[0] == 1:
                     await self.websocket_405(protocol)
                     if self._app.signal.websocket_405.receivers:
-                        await self._app.signal.websocket_405.send_async(**{
+                        await self._app.signal.websocket_405.async_send(**{
                             'request': protocol.request,
                             'response': protocol.response,
                             **protocol.kwargs
@@ -470,7 +470,7 @@ class Handle:
 
             await self.websocket_afterRequest(protocol)
             if self._app.signal.websocket_afterRequest.receivers:
-                await self._app.signal.websocket_afterRequest.send_async(**{
+                await self._app.signal.websocket_afterRequest.async_send(**{
                     'request': protocol.request,
                     **protocol.kwargs
                 })
@@ -482,7 +482,7 @@ class Handle:
             try:
                 await self.websocket_500(protocol, e)
                 if self._app.signal.websocket_500.receivers:
-                    await self._app.signal.websocket_500.send_async(**{
+                    await self._app.signal.websocket_500.async_send(**{
                         'request': protocol.request,
                         'response': protocol.response,
                         'e': e,
@@ -520,7 +520,7 @@ class Handle:
         if not recycled:
             await self.websocket_beforeResponse(protocol)
             if self._app.signal.websocket_beforeResponse.receivers:
-                await self._app.signal.websocket_beforeResponse.send_async(**{
+                await self._app.signal.websocket_beforeResponse.async_send(**{
                     'request': protocol.request,
                     'response': protocol.response,
                     **protocol.kwargs
@@ -534,7 +534,7 @@ class Handle:
 
             await self.websocket_afterResponse(protocol)
             if self._app.signal.websocket_afterResponse.receivers:
-                await self._app.signal.websocket_afterResponse.send_async(**{
+                await self._app.signal.websocket_afterResponse.async_send(**{
                     'request': protocol.request,
                     'response': protocol.response,
                     **protocol.kwargs
@@ -556,7 +556,7 @@ class Handle:
 
         await self.websocket_beforeSubprotocol(protocol)
         if self._app.signal.websocket_beforeSubprotocol.receivers:
-            await self._app.signal.websocket_beforeSubprotocol.send_async(**{
+            await self._app.signal.websocket_beforeSubprotocol.async_send(**{
                 'request': protocol.request,
                 **protocol.kwargs
             })
@@ -571,7 +571,7 @@ class Handle:
 
         await self.websocket_afterSubprotocol(protocol)
         if self._app.signal.websocket_afterSubprotocol.receivers:
-            await self._app.signal.websocket_afterSubprotocol.send_async(**{
+            await self._app.signal.websocket_afterSubprotocol.async_send(**{
                 'request': protocol.request,
                 'response': protocol.response,
                 **protocol.kwargs
@@ -587,7 +587,7 @@ class Handle:
         try:
             await self.websocket_beforeConnection(protocol)
             if self._app.signal.websocket_beforeConnection.receivers:
-                await self._app.signal.websocket_beforeConnection.send_async(**{
+                await self._app.signal.websocket_beforeConnection.async_send(**{
                     'request': protocol.request,
                     **protocol.kwargs
                 })
@@ -600,7 +600,7 @@ class Handle:
 
             await self.websocket_afterConnection(protocol)
             if self._app.signal.websocket_afterConnection.receivers:
-                await self._app.signal.websocket_afterConnection.send_async(**{
+                await self._app.signal.websocket_afterConnection.async_send(**{
                     'request': protocol.request,
                     **protocol.kwargs
                 })
@@ -614,7 +614,7 @@ class Handle:
             await self.websocket_disconnection(protocol)
             await self.websocket_afterDisconnection()
             if self._app.signal.websocket_afterDisconnection.receivers:
-                await self._app.signal.websocket_afterDisconnection.send_async(**{
+                await self._app.signal.websocket_afterDisconnection.async_send(**{
                     'request': protocol.request,
                     **protocol.kwargs
                 })
@@ -622,7 +622,7 @@ class Handle:
             try:
                 await self.websocket_500(protocol, e, False, True)
                 if self._app.signal.websocket_500.receivers:
-                    await self._app.signal.websocket_500.send_async(**{
+                    await self._app.signal.websocket_500.async_send(**{
                         'request': protocol.request,
                         'response': protocol.response,
                         'e': e,
@@ -650,7 +650,7 @@ class Handle:
 
             await self.websocket_beforeMessage(protocol, message)
             if self._app.signal.websocket_beforeMessage.receivers:
-                await self._app.signal.websocket_beforeMessage.send_async(**{
+                await self._app.signal.websocket_beforeMessage.async_send(**{
                     'request': protocol.request,
                     'message': message,
                     **protocol.kwargs
@@ -664,7 +664,7 @@ class Handle:
 
             await self.websocket_afterMessage(protocol, message)
             if self._app.signal.websocket_afterMessage.receivers:
-                await self._app.signal.websocket_afterMessage.send_async({
+                await self._app.signal.websocket_afterMessage.async_send({
                     'request': protocol.request,
                     'message': message,
                     **protocol.kwargs
@@ -681,7 +681,7 @@ class Handle:
     async def websocket_send(self, protocol: 'WebsocketProtocol', message: str | bytes):
         await self.websocket_beforeSending(protocol, message)
         if self._app.signal.websocket_beforeSending.receivers:
-            await self._app.signal.websocket_beforeSending.send_async(**{
+            await self._app.signal.websocket_beforeSending.async_send(**{
                 'request': protocol.request,
                 'message': message,
                 **protocol.kwargs
@@ -691,7 +691,7 @@ class Handle:
 
         await self.websocket_afterSending(protocol, message)
         if self._app.signal.websocket_afterSending.receivers:
-            await self._app.signal.websocket_afterSending.send_async(**{
+            await self._app.signal.websocket_afterSending.async_send(**{
                 'request': protocol.request,
                 'message': message,
                 **protocol.kwargs
@@ -706,7 +706,7 @@ class Handle:
     async def websocket_close(self, protocol: 'WebsocketProtocol', code: int, reason: str):
         await self.websocket_beforeClosing(protocol, code, reason)
         if self._app.signal.websocket_beforeClosing.receivers:
-            await self._app.signal.websocket_beforeClosing.send_async(**{
+            await self._app.signal.websocket_beforeClosing.async_send(**{
                 'request': protocol.request,
                 'code': code,
                 'reason': reason,
@@ -717,7 +717,7 @@ class Handle:
 
         await self.websocket_afterClosing(protocol, code, reason)
         if self._app.signal.websocket_afterSending.receivers:
-            await self._app.signal.websocket_afterSending.send_async(**{
+            await self._app.signal.websocket_afterSending.async_send(**{
                 'request': protocol.request,
                 'code': code,
                 'reason': reason,

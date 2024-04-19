@@ -1,28 +1,12 @@
 # **Signal**
 
-CheeseAPI的信号插槽基于[blink](https://blinker.readthedocs.io)二次开发，仅对`connect_via`函数的`sender`参数添加了默认值。
+CheeseAPI的信号插槽使用[CheeseSignal](https://blinker.readthedocs.io)实现。
 
-插槽执行顺序遵循导入顺序，所有参数都以`**kwargs`的形式传递。
+所有参数都以`**kwargs`的形式传递。
 
 部分实例参数可在插槽中修改属性，但希望使用自定义的装饰器进行数据的修改，插槽是为了更好的解耦代码而存在。
 
 后续内容会涉及到[Route （路由）](../Route.md)、[Request （请求体）](../Request.md)和[Response （响应体）](../Response.md)，不再阐述。
-
-## **`class Signal(blinker.Signal)`**
-
-```python
-from CheeseAPI import Signal
-
-signal = Signal()
-```
-
-### **`self.connect_via(self, sender: Any = blinker.ANY, weak: TYPE_CHECKING = False) -> Callable`**
-
-```python
-@signal.connect_via()
-def slot(sender):
-    ...
-```
 
 ## **【非协程】 `app.signal.server_beforeStarting: Signal = Signal()`**
 

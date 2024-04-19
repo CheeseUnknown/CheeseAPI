@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING, Any, Callable
 
-import blinker
-from ordered_set import OrderedSet
+from CheeseSignal import Signal
 
 if TYPE_CHECKING:
     from CheeseAPI.app import App
@@ -50,9 +49,3 @@ class _Signal:
         self.websocket_beforeClosing: Signal = Signal()
         self.websocket_afterClosing: Signal = Signal()
         self.websocket_afterDisconnection: Signal = Signal()
-
-class Signal(blinker.Signal):
-    def connect_via(self, sender: Any = blinker.ANY, weak: TYPE_CHECKING = False) -> Callable:
-        return super().connect_via(sender, weak)
-
-Signal.set_class = OrderedSet
