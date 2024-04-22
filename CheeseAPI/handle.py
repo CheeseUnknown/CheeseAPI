@@ -337,23 +337,26 @@ class Handle:
 
     async def http_static(self, protocol: 'HttpProtocol'):
         if self._app.server.static and self._app.workspace.static and protocol.request.path.startswith(self._app.server.static) and protocol.request.method == http.HTTPMethod.GET:
-            try:
-                protocol.response = FileResponse(os.path.join(self._app.workspace.static, protocol.request.path[1:]))
+            for key in [ '', '.html', 'index.html', '/index.html' ]:
+                try:
+                    protocol.response = FileResponse(os.path.join(self._app.workspace.static, protocol.request.path[1:] + key))
 
-                await self.http_afterRequest(protocol)
-                if self._app.signal.http_afterRequest.receivers:
-                    await self._app.signal.http_afterRequest.async_send(**{
-                        'request': protocol.request,
-                        **protocol.kwargs
-                    })
+                    await self.http_afterRequest(protocol)
+                    if self._app.signal.http_afterRequest.receivers:
+                        await self._app.signal.http_afterRequest.async_send(**{
+                            'request': protocol.request,
+                            **protocol.kwargs
+                        })
 
-                if self._app.signal.http_static.receivers:
-                    await self._app.signal.http_static.async_send(**{
-                        'request': protocol.request,
-                        **protocol.kwargs
-                    })
-            except (FileNotFoundError, IsADirectoryError):
-                ...
+                    if self._app.signal.http_static.receivers:
+                        await self._app.signal.http_static.async_send(**{
+                            'request': protocol.request,
+                            **protocol.kwargs
+                        })
+
+                    break
+                except (FileNotFoundError, NotADirectoryError, IsADirectoryError):
+                    ...
 
     async def http_options(self, protocol: 'HttpProtocol'):
         protocol.response = Response(status = http.HTTPStatus.OK)
