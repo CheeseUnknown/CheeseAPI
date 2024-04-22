@@ -85,3 +85,15 @@ async def index(*args, **kwargs):
     - **chunkSize**
 
         发送文件的chunk大小。
+
+## **`class RedirectResponse(BaseResponse)`**
+
+重定向响应。
+
+### **`def __init__(self, location: str, status: http.HTTPStatus | int = http.HTTPStatus.FOUND, body: str | bytes | None = None, headers: Dict[str, str] = {})`**
+
+- **参数**
+
+    - **location**
+
+        重定向的地址。

@@ -460,3 +460,11 @@ class FileResponse(BaseResponse):
             endIndex = min(index + self.chunkSize, length)
             yield self.file.data[index:endIndex]
             index = endIndex
+
+class RedirectResponse(BaseResponse):
+    def __init__(self, location: str, status: http.HTTPStatus | int = http.HTTPStatus.FOUND, body: str | bytes | None = None, headers: Dict[str, str] = {}):
+        super().__init__(body, status, {
+            'Content-Type': 'text/plain',
+            'Location': location,
+            **headers
+        })
