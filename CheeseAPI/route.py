@@ -1,8 +1,11 @@
 import uuid, re, http
-from typing import Dict, Tuple, Callable, List, Any, Literal
+from typing import Dict, Tuple, Callable, List, Any, Literal, overload, TYPE_CHECKING
 from urllib.parse import unquote
 
 from CheeseAPI.exception import Route_404_Exception, Route_405_Exception
+
+if TYPE_CHECKING:
+    from CheeseAPI.websocket import WebsocketServer
 
 class RouteNode:
     def __init__(self):
@@ -117,90 +120,222 @@ class Route:
     def __init__(self, prefix: str = ''):
         self.prefix: str = prefix
 
+    @overload
     def __call__(self, path: str, methods: List[ http.HTTPMethod | str ]):
-        def decorator(func):
-            from CheeseAPI.app import app
+        ...
 
+    @overload
+    def __call__(self, path: str, methods: List[ http.HTTPMethod | str ], func: Callable):
+        ...
+
+    def __call__(self, path: str, methods: List[ http.HTTPMethod | str ], func: Callable | None):
+        from CheeseAPI.app import app
+
+        if func:
+            app.routeBus._insert(self.prefix + path, func, methods)
+            return
+
+        def decorator(func):
             app.routeBus._insert(self.prefix + path, func, methods)
             return func
         return decorator
 
+    @overload
     def get(self, path: str):
-        def decorator(func):
-            from CheeseAPI.app import app
+        ...
 
+    @overload
+    def get(self, path: str, func: Callable):
+        ...
+
+    def get(self, path: str, func: Callable | None):
+        from CheeseAPI.app import app
+
+        if func:
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.GET ])
+            return
+
+        def decorator(func):
             app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.GET ])
             return func
         return decorator
 
+    @overload
     def post(self, path: str):
-        def decorator(func):
-            from CheeseAPI.app import app
+        ...
 
+    @overload
+    def post(self, path: str, func: Callable):
+        ...
+
+    def post(self, path: str, func: Callable | None):
+        from CheeseAPI.app import app
+
+        if func:
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.POST ])
+            return
+
+        def decorator(func):
             app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.POST ])
             return func
         return decorator
 
+    @overload
     def delete(self, path: str):
-        def decorator(func):
-            from CheeseAPI.app import app
+        ...
 
+    @overload
+    def delete(self, path: str, func: Callable):
+        ...
+
+    def delete(self, path: str, func: Callable | None):
+        from CheeseAPI.app import app
+
+        if func:
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.DELETE ])
+            return
+
+        def decorator(func):
             app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.DELETE ])
             return func
         return decorator
 
+    @overload
     def put(self, path: str):
-        def decorator(func):
-            from CheeseAPI.app import app
+        ...
 
+    @overload
+    def put(self, path: str, func: Callable):
+        ...
+
+    def put(self, path: str, func: Callable | None):
+        from CheeseAPI.app import app
+
+        if func:
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.PUT ])
+            return
+
+        def decorator(func):
             app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.PUT ])
             return func
         return decorator
 
+    @overload
     def patch(self, path: str):
-        def decorator(func):
-            from CheeseAPI.app import app
+        ...
 
+    @overload
+    def patch(self, path: str, func: Callable):
+        ...
+
+    def patch(self, path: str, func: Callable | None):
+        from CheeseAPI.app import app
+
+        if func:
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.PATCH ])
+            return
+
+        def decorator(func):
             app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.PATCH ])
             return func
         return decorator
 
+    @overload
     def trace(self, path: str):
-        def decorator(func):
-            from CheeseAPI.app import app
+        ...
 
+    @overload
+    def trace(self, path: str, func: Callable):
+        ...
+
+    def trace(self, path: str, func: Callable | None):
+        from CheeseAPI.app import app
+
+        if func:
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.TRACE ])
+            return
+
+        def decorator(func):
             app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.TRACE ])
             return func
         return decorator
 
+    @overload
     def options(self, path: str):
-        def decorator(func):
-            from CheeseAPI.app import app
+        ...
 
+    @overload
+    def options(self, path: str, func: Callable):
+        ...
+
+    def options(self, path: str, func: Callable | None):
+        from CheeseAPI.app import app
+
+        if func:
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.OPTIONS ])
+            return
+
+        def decorator(func):
             app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.OPTIONS ])
             return func
         return decorator
 
+    @overload
     def head(self, path: str):
-        def decorator(func):
-            from CheeseAPI.app import app
+        ...
 
+    @overload
+    def head(self, path: str, func: Callable):
+        ...
+
+    def head(self, path: str, func: Callable | None):
+        from CheeseAPI.app import app
+
+        if func:
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.HEAD ])
+            return
+
+        def decorator(func):
             app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.HEAD ])
             return func
         return decorator
 
+    @overload
     def connect(self, path: str):
-        def decorator(func):
-            from CheeseAPI.app import app
+        ...
 
+    @overload
+    def connect(self, path: str, func: Callable):
+        ...
+
+    def connect(self, path: str, func: Callable | None):
+        from CheeseAPI.app import app
+
+        if func:
+            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.CONNECT ])
+            return
+
+        def decorator(func):
             app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.CONNECT ])
             return func
         return decorator
 
+    @overload
     def websocket(self, path: str):
-        def decorator(cls):
-            from CheeseAPI.app import app
+        ...
 
-            app.routeBus._insert(self.prefix + path, cls, [ 'WEBSOCKET' ])
-            return cls
+    @overload
+    def websocket(self, path: str, func: 'WebsocketServer'):
+        ...
+
+    def websocket(self, path: str, func: 'WebsocketServer' | None):
+        from CheeseAPI.app import app
+
+        if func:
+            app.routeBus._insert(self.prefix + path, func, [ 'WEBSOCKET' ])
+            return
+
+        def decorator(func):
+            app.routeBus._insert(self.prefix + path, func, [ 'WEBSOCKET' ])
+            return func
         return decorator
