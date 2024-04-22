@@ -2,6 +2,12 @@ import sys, traceback, threading
 
 from CheeseLog import logger
 
+class Route_404_Exception(BaseException):
+    ...
+
+class Route_405_Exception(BaseException):
+    ...
+
 def sysExceptionHandle(*args):
     try:
         raise args[1]

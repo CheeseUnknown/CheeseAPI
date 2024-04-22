@@ -2,6 +2,8 @@ import uuid, re, http
 from typing import Dict, Tuple, Callable, List, Any, Literal
 from urllib.parse import unquote
 
+from CheeseAPI.exception import Route_404_Exception, Route_405_Exception
+
 class RouteNode:
     def __init__(self):
         self.children: Dict[str, RouteNode] = {}
@@ -79,9 +81,9 @@ class RouteBus:
 
         results = self.__match(self._node, paths, {})
         if not results:
-            raise KeyError(0)
+            raise Route_404_Exception()
         if method not in results:
-            raise KeyError(1)
+            raise Route_405_Exception()
         results = results[method]
         kwargs = {}
         _paths = results[0].split('/')

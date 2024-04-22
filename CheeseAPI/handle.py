@@ -5,6 +5,7 @@ import asyncio, uvloop, setproctitle, websockets
 from CheeseLog import logger
 
 from CheeseAPI.response import BaseResponse, FileResponse, Response
+from CheeseAPI.exception import Route_404_Exception, Route_405_Exception
 
 if TYPE_CHECKING:
     from CheeseAPI.app import App
@@ -255,7 +256,7 @@ class Handle:
 
             try:
                 func, protocol.kwargs = self._app.routeBus._match(protocol.request.path, protocol.request.method)
-            except KeyError as e:
+            except Route_404_Exception as e:
                 await self.http_afterRequest(protocol)
                 if self._app.signal.http_afterRequest.receivers:
                     await self._app.signal.http_afterRequest.async_send(**{
@@ -263,10 +264,28 @@ class Handle:
                         **protocol.kwargs
                     })
 
-                if e.args[0] == 0:
-                    await self.http_404(protocol)
-                    if self._app.signal.http_404.receivers:
-                        await self._app.signal.http_404.async_send(**{
+                await self.http_404(protocol)
+                if self._app.signal.http_404.receivers:
+                    await self._app.signal.http_404.async_send(**{
+                        'request': protocol.request,
+                        'response': protocol.response,
+                        **protocol.kwargs
+                    })
+                await self.http_response(protocol)
+                return
+            except Route_405_Exception as e:
+                await self.http_afterRequest(protocol)
+                if self._app.signal.http_afterRequest.receivers:
+                    await self._app.signal.http_afterRequest.async_send(**{
+                        'request': protocol.request,
+                        **protocol.kwargs
+                    })
+
+                if protocol.request.method == http.HTTPMethod.OPTIONS:
+                    protocol.response = Response(status = 200)
+
+                    if self._app.signal.http_options.receivers:
+                        await self._app.signal.http_options.async_send(**{
                             'request': protocol.request,
                             'response': protocol.response,
                             **protocol.kwargs
@@ -274,31 +293,16 @@ class Handle:
                     await self.http_response(protocol)
                     return
 
-                if e.args[0] == 1:
-                    if protocol.request.method == http.HTTPMethod.OPTIONS:
-                        protocol.response = Response(status = 200)
-
-                        if self._app.signal.http_options.receivers:
-                            await self._app.signal.http_options.async_send(**{
-                                'request': protocol.request,
-                                'response': protocol.response,
-                                **protocol.kwargs
-                            })
-                        await self.http_response(protocol)
-                        return
-
-                    await self.http_405(protocol)
-                    if self._app.signal.http_405.receivers:
-                        await self._app.signal.http_405.async_send(**{
-                            'request': protocol.request,
-                            'response': protocol.response,
-                            'e': e,
-                            **protocol.kwargs
-                        })
-                    await self.http_response(protocol)
-                    return
-
-                raise e
+                await self.http_405(protocol)
+                if self._app.signal.http_405.receivers:
+                    await self._app.signal.http_405.async_send(**{
+                        'request': protocol.request,
+                        'response': protocol.response,
+                        'e': e,
+                        **protocol.kwargs
+                    })
+                await self.http_response(protocol)
+                return
 
             await self.http_afterRequest(protocol)
             if self._app.signal.http_afterRequest.receivers:
