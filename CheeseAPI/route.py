@@ -1,5 +1,5 @@
 import uuid, re, http
-from typing import Dict, Tuple, Callable, List, Any, Literal, overload, TYPE_CHECKING
+from typing import Dict, Tuple, Callable, List, Any, Literal, overload, TYPE_CHECKING, Type
 from urllib.parse import unquote
 
 from CheeseAPI.exception import Route_404_Exception, Route_405_Exception
@@ -128,7 +128,7 @@ class Route:
     def __call__(self, path: str, methods: List[ http.HTTPMethod | str ], func: Callable):
         ...
 
-    def __call__(self, path: str, methods: List[ http.HTTPMethod | str ], func: Callable | None):
+    def __call__(self, path: str, methods: List[ http.HTTPMethod | str ], func: Callable | None = None):
         from CheeseAPI.app import app
 
         if func:
@@ -148,7 +148,7 @@ class Route:
     def get(self, path: str, func: Callable):
         ...
 
-    def get(self, path: str, func: Callable | None):
+    def get(self, path: str, func: Callable | None = None):
         from CheeseAPI.app import app
 
         if func:
@@ -168,7 +168,7 @@ class Route:
     def post(self, path: str, func: Callable):
         ...
 
-    def post(self, path: str, func: Callable | None):
+    def post(self, path: str, func: Callable | None = None):
         from CheeseAPI.app import app
 
         if func:
@@ -188,7 +188,7 @@ class Route:
     def delete(self, path: str, func: Callable):
         ...
 
-    def delete(self, path: str, func: Callable | None):
+    def delete(self, path: str, func: Callable | None = None):
         from CheeseAPI.app import app
 
         if func:
@@ -208,7 +208,7 @@ class Route:
     def put(self, path: str, func: Callable):
         ...
 
-    def put(self, path: str, func: Callable | None):
+    def put(self, path: str, func: Callable | None = None):
         from CheeseAPI.app import app
 
         if func:
@@ -228,7 +228,7 @@ class Route:
     def patch(self, path: str, func: Callable):
         ...
 
-    def patch(self, path: str, func: Callable | None):
+    def patch(self, path: str, func: Callable | None = None):
         from CheeseAPI.app import app
 
         if func:
@@ -248,7 +248,7 @@ class Route:
     def trace(self, path: str, func: Callable):
         ...
 
-    def trace(self, path: str, func: Callable | None):
+    def trace(self, path: str, func: Callable | None = None):
         from CheeseAPI.app import app
 
         if func:
@@ -268,7 +268,7 @@ class Route:
     def options(self, path: str, func: Callable):
         ...
 
-    def options(self, path: str, func: Callable | None):
+    def options(self, path: str, func: Callable | None = None):
         from CheeseAPI.app import app
 
         if func:
@@ -288,7 +288,7 @@ class Route:
     def head(self, path: str, func: Callable):
         ...
 
-    def head(self, path: str, func: Callable | None):
+    def head(self, path: str, func: Callable | None = None):
         from CheeseAPI.app import app
 
         if func:
@@ -308,7 +308,7 @@ class Route:
     def connect(self, path: str, func: Callable):
         ...
 
-    def connect(self, path: str, func: Callable | None):
+    def connect(self, path: str, func: Callable | None = None):
         from CheeseAPI.app import app
 
         if func:
@@ -328,7 +328,7 @@ class Route:
     def websocket(self, path: str, func: 'WebsocketServer'):
         ...
 
-    def websocket(self, path: str, func: 'WebsocketServer' | None):
+    def websocket(self, path: str, func: Type['WebsocketServer'] | None):
         from CheeseAPI.app import app
 
         if func:
