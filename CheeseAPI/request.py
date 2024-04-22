@@ -6,13 +6,13 @@ import xmltodict
 from CheeseAPI.file import File
 
 class Request:
-    def __init__(self, method: http.HTTPMethod, url: str):
+    def __init__(self, method: http.HTTPMethod | None, url: str):
         self.fullPath: str = url
         self.path: str = self.fullPath.split('?')[0]
         self.scheme: Literal['http', 'https', 'ws', 'wss'] | None = None
         self.headers: Dict[str, str] = {}
         self.args: Dict[str, str] = {}
-        self.method: http.HTTPMethod | Literal['WEBSOCKET'] = method
+        self.method: http.HTTPMethod | Literal['WEBSOCKET'] | None = method
         self.origin: str | None = None
         self.client: str | None = None
 
