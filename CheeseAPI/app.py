@@ -8,12 +8,16 @@ from CheeseAPI.handle import Handle
 from CheeseAPI.signal import _Signal
 from CheeseAPI.route import Route, RouteBus
 from CheeseAPI.cors import Cors
+from CheeseAPI.schedule import Scheduler
 
 class App:
     def __init__(self):
+        self.manager = multiprocessing.Manager()
+
         self.server: Server = Server(self)
         self.workspace: Workspace = Workspace(self)
         self.signal: _Signal = _Signal(self)
+        self.scheduler: Scheduler = Scheduler(self)
         self.managers: Dict[str, Any] = {}
         self.g: Dict[str, Any] = {
             'startTime': None
@@ -29,8 +33,9 @@ class App:
 
         self._text: Text = Text(self)
         self._managers: Dict[str, Any] = {
-            'server.workers': multiprocessing.Value('i', 0),
-            'lock': multiprocessing.Lock()
+            'server.workers': self.manager.Value(int, 0),
+            'lock': self.manager.Lock(),
+            'schedules': self.manager.dict()
         }
         self._handle: Handle = Handle(self)
 

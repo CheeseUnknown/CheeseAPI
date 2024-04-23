@@ -122,6 +122,8 @@ $ python app.py
 
 #### 1.5 [**Cors （跨域管理）**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/document/App/Cors.md)
 
+#### 1.6 [**Scheduler （任务调度者）**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/document/App/Scheduler.md)
+
 ### 2. [**Request （请求体）**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/document/Request.md)
 
 ### 3. [**Response （响应体）**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/document/Response.md)
@@ -132,7 +134,9 @@ $ python app.py
 
 ### 6. [**File （文件）**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/document/File.md)
 
-### 7. [**For 开发者**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/document/Developer.md)
+### 7. [**Schedule （任务调度）**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/document/Schedule.md)
+
+### 8. [**For 开发者**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/document/Developer.md)
 
 ## **可用的插件模块**
 

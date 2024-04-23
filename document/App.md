@@ -27,6 +27,10 @@ server运行时需要的配置，更多请查看[App - Server](./App/Server.md)�
 
 插槽，更多请查看[App - Signal](./App/Signal.md)。
 
+## **`app.scheduler: Scheduler(app)`**
+
+任务调度，更多请查看[App - Scheduler](./App/Scheduler.md)。
+
 ## **`app.managers: Dict[str, Any] = {}`**
 
 多worker间的同步数据：

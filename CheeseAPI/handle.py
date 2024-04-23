@@ -1,4 +1,4 @@
-import time, os, inspect, socket, multiprocessing, signal, http, ipaddress
+import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, datetime
 from typing import TYPE_CHECKING, Dict, Tuple, List
 
 import asyncio, uvloop, setproctitle, websockets
@@ -6,6 +6,7 @@ from CheeseLog import logger
 
 from CheeseAPI.response import BaseResponse, FileResponse, Response
 from CheeseAPI.exception import Route_404_Exception, Route_405_Exception
+from CheeseAPI.schedule import ScheduleTask
 
 if TYPE_CHECKING:
     from CheeseAPI.app import App
@@ -14,6 +15,8 @@ if TYPE_CHECKING:
 class Handle:
     def __init__(self, app: 'App'):
         self._app: 'App' = app
+
+        self._timer: datetime.datetime | None = None
 
     def server_beforeStarting(self):
         self._app.g['startTime'] = time.time()
@@ -226,7 +229,25 @@ class Handle:
         ...
 
     async def server_running(self):
-        ...
+        if not self._timer:
+            self._timer = datetime.datetime.now()
+            return
+
+        timer = datetime.datetime.now()
+
+        for task in self._app.scheduler.tasks.values():
+            triggeredTimer = task.startTimer + task.timer * task.total_repetition_num
+
+            if (self._timer < triggeredTimer < timer or self._timer > triggeredTimer + task.timer) and task.active and task.is_unexpired:
+                self._app._managers['schedules'][task.key] = {
+                    **self._app._managers['schedules'][task.key],
+                    'total_repetition_num': task.total_repetition_num + 1
+                }
+                await task.fn()
+                if task.is_expired and task.auto_remove:
+                    self._app.scheduler.remove(task.key)
+
+        self._timer = timer
 
     async def worker_running(self):
         ...
