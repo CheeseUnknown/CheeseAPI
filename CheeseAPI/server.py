@@ -13,7 +13,7 @@ class Server:
         self._workers: int = 1
         self.backlog: int = 1024
         self.static: str = '/'
-        self.intervalTime: float = 0.016
+        self._intervalTime: float = 0.016
 
     @property
     def workers(self) -> int:
@@ -25,3 +25,11 @@ class Server:
             self._workers = os.cpu_count() * 2 + 1
         else:
             self._workers = value
+
+    @property
+    def intervalTime(self) -> float:
+        '''
+        服务器处理间隔时间，单位为秒；越小的处理间隔意味着服务器对于某些特定的响应会更快。
+        '''
+
+        return self._intervalTime

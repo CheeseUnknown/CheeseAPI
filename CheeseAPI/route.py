@@ -15,7 +15,7 @@ class RouteNode:
 
 class RouteBus:
     def __init__(self):
-        self.patterns: List[Dict[str, Any]] = [
+        self._patterns: List[Dict[str, Any]] = [
             {
                 'key': 'uuid',
                 'pattern': r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
@@ -44,6 +44,30 @@ class RouteBus:
         self._node: RouteNode = RouteNode()
 
     def addPattern(self, key: str, pattern: re.Pattern, type: object, weight: int):
+        '''
+        新增动态路由匹配条件。
+
+        - Args
+
+            - key: 在动态路由中的key。
+
+                ```python
+                import uuid
+
+                from CheeseAPI import app
+
+                @app.route.get('/<id:uuid>')
+                async def test(id: uuid.UUID, **kwargs):
+                    ...
+                ```
+
+            - pattern: 使用正则匹配动态路由的字符串。
+
+            - type: 若匹配成功，则会将字符串转为该类；请确保该类可以使用`Xxx(value: str)`进行转换。
+
+            - weight: 匹配优先级的权重；更高的权重意味着优先级更高的匹配，若匹配成功则不会继续匹配。
+        '''
+
         self.patterns.append({
             'key': key,
             'pattern': pattern,
@@ -115,6 +139,14 @@ class RouteBus:
                 if key not in results:
                     results[key] = value
         return results
+
+    @property
+    def patterns(self) -> List[Dict[str, Any]]:
+        '''
+        【只读】 可匹配的动态路由参数。
+        '''
+
+        return self._patterns
 
 class Route:
     def __init__(self, prefix: str = ''):

@@ -8,7 +8,7 @@
 
 ## **`app.cors.exclude_origin: Set[str] = set()`**
 
-不允许访问的host地址；优先级高于`app.cors.origin`。
+【只读】 不允许访问的host地址；优先级高于`app.cors.origin`。
 
 ## **`app.cors.methods: Set[http.HTTPMethod] = set([ method for method in http.HTTPMethod ])`**
 

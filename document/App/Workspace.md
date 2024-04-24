@@ -31,4 +31,6 @@ app.run()
 
 当前日志文件名；支持时间模板，会在服务器运行的时候自动转换；若`app.workspace.log and app.workspace.logger`为`False`，则不输出日志文件。
 
-设置为`True`，将转换为`'%Y_%m_%d-%H_%M_%S.log'`格式的文件名。
+设置为`True`，将转换为`'%Y_%m_%d.log'`格式的文件名。
+
+更多功能请查看[CheeseLog](https://github.com/CheeseUnknown/CheeseLog)。

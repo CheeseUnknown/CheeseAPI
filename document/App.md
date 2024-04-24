@@ -15,33 +15,32 @@ app.server.static = '' # 关闭静态资源
 app.run()
 ```
 
+## **`app.manager = multiprocessing.Manager()`**
+
 ## **`app.server: Server = Server(app)`**
 
-server运行时需要的配置，更多请查看[App - Server](./App/Server.md)。
+【只读】 服务器运行时需要的配置，更多请查看[App - Server](./App/Server.md)。
 
 ## **`app.workspace: Workspace = Workspace(app)`**
 
-工作目录相关的配置，都与路径有关，更多请查看[App - Workspace](./App/Workspace.md)。
+【只读】 工作目录相关的配置，都与路径有关，更多请查看[App - Workspace](./App/Workspace.md)。
 
 ## **`app.signal: Signal = Signal(app)`**
 
-插槽，更多请查看[App - Signal](./App/Signal.md)。
+【只读】 插槽，更多请查看[App - Signal](./App/Signal.md)。
 
 ## **`app.scheduler: Scheduler(app)`**
 
-任务调度，更多请查看[App - Scheduler](./App/Scheduler.md)。
+【只读】 任务调度者，更多请查看[App - Scheduler](./App/Scheduler.md)。
 
 ## **`app.managers: Dict[str, Any] = {}`**
 
-多worker间的同步数据：
+【只读】 多worker间的同步数据：
 
 ```python
-import multiprocessing
-
 from CheeseAPI import app
 
-manager = multiprocessing.Manager()
-app.managers['myLock'] = manager.Lock()
+app.managers['myLock'] = app.manager.Lock()
 
 app.run()
 ```
@@ -53,13 +52,13 @@ from CheeseAPI import app, Response
 
 @app.route.get('/')
 async def index(**kwargs):
-    with app.manager['lock']:
+    with app.managers['lock']:
         return Response('这里是CheeseAPI！')
 ```
 
 ## **`app.g: Dict[str, Any] = { 'startTime': None }`**
 
-在server启动时就固定的数据，不需要在server运行时修改。
+【只读】 在server启动时就固定的数据，不需要在server运行时修改。
 
 ```python
 from CheeseAPI import app
@@ -75,19 +74,19 @@ app.run()
 
 ## **`app.route: Route = Route()`**
 
-无前缀的路由，更多请查看[Route](./Route.md)。
+【只读】 无前缀的路由，更多请查看[Route](./Route.md)。
 
 ## **`app.routeBus: RouteBus = RouteBus()`**
 
-路由总线，管理所有的路由，更多请查看[App - RouteBus](./App/RouteBus.md)。
+【只读】 路由总线，管理所有的路由，更多请查看[App - RouteBus](./App/RouteBus.md)。
 
 ## **`app.cors: Cors = Cors()`**
 
-跨域管理，更多请查看[App - Cors](./App/Cors.md)。
+【只读】 跨域管理，更多请查看[App - Cors](./App/Cors.md)。
 
 ## **`app.modules: List[str] = []`**
 
-加载的插件模块，这部分一般由第三方开发者开发，具体的使用方法最终应参考该模块文档。
+【只读】 加载的插件模块，这部分一般由第三方开发者开发，具体的使用方法最终应参考该模块文档。
 
 请确保该模块是支持CheeseAPI的，并且已经下载至本地仓库：
 
@@ -98,7 +97,7 @@ pip install Xxx
 ```python
 from CheeseAPI import app
 
-app.modules = [ 'Xxx' ]
+app.modules.extends([ 'Xxx' ])
 
 app.run()
 ```
@@ -108,7 +107,7 @@ app.run()
 ```python
 from CheeseAPI import app
 
-app.modules = [ 'Xxx.module1', 'Xxx.module2' ]
+app.modules.extends([ 'Xxx.module1', 'Xxx.module2' ])
 
 app.run()
 ```
@@ -117,7 +116,7 @@ app.run()
 
 ## **`app.localModules: List[str] = [...]`**
 
-前提：所有本地模块未使用代码导入。
+【只读】 前提：所有本地模块未使用代码导入。
 
 本地模块都是基于`app.workspace.base`路径的文件夹。
 
@@ -138,7 +137,7 @@ app.run()
 ```python
 from CheeseAPI import app
 
-app.localModules = [ 'Module1' ]
+app.localModules.extends([ 'Module1' ])
 
 app.run()
 ```
@@ -147,7 +146,7 @@ app.run()
 
 ## **`app.exclude_localModules: List[str] = []`**
 
-前提：所有本地模块未使用代码导入。
+【只读】 前提：所有本地模块未使用代码导入。
 
 忽略的本地模块；静态文件路径和日志路径会自动忽略，不需要额外添加。
 
@@ -158,14 +157,14 @@ app.run()
 ```python
 from CheeseAPI import app
 
-app.exclude_localModules = [ 'Module1' ] # 若有Module1模块，则不会加载它
+app.exclude_localModules.extends([ 'Module1' ]) # 若有Module1模块，则不会加载它
 
 app.run()
 ```
 
 ## **`app.preferred_localModules: List[str] = []`**
 
-前提：所有本地模块未使用代码导入。
+【只读】 前提：所有本地模块未使用代码导入。
 
 优先加载的本地模块，按列表顺序加载。
 
@@ -176,7 +175,7 @@ app.run()
 ```python
 from CheeseAPI import app
 
-app.preferred_localModules = [ 'Module1', 'Module2' ] # 若模块名都存在，则先加载Module1，再加载Module2
+app.preferred_localModules.extends([ 'Module1', 'Module2' ]) # 若模块名都存在，则先加载Module1，再加载Module2
 
 app.run()
 ```

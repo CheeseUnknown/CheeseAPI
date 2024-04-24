@@ -8,7 +8,7 @@
 
 ## **`app.scheduler.tasks: Dict[str, ScheduleTask]`**
 
-所有的任务，`ScheduleTask`请查看[Schedule](../Schedule.md)。
+【只读】 所有的任务，`ScheduleTask`请查看[Schedule](../Schedule.md)。
 
 未指定key的任务会自动分配一个uuid字符串为key。
 
@@ -133,7 +133,6 @@ myTask = app.scheduler.get_task(task)
 
 通过key获取`ScheduleTask`，`ScheduleTask`请查看[Schedule](../Schedule.md)。
 
-
 ```python
 import datetime
 
@@ -145,5 +144,3 @@ async def task():
 
 myTask = app.scheduler.get_task('myTask')
 ```
-
-#

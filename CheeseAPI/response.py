@@ -337,6 +337,20 @@ contentTypes = {
 }
 
 class BaseResponse:
+    '''
+    其他Response的父类；平时使用它判断response是否是合法的，并不建议使用它创建response。
+
+    ```python
+    from CheeseAPI import app, BaseResponse
+
+    @app.route.get('/')
+    async def index(*args, **kwargs):
+        response = ...
+        if isinstance(response, BaseResponse):
+            ...
+    ```
+    '''
+
     def __init__(self, body: str | bytes | Callable | AsyncIterator | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
         from CheeseAPI.app import app
 
@@ -417,6 +431,16 @@ class BaseResponse:
         self.headers['Set-Cookies'][key] = s
 
 class Response(BaseResponse):
+    '''
+    ```python
+    from CheeseAPI import app, Response
+
+    @app.route.get('/')
+    async def index(*args, **kwargs):
+        return Response('这里是CheeseAPI！')
+    ```
+    '''
+
     def __init__(self, body: str | bytes | Callable | AsyncIterator | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
         super().__init__(body, status, {
             'Content-Type': 'text/plain',
@@ -424,6 +448,20 @@ class Response(BaseResponse):
         })
 
 class JsonResponse(BaseResponse):
+    '''
+    可将`dict`或`list`自动转为可发送的格式。
+
+    ```python
+    from CheeseAPI import app, JsonResponse
+
+    @app.route.get('/')
+    async def index(*args, **kwargs):
+        return JsonResponse({
+            'welcome': '这里是CheeseAPI！'
+        })
+    ```
+    '''
+
     def __init__(self, body: dict | list = {}, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
         super().__init__(json.dumps(body), status, {
             'Content-Type': 'application/json; charset=utf-8',
@@ -433,11 +471,25 @@ class JsonResponse(BaseResponse):
 class FileResponse(BaseResponse):
     @overload
     def __init__(self, path: str, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1024 * 1024):
-        ...
+        '''
+        - Args
+
+            - path: 文件路径；支持相对路径与绝对路径。
+
+            - downloaded: 文件是否下载；为`False`时优先预览，若无法预览则仍然下载。
+
+            - chunkSize: 发送文件的chunk大小。
+        '''
 
     @overload
     def __init__(self, data: File, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1024 * 1024):
-        ...
+        '''
+        - Args
+
+            - downloaded: 文件是否下载；为`False`时优先预览，若无法预览则仍然下载。
+
+            - chunkSize: 发送文件的chunk大小。
+        '''
 
     def __init__(self, arg: str | File, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1024 * 1024):
         self.file: File = File(arg) if isinstance(arg, str) else arg

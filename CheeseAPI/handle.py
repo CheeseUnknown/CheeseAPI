@@ -6,7 +6,6 @@ from CheeseLog import logger
 
 from CheeseAPI.response import BaseResponse, FileResponse, Response
 from CheeseAPI.exception import Route_404_Exception, Route_405_Exception
-from CheeseAPI.schedule import ScheduleTask
 
 if TYPE_CHECKING:
     from CheeseAPI.app import App
@@ -163,8 +162,8 @@ class Handle:
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         asyncio.run(self.worker_run(sock, master))
 
-        with self._app._managers['lock']:
-            self._app._managers['server.workers'].value -= 1
+        with self._app._managers_['lock']:
+            self._app._managers_['server.workers'].value -= 1
 
             for text in self._app._text.worker_stopping():
                 logger.debug(text[0], text[1])
@@ -177,9 +176,9 @@ class Handle:
         from CheeseAPI.app import app
         from CheeseAPI.protocol import HttpProtocol
 
-        app.g = self._app.g
-        app.managers = self._app.managers
-        app._managers = self._app._managers
+        app._g = self._app.g
+        app._managers = self._app.managers
+        app._managers_ = self._app._managers_
 
         loop = asyncio.get_running_loop()
         server = await loop.create_server(HttpProtocol, sock = sock)
@@ -190,9 +189,9 @@ class Handle:
         if self._app.signal.worker_afterStarting.receivers:
             await self._app.signal.worker_afterStarting.async_send()
 
-        with self._app._managers['lock']:
-            self._app._managers['server.workers'].value += 1
-            if self._app._managers['server.workers'].value == self._app.server.workers:
+        with self._app._managers_['lock']:
+            self._app._managers_['server.workers'].value += 1
+            if self._app._managers_['server.workers'].value == self._app.server.workers:
                 for text in self._app._text.server_starting():
                     logger.starting(text[0], text[1])
 
@@ -212,8 +211,8 @@ class Handle:
 
             await asyncio.sleep(self._app.server.intervalTime)
 
-        with self._app._managers['lock']:
-            if self._app._managers['server.workers'].value == self._app.server.workers:
+        with self._app._managers_['lock']:
+            if self._app._managers_['server.workers'].value == self._app.server.workers:
                 await self.server_beforeStopping()
                 if self._app.signal.server_beforeStopping.receivers:
                     await self._app.signal.server_beforeStopping.async_send()
@@ -239,8 +238,8 @@ class Handle:
             triggeredTimer = task.startTimer + task.timer * task.total_repetition_num
 
             if (self._timer < triggeredTimer < timer or self._timer > triggeredTimer + task.timer) and task.active and task.is_unexpired:
-                self._app._managers['schedules'][task.key] = {
-                    **self._app._managers['schedules'][task.key],
+                self._app._managers_['schedules'][task.key] = {
+                    **self._app._managers_['schedules'][task.key],
                     'total_repetition_num': task.total_repetition_num + 1
                 }
                 await task.fn()
@@ -587,7 +586,7 @@ class Handle:
         if not protocol.request.headers.get('Sec-Websocket-Protocol', None):
             return
 
-        protocol.request.subprotocols = protocol.request.headers['Sec-Websocket-Protocol'].split(', ')
+        protocol.request._subprotocols = protocol.request.headers['Sec-Websocket-Protocol'].split(', ')
 
         await self.websocket_beforeSubprotocol(protocol)
         if self._app.signal.websocket_beforeSubprotocol.receivers:
@@ -596,7 +595,7 @@ class Handle:
                 **protocol.kwargs
             })
 
-        protocol.request.subprotocol = await protocol.server.subprotocol(**{
+        protocol.request._subprotocol = await protocol.server.subprotocol(**{
             'request': protocol.request,
             **protocol.kwargs
         })

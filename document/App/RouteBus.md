@@ -4,7 +4,7 @@
 
 ## **`app.routeBus.patterns: List[Dict[str, Any]]`**
 
-可匹配的动态路由参数，默认值为：
+【只读】 可匹配的动态路由参数，默认值为：
 
 ```python
 import uuid
@@ -55,7 +55,7 @@ app.routeBus.patterns = [
 
 - **`pattern: re.Pattern`**
 
-    RouteBus使用正则匹配动态路由的字符串。
+    使用正则匹配动态路由的字符串。
 
 - **`type: object`**
 

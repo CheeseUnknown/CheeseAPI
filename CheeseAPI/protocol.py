@@ -45,12 +45,12 @@ class HttpProtocol(asyncio.Protocol):
         self.request.headers['-'.join([t.capitalize() for t in key.decode().split('-')])] = value.decode()
 
     def on_headers_complete(self):
-        self.request.client = self.request.headers.get('X-Real-Ip', self.transport.get_extra_info('socket').getpeername()[0])
-        self.request.origin = self.request.headers.get('Origin', f'{self.transport.get_extra_info("socket").getsockname()[0]}:{self.transport.get_extra_info("socket").getsockname()[1]}')
-        self.request.scheme = self.request.headers.get('X-Forwarded-Proto', 'https' if self.transport.get_extra_info('sslcontext') else 'http')
+        self.request._client = self.request.headers.get('X-Real-Ip', self.transport.get_extra_info('socket').getpeername()[0])
+        self.request._origin = self.request.headers.get('Origin', f'{self.transport.get_extra_info("socket").getsockname()[0]}:{self.transport.get_extra_info("socket").getsockname()[1]}')
+        self.request._scheme = self.request.headers.get('X-Forwarded-Proto', 'https' if self.transport.get_extra_info('sslcontext') else 'http')
 
         if 'Cookie' in self.request.headers:
-            self.request.cookie = {
+            self.request._cookie = {
                 t.split('=')[0]: t.split('=')[1] for t in self.request.headers['Cookie'].split('; ')
             }
 
@@ -59,8 +59,8 @@ class HttpProtocol(asyncio.Protocol):
 
     def on_body(self, body: bytes):
         if self.request.body is None:
-            self.request.body = b''
-        self.request.body += body
+            self.request._body = b''
+        self.request._body += body
 
         if len(self.request.body) == int(self.request.headers.get('Content-Length', 0)):
             self.request._parseBody()
