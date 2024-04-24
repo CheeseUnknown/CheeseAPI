@@ -59,7 +59,7 @@ app.routeBus.patterns = [
 
 - **`type: object`**
 
-    若匹配成功，则会将字符串转为该类；请确保该类可以使用`Xxx(value: str)`进行转换。
+    若匹配成功，则会将字符串转为该类；请确保该类可以使用`Xxx(value: str)`进行转换，或是一个返回值为该类的函数。
 
 - **`weight: int`**
 
