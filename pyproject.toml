@@ -19,7 +19,8 @@ dependencies = [
     "websockets",
     "uvloop",
     "httptools",
-    "CheeseSignal==1.1.*"
+    "CheeseSignal==1.1.*",
+    "dill"
 ]
 
 [project.urls]
