@@ -151,22 +151,22 @@ Static: <cyan>{self._app.server.static}</cyan>''' if self._app.workspace.static 
         ]
 
     def validator_requiredMessage(self, scope: str, key: str) -> str:
-        return f'参数{scope}.{key}是必要的'
+        return f'The {scope}.{key} is required'
 
     def validator_typeMessage(self, scope: str, key: str, expected_type: object) -> str:
-        return f'参数{scope}.{key}无法转换为{expected_type.__name__}'
+        return f'The {scope}.{key} cannot be converted to {expected_type.__name__}'
 
     def validator_patternMessage(self, scope: str, key: str) -> str:
-        return f'参数{scope}.{key}正则校验错误'
+        return f'The {scope}.{key} regular check error'
 
     def validator_minMessage(self, scope: str, key: str, min: object) -> str:
-        return f'参数{scope}.{key}不允许小于{min}'
+        return f'The {scope}.{key} cannot be less than {min}'
 
     def validator_maxMessage(self, scope: str, key: str, max: object) -> str:
-        return f'参数{scope}.{key}不允许大于{max}'
+        return f'The {scope}.{key} cannot be larger than {max}'
 
     def validator_enumMessage(self, scope: str, key: str, enum: List[Any]) -> str:
-        return f'参数{scope}.{key}不允许为{enum}之外的值'
+        return f'The {scope}.{key} cannot be a value other than {enum}'
 
     @property
     def process_title(self) -> str:
