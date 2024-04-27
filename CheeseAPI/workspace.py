@@ -26,12 +26,28 @@ class Workspace:
 
     @base.setter
     def base(self, value: str):
-        try:
-            sys.path.remove(self._base)
-        except:
-            ...
         self._base = value
         sys.path.append(self._base)
+
+        # 初始化本地模块
+        self._app.localModules.clear()
+        for foldername in os.listdir(self.base):
+            if foldername[0] == '.' or foldername == '__pycache__':
+                continue
+
+            folderPath = os.path.join(self.base, foldername)
+            if not os.path.isdir(folderPath):
+                continue
+
+            staticPath = os.path.join(self.base, self.static)
+            if self.static and os.path.exists(staticPath) and os.path.samefile(folderPath, staticPath):
+                continue
+
+            logPath = os.path.join(self.base, self.log)
+            if self.log and os.path.exists(logPath) and os.path.samefile(folderPath, logPath):
+                continue
+
+            self._app.localModules.append(foldername)
 
     @property
     def static(self) -> str:
