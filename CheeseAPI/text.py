@@ -27,11 +27,11 @@ class Text:
 Base: {self._app.workspace.base}''' + (f'''
 Static: {self._app.workspace.static}''' if self._app.workspace.static and self._app.server.static else '') + (f'''
 Log: {self._app.workspace.log}''' if self._app.workspace.log and self._app.workspace.logger else '') + (f'''
-Logger: {self._app.workspace.logger}''' if self._app.workspace.log and self._app.workspace.logger else ''), f'''Workspace Information:
+Logger: {logger.encode(self._app.workspace.logger)}''' if self._app.workspace.log and self._app.workspace.logger else ''), f'''Workspace Information:
 Base: <cyan><underline>{self._app.workspace.base}</underline></cyan>''' + (f'''
 Static: <cyan><underline>{self._app.workspace.static}</underline></cyan>''' if self._app.workspace.static and self._app.server.static else '') + (f'''
 Log: <cyan><underline>{self._app.workspace.log}</underline></cyan>''' if self._app.workspace.log and self._app.workspace.logger else '') + (f'''
-Logger: <cyan><underline>{self._app.workspace.logger}</underline></cyan>''' if self._app.workspace.log and self._app.workspace.logger else '')),
+Logger: <cyan><underline>{logger.encode(self._app.workspace.logger)}</underline></cyan>''' if self._app.workspace.log and self._app.workspace.logger else '')),
             (f'''Server Information:
 Host: {self._app.server.host}
 Port: {self._app.server.port}

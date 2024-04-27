@@ -1,10 +1,10 @@
 .DS_Store
 
 __pycache__
+logs
 
 /.vscode
 /.conda
 /dist
-/logs
 /static
 /app.py
