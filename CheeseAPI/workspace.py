@@ -74,7 +74,7 @@ class Workspace:
         self._log = value
 
         if self.log and self.logger:
-            logger.filePath = os.path.join(self.log, self.logger)
+            logger.filePath = os.path.join(self.base, self.log, self.logger)
         else:
             logger.filePath = ''
 
@@ -98,6 +98,6 @@ class Workspace:
             self._logger = value
 
         if self.log and self.logger:
-            logger.filePath = os.path.join(self.log, self.logger)
+            logger.filePath = os.path.join(self.base, self.log, self.logger)
         else:
             logger.filePath = ''
