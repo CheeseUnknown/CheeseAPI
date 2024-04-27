@@ -1,5 +1,5 @@
 import os, time, traceback
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, List, Tuple, Any
 
 import setproctitle
 from CheeseLog import ProgressBar, logger
@@ -149,6 +149,24 @@ Static: <cyan>{self._app.server.static}</cyan>''' if self._app.workspace.static 
         return [
             (message, styledMessage)
         ]
+
+    def validator_requiredMessage(self, scope: str, key: str) -> str:
+        return f'参数{scope}.{key}是必要的'
+
+    def validator_typeMessage(self, scope: str, key: str, expected_type: object) -> str:
+        return f'参数{scope}.{key}无法转换为{expected_type.__name__}'
+
+    def validator_patternMessage(self, scope: str, key: str) -> str:
+        return f'参数{scope}.{key}正则校验错误'
+
+    def validator_minMessage(self, scope: str, key: str, min: object) -> str:
+        return f'参数{scope}.{key}不允许小于{min}'
+
+    def validator_maxMessage(self, scope: str, key: str, max: object) -> str:
+        return f'参数{scope}.{key}不允许大于{max}'
+
+    def validator_enumMessage(self, scope: str, key: str, enum: List[Any]) -> str:
+        return f'参数{scope}.{key}不允许为{enum}之外的值'
 
     @property
     def process_title(self) -> str:

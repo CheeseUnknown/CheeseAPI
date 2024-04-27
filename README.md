@@ -134,9 +134,11 @@ $ python app.py
 
 ### 6. [**File （文件）**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/document/File.md)
 
-### 7. [**Schedule （任务调度）**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/document/Schedule.md)
+### 7. [**Validator （校验器）**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/document/Validator.md)
 
-### 8. [**For 开发者**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/document/Developer.md)
+### 8. [**Schedule （任务调度）**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/document/Schedule.md)
+
+### 9. [**For 开发者**](https://github.com/CheeseUnknown/CheeseAPI/blob/master/document/Developer.md)
 
 ## **可用的插件模块**
 

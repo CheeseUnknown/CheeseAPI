@@ -37,7 +37,7 @@ app.routeBus.patterns = [
 ]
 ```
 
-若想要添加动态路由，请使用`app.routeBus.addPattern(key: str, pattern: re.Pattern, type: object, weight: int)`。
+若想要添加动态路由，请使用`app.routeBus.addPattern(key: str, pattern: str, type: object, weight: int)`。
 
 - **`key: str`**
 
@@ -53,7 +53,7 @@ app.routeBus.patterns = [
         ...
     ```
 
-- **`pattern: re.Pattern`**
+- **`pattern: str`**
 
     使用正则匹配动态路由的字符串。
 
@@ -65,6 +65,6 @@ app.routeBus.patterns = [
 
     匹配优先级的权重；更高的权重意味着优先级更高的匹配，若匹配成功则不会继续匹配。
 
-## **`app.routeBus.addPattern(key: str, pattern: re.Pattern, type: object, weight: int)`**
+## **`app.routeBus.addPattern(key: str, pattern: str, type: object, weight: int)`**
 
 新增动态路由匹配条件；具体参数与`app.routeBus.patterns`所述相同。

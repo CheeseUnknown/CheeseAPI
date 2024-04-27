@@ -43,7 +43,7 @@ class RouteBus:
         ]
         self._node: RouteNode = RouteNode()
 
-    def addPattern(self, key: str, pattern: re.Pattern, type: object | Callable, weight: int):
+    def addPattern(self, key: str, pattern: str, type: object | Callable, weight: int):
         '''
         新增动态路由匹配条件。
 
