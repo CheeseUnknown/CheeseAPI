@@ -275,7 +275,7 @@ class Handle:
                 return
 
             try:
-                func, protocol.kwargs = self._app.routeBus._match(protocol.request.path, protocol.request.method)
+                fn, protocol.kwargs = self._app.routeBus._match(protocol.request.path, protocol.request.method)
             except Route_404_Exception as e:
                 await self.http_afterRequest(protocol)
                 if self._app.signal.http_afterRequest.receivers:
@@ -331,7 +331,7 @@ class Handle:
                     **protocol.kwargs
             })
 
-            protocol.response = await func(**{
+            protocol.response = await fn(**{
                 'request': protocol.request,
                 **protocol.kwargs
             })

@@ -76,7 +76,7 @@ class RouteBus:
         })
         self.patterns = sorted(self.patterns, key = lambda x: x['weight'], reverse = True)
 
-    def _insert(self, path: str, func: Callable, methods: List[http.HTTPMethod | str]):
+    def _insert(self, path: str, fn: Callable, methods: List[http.HTTPMethod | str]):
         for method in methods:
             if method != 'WEBSOCKET':
                 method = http.HTTPMethod(method)
@@ -99,7 +99,7 @@ class RouteBus:
         if not node.methods:
             node.methods = {}
         for method in methods:
-            node.methods[method] = path, func
+            node.methods[method] = path, fn
 
     def _match(self, path: str, method: http.HTTPMethod | Literal['WEBSOCKET']) -> Tuple[Callable, Dict[str, Any]]:
         paths = path.split('/')[1:]
@@ -157,217 +157,261 @@ class Route:
         ...
 
     @overload
-    def __call__(self, path: str, methods: List[ http.HTTPMethod | str ], func: Callable):
+    def __call__(self, path: str, methods: List[ http.HTTPMethod | str ], fn: Callable):
         ...
 
-    def __call__(self, path: str, methods: List[ http.HTTPMethod | str ], func: Callable | None = None):
+    def __call__(self, path: str, methods: List[ http.HTTPMethod | str ], fn: Callable | None = None):
         from CheeseAPI.app import app
 
-        if func:
-            app.routeBus._insert(self.prefix + path, func, methods)
+        if fn:
+            app.routeBus._insert(self.prefix + path, fn, methods)
+            fn.routePath = self.prefix + path
+            fn.routeMethods = methods
             return
 
-        def decorator(func):
-            app.routeBus._insert(self.prefix + path, func, methods)
-            return func
-        return decorator
+        def wrapper(fn):
+            app.routeBus._insert(self.prefix + path, fn, methods)
+            fn.routePath = self.prefix + path
+            fn.routeMethods = methods
+            return fn
+        return wrapper
 
     @overload
     def get(self, path: str):
         ...
 
     @overload
-    def get(self, path: str, func: Callable):
+    def get(self, path: str, fn: Callable):
         ...
 
-    def get(self, path: str, func: Callable | None = None):
+    def get(self, path: str, fn: Callable | None = None):
         from CheeseAPI.app import app
 
-        if func:
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.GET ])
+        if fn:
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.GET ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.GET ]
             return
 
-        def decorator(func):
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.GET ])
-            return func
-        return decorator
+        def wrapper(fn):
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.GET ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.GET ]
+            return fn
+        return wrapper
 
     @overload
     def post(self, path: str):
         ...
 
     @overload
-    def post(self, path: str, func: Callable):
+    def post(self, path: str, fn: Callable):
         ...
 
-    def post(self, path: str, func: Callable | None = None):
+    def post(self, path: str, fn: Callable | None = None):
         from CheeseAPI.app import app
 
-        if func:
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.POST ])
+        if fn:
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.POST ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.POST ]
             return
 
-        def decorator(func):
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.POST ])
-            return func
-        return decorator
+        def wrapper(fn):
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.POST ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.POST ]
+            return fn
+        return wrapper
 
     @overload
     def delete(self, path: str):
         ...
 
     @overload
-    def delete(self, path: str, func: Callable):
+    def delete(self, path: str, fn: Callable):
         ...
 
-    def delete(self, path: str, func: Callable | None = None):
+    def delete(self, path: str, fn: Callable | None = None):
         from CheeseAPI.app import app
 
-        if func:
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.DELETE ])
+        if fn:
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.DELETE ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.DELETE ]
             return
 
-        def decorator(func):
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.DELETE ])
-            return func
-        return decorator
+        def wrapper(fn):
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.DELETE ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.DELETE ]
+            return fn
+        return wrapper
 
     @overload
     def put(self, path: str):
         ...
 
     @overload
-    def put(self, path: str, func: Callable):
+    def put(self, path: str, fn: Callable):
         ...
 
-    def put(self, path: str, func: Callable | None = None):
+    def put(self, path: str, fn: Callable | None = None):
         from CheeseAPI.app import app
 
-        if func:
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.PUT ])
+        if fn:
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.PUT ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.PUT ]
             return
 
-        def decorator(func):
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.PUT ])
-            return func
-        return decorator
+        def wrapper(fn):
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.PUT ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.PUT ]
+            return fn
+        return wrapper
 
     @overload
     def patch(self, path: str):
         ...
 
     @overload
-    def patch(self, path: str, func: Callable):
+    def patch(self, path: str, fn: Callable):
         ...
 
-    def patch(self, path: str, func: Callable | None = None):
+    def patch(self, path: str, fn: Callable | None = None):
         from CheeseAPI.app import app
 
-        if func:
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.PATCH ])
+        if fn:
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.PATCH ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.PATCH ]
             return
 
-        def decorator(func):
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.PATCH ])
-            return func
-        return decorator
+        def wrapper(fn):
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.PATCH ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.PATCH ]
+            return fn
+        return wrapper
 
     @overload
     def trace(self, path: str):
         ...
 
     @overload
-    def trace(self, path: str, func: Callable):
+    def trace(self, path: str, fn: Callable):
         ...
 
-    def trace(self, path: str, func: Callable | None = None):
+    def trace(self, path: str, fn: Callable | None = None):
         from CheeseAPI.app import app
 
-        if func:
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.TRACE ])
+        if fn:
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.TRACE ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.TRACE ]
             return
 
-        def decorator(func):
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.TRACE ])
-            return func
-        return decorator
+        def wrapper(fn):
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.TRACE ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.TRACE ]
+            return fn
+        return wrapper
 
     @overload
     def options(self, path: str):
         ...
 
     @overload
-    def options(self, path: str, func: Callable):
+    def options(self, path: str, fn: Callable):
         ...
 
-    def options(self, path: str, func: Callable | None = None):
+    def options(self, path: str, fn: Callable | None = None):
         from CheeseAPI.app import app
 
-        if func:
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.OPTIONS ])
+        if fn:
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.OPTIONS ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.OPTIONS ]
             return
 
-        def decorator(func):
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.OPTIONS ])
-            return func
-        return decorator
+        def wrapper(fn):
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.OPTIONS ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.OPTIONS ]
+            return fn
+        return wrapper
 
     @overload
     def head(self, path: str):
         ...
 
     @overload
-    def head(self, path: str, func: Callable):
+    def head(self, path: str, fn: Callable):
         ...
 
-    def head(self, path: str, func: Callable | None = None):
+    def head(self, path: str, fn: Callable | None = None):
         from CheeseAPI.app import app
 
-        if func:
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.HEAD ])
+        if fn:
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.HEAD ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.HEAD ]
             return
 
-        def decorator(func):
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.HEAD ])
-            return func
-        return decorator
+        def wrapper(fn):
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.HEAD ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.HEAD ]
+            return fn
+        return wrapper
 
     @overload
     def connect(self, path: str):
         ...
 
     @overload
-    def connect(self, path: str, func: Callable):
+    def connect(self, path: str, fn: Callable):
         ...
 
-    def connect(self, path: str, func: Callable | None = None):
+    def connect(self, path: str, fn: Callable | None = None):
         from CheeseAPI.app import app
 
-        if func:
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.CONNECT ])
+        if fn:
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.CONNECT ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.CONNECT ]
             return
 
-        def decorator(func):
-            app.routeBus._insert(self.prefix + path, func, [ http.HTTPMethod.CONNECT ])
-            return func
-        return decorator
+        def wrapper(fn):
+            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.CONNECT ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ http.HTTPMethod.CONNECT ]
+            return fn
+        return wrapper
 
     @overload
     def websocket(self, path: str):
         ...
 
     @overload
-    def websocket(self, path: str, func: 'WebsocketServer'):
+    def websocket(self, path: str, fn: 'WebsocketServer'):
         ...
 
-    def websocket(self, path: str, func: Type['WebsocketServer'] | None):
+    def websocket(self, path: str, fn: Type['WebsocketServer'] | None):
         from CheeseAPI.app import app
 
-        if func:
-            app.routeBus._insert(self.prefix + path, func, [ 'WEBSOCKET' ])
+        if fn:
+            app.routeBus._insert(self.prefix + path, fn, [ 'WEBSOCKET' ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ 'WEBSOCKET' ]
             return
 
-        def decorator(func):
-            app.routeBus._insert(self.prefix + path, func, [ 'WEBSOCKET' ])
-            return func
-        return decorator
+        def wrapper(fn):
+            app.routeBus._insert(self.prefix + path, fn, [ 'WEBSOCKET' ])
+            fn.routePath = self.prefix + path
+            fn.routeMethods = [ 'WEBSOCKET' ]
+            return fn
+        return wrapper
