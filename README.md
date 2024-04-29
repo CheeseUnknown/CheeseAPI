@@ -37,11 +37,13 @@ CheeseAPI采用模块结构：
     | - api.py
     | - service.py
     | - handle.py
+    | - validator.py
 | - Permission
     | - __init__.py
     | - model.py
     | - api.py
     | - service.py
+    | - validator.py
 | - __init__.py
 | - app.py
 ```
@@ -60,10 +62,10 @@ CheeseAPI并没有强制规定文件名，但建议的文件命名方式如下�
 一般来说，模块中的文件调用有明显的顺序关系（从顶层到底层）：
 
 ```
-validator.py -> api.py -----|
-                            |-> service.py -> model.py -> __init__.py
-                handle.py --|
-
+handle.py --|
+            |-> service.py -> model.py -> __init__.py
+api.py -----|
+            |-> validator.py
 ```
 
 ## **使用**
