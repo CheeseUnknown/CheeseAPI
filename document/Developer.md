@@ -143,8 +143,6 @@ Server停止的信息。
 CheeseAPI_module_type = 'single'
 ```
 
-- ****
-
 ### **多模块**
 
 ```python
