@@ -79,7 +79,8 @@ from CheeseAPI import app, Response
 async def index(**kwargs):
     return Response('这里是CheeseAPI！')
 
-app.run()
+if __name__ == '__main__':
+    app.run()
 ```
 
 运行`app.py`，可以看到打印了一些服务器的基本信息：
