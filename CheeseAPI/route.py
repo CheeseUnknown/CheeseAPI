@@ -400,7 +400,7 @@ class Route:
     def websocket(self, path: str, fn: 'WebsocketServer'):
         ...
 
-    def websocket(self, path: str, fn: Type['WebsocketServer'] | None):
+    def websocket(self, path: str, fn: Type['WebsocketServer'] | None = None):
         from CheeseAPI.app import app
 
         if fn:
