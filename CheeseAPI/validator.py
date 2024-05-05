@@ -150,13 +150,16 @@ class Validator:
                 raise ValidateError(self.response or Response(app._text.validator_enumMessage(self.scope, self.key, self.enum), 400))
 
             if self.fn:
-                _value = await self.fn(*args, **{
-                    'request': request,
-                    'validatedForm': validatedForm,
-                    **kwargs
-                })
-                if _value is not None:
-                    validatedForm[f'{self.scope}.{self.key}'] = _value
+                try:
+                    _value = await self.fn(*args, **{
+                        'request': request,
+                        'validatedForm': validatedForm,
+                        **kwargs
+                    })
+                    if _value is not None:
+                        validatedForm[f'{self.scope}.{self.key}'] = _value
+                except ValidateError as e:
+                    raise ValidateError(e.response or self.response or Response(status = 400))
 
     @property
     def scope(self) -> Literal['form', 'headers', 'args', 'path', 'cookie']:
