@@ -233,7 +233,7 @@ class Scheduler:
         if fn:
             self._app._managers_['schedules'][key] = {
                 'timer': timer,
-                'fn': dill.dumps(fn),
+                'fn': dill.dumps(fn, recurse = True),
                 'startTimer': startTimer,
                 'expected_repetition_num': expected_repetition_num,
                 'total_repetition_num': 0,
@@ -242,10 +242,10 @@ class Scheduler:
             }
             return
 
-        def decorator(fn):
+        def wrapper(fn):
             self._app._managers_['schedules'][key] = {
                 'timer': timer,
-                'fn': dill.dumps(fn),
+                'fn': dill.dumps(fn, recurse = True),
                 'startTimer': startTimer,
                 'expected_repetition_num': expected_repetition_num,
                 'total_repetition_num': 0,
@@ -253,7 +253,7 @@ class Scheduler:
                 'active': True
             }
             return fn
-        return decorator
+        return wrapper
 
     @overload
     def remove(self, fn: Callable):
