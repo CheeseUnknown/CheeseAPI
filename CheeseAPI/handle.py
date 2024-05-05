@@ -87,7 +87,7 @@ class Handle:
 
     def loadLocalModules(self):
         foldernames = self._app.localModules.copy()
-        for foldername in self._app.preferred_localModules:
+        for foldername in reversed(self._app.preferred_localModules):
             if foldername in foldernames:
                 foldernames.remove(foldername)
                 foldernames.insert(0, foldername)
