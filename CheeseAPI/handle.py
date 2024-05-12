@@ -361,7 +361,7 @@ class Handle:
 
     async def http_static(self, protocol: 'HttpProtocol'):
         if self._app.server.static and self._app.workspace.static and protocol.request.path.startswith(self._app.server.static) and protocol.request.method == http.HTTPMethod.GET:
-            for key in [ '', '.html', 'index.html', '/index.html' ]:
+            for key in [ '', '.html', '/index.html' ]:
                 try:
                     protocol.response = FileResponse(os.path.join(self._app.workspace.static, protocol.request.path[1:] + key))
 
