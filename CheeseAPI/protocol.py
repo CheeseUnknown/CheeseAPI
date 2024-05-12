@@ -62,7 +62,8 @@ class HttpProtocol(asyncio.Protocol):
             self.request._body = b''
         self.request._body += body
 
-        if len(self.request.body) == int(self.request.headers.get('Content-Length', 0)):
+    def on_message_complete(self):
+        if not self.parser.should_upgrade():
             self.request._parseBody()
             asyncio.get_event_loop().create_task(app._handle.http(self))
 
