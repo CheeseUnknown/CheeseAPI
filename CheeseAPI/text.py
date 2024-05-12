@@ -153,8 +153,8 @@ Static: <cyan>{self._app.server.static}</cyan>''' if self._app.workspace.static 
     def validator_requiredMessage(self, scope: str, key: str) -> str:
         return f'The {scope}.{key} is required'
 
-    def validator_typeMessage(self, scope: str, key: str, expected_type: object) -> str:
-        return f'The {scope}.{key} cannot be converted to {expected_type.__name__}'
+    def validator_typeMessage(self, scope: str, key: str, expected_type: str) -> str:
+        return f'The {scope}.{key} cannot be converted to {expected_type}'
 
     def validator_patternMessage(self, scope: str, key: str) -> str:
         return f'The {scope}.{key} regular check error'

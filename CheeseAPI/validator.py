@@ -40,8 +40,8 @@ class Validator:
         *,
         required: bool = False,
         default: Any = None,
-        type: List[object | Callable] | object | Callable | None = None,
-        expected_type: object | None = None,
+        type: List[object | Callable] | object | Callable = str,
+        expected_type: str | None = None,
         pattern: str | None = None,
         min: object | None = None,
         max: object | None = None,
@@ -57,7 +57,7 @@ class Validator:
 
         from CheeseAPI import Validator
 
-        Validator('form', 'date', type = [ float, datetime.datetime.fromtimestamp ], expected_type = datetime.datetime)
+        Validator('form', 'date', type = [ float, datetime.datetime.fromtimestamp ], expected_type = 'timestamp')
 
         Validator('form', 'gender', enum = [ 'man', 'woman', None ])
 
@@ -70,7 +70,7 @@ class Validator:
 
             - type: 遵循`self.type(value) -> object`的类或函数；支持list按顺序转换类型。
 
-            - expected_type: 期望的数据类型，对type转换后的结果进行二次校验。
+            - expected_type: 期望的数据类型，不参与校验，仅供提示。
 
             - default: 默认值；该值仍会执行校验流程，而不是直接应用。
 
@@ -101,7 +101,7 @@ class Validator:
         self._scope: Literal['form', 'headers', 'args', 'path', 'cookie'] = scope
         self.key: str = key
         self._type: List[object | Callable] | object | Callable = type
-        self._expected_type: object = type if expected_type is None else expected_type
+        self._expected_type: str = type.__name__ if expected_type is None else expected_type
         self.required: bool = required
         self._default: Any = default
         self._pattern: str | None = pattern
@@ -132,8 +132,6 @@ class Validator:
                             validatedForm[f'{self.scope}.{self.key}'] = type(validatedForm[f'{self.scope}.{self.key}'])
                     else:
                         validatedForm[f'{self.scope}.{self.key}'] = self.type(validatedForm[f'{self.scope}.{self.key}'])
-                    if not isinstance(validatedForm[f'{self.scope}.{self.key}'], self.expected_type):
-                        raise Exception()
                 except:
                     raise ValidateError(self.response or Response(app._text.validator_typeMessage(self.scope, self.key, self.expected_type), 400))
 
@@ -159,7 +157,7 @@ class Validator:
                     if _value is not None:
                         validatedForm[f'{self.scope}.{self.key}'] = _value
                 except ValidateError as e:
-                    raise ValidateError(e.response or self.response or Response(status = 400))
+                    raise ValidateError(e.response or self.response or Response(status = 500))
 
     @property
     def scope(self) -> Literal['form', 'headers', 'args', 'path', 'cookie']:
@@ -196,16 +194,16 @@ class Validator:
         self._type = value
 
     @property
-    def expected_type(self) -> object:
+    def expected_type(self) -> str:
         '''
-        期望的数据类型，对type转换后的结果进行二次校验。
+        期望的数据类型，不参与校验，仅供提示。
         '''
 
         return self._expected_type
 
     @expected_type.setter
-    def expected_type(self, value: object | None):
-        self._expected_type = self.type if value is None else value
+    def expected_type(self, value: str | None):
+        self._expected_type = self.type.__name__ if value is None else value
 
     @property
     def default(self) -> Any:
@@ -306,7 +304,7 @@ def validator(validators: List[Validator]):
     @app.route.get('/')
     @validator([
         Validator('form', 'name', required = True),
-        Validator('form', 'birthDate', type = [ float, datetime.datetime.fromtimestamp ], expected_type = datetime.datetime, fn = birthDateValidator),
+        Validator('form', 'birthDate', type = [ float, datetime.datetime.fromtimestamp ], expected_type = 'timestamp', fn = birthDateValidator),
         Validator('form', 'gender', enum = [ 'man', 'woman', None ]),
         Validator('form', 'idCard', pattern = r'^[1-9]\\d{5}(18|19|20)\\d{2}(0[1-9]|1[0-2])(0[1-9]|[1-2]\\d|3[0-1])\\d{3}[\\dXx]$', response = Response('身份证格式错误', 400))
     ])
@@ -330,7 +328,7 @@ def validator(validators: List[Validator]):
     @app.route.get('/')
     @validator([
         Validator('form', 'name', required = True),
-        Validator('form', 'birthDate', type = [ float, datetime.datetime.fromtimestamp ], expected_type = datetime.datetime),
+        Validator('form', 'birthDate', type = [ float, datetime.datetime.fromtimestamp ], expected_type = 'timestamp'),
         Validator('form', 'gender', enum = [ 'man', 'woman', None ]),
         Validator('form', 'idCard', pattern = r'^[1-9]\\d{5}(18|19|20)\\d{2}(0[1-9]|1[0-2])(0[1-9]|[1-2]\\d|3[0-1])\\d{3}[\\dXx]$', response = Response('身份证格式错误', 400)),
         Validator('form', 'birthDate', fn = birthDateValidator)
