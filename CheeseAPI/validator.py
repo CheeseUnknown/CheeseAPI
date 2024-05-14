@@ -40,7 +40,7 @@ class Validator:
         *,
         required: bool = False,
         default: Any = None,
-        type: List[object | Callable] | object | Callable = str,
+        type: List[object | Callable] | object | Callable = None,
         expected_type: str | None = None,
         pattern: str | None = None,
         min: object | None = None,
@@ -101,7 +101,7 @@ class Validator:
         self._scope: Literal['form', 'headers', 'args', 'path', 'cookie'] = scope
         self.key: str = key
         self._type: List[object | Callable] | object | Callable = type
-        self._expected_type: str = type.__name__ if expected_type is None else expected_type
+        self._expected_type: str | None = type.__name__ if expected_type is None and self._type is not None else expected_type
         self.required: bool = required
         self._default: Any = default
         self._pattern: str | None = pattern
@@ -204,7 +204,7 @@ class Validator:
 
     @expected_type.setter
     def expected_type(self, value: str | None):
-        self._expected_type = self.type.__name__ if value is None else value
+        self._expected_type = self.type.__name__ if value is None and self.type is not None else value
 
     @property
     def default(self) -> Any:
