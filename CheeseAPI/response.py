@@ -397,7 +397,7 @@ class BaseResponse:
             elif isinstance(self.body, str):
                 _value = self.body.encode()
             elif isinstance(self.body, bytes):
-                _value += self.body
+                _value = self.body
             if _value:
                 value += b'%x\r\n' % len(_value) + _value + b'\r\n0\r\n\r\n'
 
