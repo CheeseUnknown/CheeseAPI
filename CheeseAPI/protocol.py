@@ -54,9 +54,6 @@ class HttpProtocol(asyncio.Protocol):
                 t.split('=')[0]: t.split('=')[1] for t in self.request.headers['Cookie'].split('; ')
             }
 
-        if not self.parser.should_upgrade() and not int(self.request.headers.get('Content-Length', 0)):
-            asyncio.get_event_loop().create_task(app._handle.http(self))
-
     def on_body(self, body: bytes):
         if self.request.body is None:
             self.request._body = b''
