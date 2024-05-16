@@ -1,4 +1,4 @@
-import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, datetime
+import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, datetime, traceback
 from typing import TYPE_CHECKING, Dict, Tuple, List
 
 import asyncio, uvloop, setproctitle, websockets
@@ -109,68 +109,78 @@ class Handle:
                 logger.loaded(text[0], text[1], refreshed = True)
 
     def server_start(self):
-        self._app._handle.server_beforeStarting()
-        if self._app.signal.server_beforeStarting.receivers:
-            self._app.signal.server_beforeStarting.send()
-
         try:
-            ipaddress.IPv4Address(self._app.server.host)
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        except ipaddress.AddressValueError:
-            sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((self._app.server.host, self._app.server.port))
-        sock.listen(self._app.server.backlog)
-        sock.set_inheritable(True)
+            self._app._handle.server_beforeStarting()
+            if self._app.signal.server_beforeStarting.receivers:
+                self._app.signal.server_beforeStarting.send()
 
-        processes: List[multiprocessing.Process] = []
-        multiprocessing.allow_connection_pickling()
-        for i in range(self._app.server.workers - 1):
-            process = multiprocessing.Process(target = self.worker_start, args = (sock,), name = self._app._text.workerProcess_title)
-            process.start()
-            processes.append(process)
+            try:
+                ipaddress.IPv4Address(self._app.server.host)
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            except ipaddress.AddressValueError:
+                sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((self._app.server.host, self._app.server.port))
+            sock.listen(self._app.server.backlog)
+            sock.set_inheritable(True)
 
-        self.worker_start(sock, True)
+            processes: List[multiprocessing.Process] = []
+            multiprocessing.allow_connection_pickling()
+            for i in range(self._app.server.workers - 1):
+                process = multiprocessing.Process(target = self.worker_start, args = (sock,), name = self._app._text.workerProcess_title)
+                process.start()
+                processes.append(process)
 
-        for process in processes:
-            process.terminate()
-            process.join()
+            self.worker_start(sock, True)
 
-        for text in self._app._text.server_stopping():
-            logger.ending(text[0], text[1])
+            for process in processes:
+                process.terminate()
+                process.join()
 
-        self.server_afterStopping()
-        if self._app.signal.server_afterStopping.receivers:
-            self._app.signal.server_afterStopping.send()
+            for text in self._app._text.server_stopping():
+                logger.ending(text[0], text[1])
 
-        logger.destroy()
-
-        os.killpg(os.getpid(), signal.SIGKILL)
+            self.server_afterStopping()
+            if self._app.signal.server_afterStopping.receivers:
+                self._app.signal.server_afterStopping.send()
+        except KeyboardInterrupt:
+            ...
+        except:
+            logger.error(f'''
+{logger.encode(traceback.format_exc()[:-1])}''')
+        finally:
+            logger.destroy()
+            os.killpg(os.getpid(), signal.SIGKILL)
 
     def worker_beforeStarting(self):
         for text in self._app._text.worker_starting():
             logger.debug(text[0], text[1])
 
     def worker_start(self, sock, master: bool = False):
-        if not master:
-            setproctitle.setproctitle(self._app._text.workerProcess_title)
+        try:
+            if not master:
+                setproctitle.setproctitle(self._app._text.workerProcess_title)
 
-        self.worker_beforeStarting()
-        if self._app.signal.worker_beforeStarting.receivers:
-            self._app.signal.worker_beforeStarting.send()
+            self.worker_beforeStarting()
+            if self._app.signal.worker_beforeStarting.receivers:
+                self._app.signal.worker_beforeStarting.send()
 
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-        asyncio.run(self.worker_run(sock, master))
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+            asyncio.run(self.worker_run(sock, master))
 
-        with self._app._managers_['lock']:
-            self._app._managers_['server.workers'].value -= 1
+            with self._app._managers_['lock']:
+                self._app._managers_['server.workers'].value -= 1
 
-            for text in self._app._text.worker_stopping():
-                logger.debug(text[0], text[1])
+                for text in self._app._text.worker_stopping():
+                    logger.debug(text[0], text[1])
 
-            self.worker_afterStopping()
-            if self._app.signal.worker_afterStopping.receivers:
-                self._app.signal.worker_afterStopping.send()
+                self.worker_afterStopping()
+                if self._app.signal.worker_afterStopping.receivers:
+                    self._app.signal.worker_afterStopping.send()
+        except:
+            logger.error(f'''The process {os.getpid()} stopped
+{logger.encode(traceback.format_exc()[:-1])}''', f'''The process <blue>{os.getpid()}</blue> stopped
+{logger.encode(traceback.format_exc()[:-1])}''')
 
     async def worker_run(self, sock, master: bool):
         from CheeseAPI.app import app
@@ -344,7 +354,7 @@ class Handle:
                 })
 
             await self.http_response(protocol)
-        except BaseException as e:
+        except Exception as e:
             try:
                 await self.http_500(protocol, e)
                 if self._app.signal.http_500.receivers:
@@ -355,13 +365,13 @@ class Handle:
                         **protocol.kwargs
                     })
                 await self.http_response(protocol)
-            except BaseException as e:
+            except Exception as e:
                 await self.http_500(protocol, e, True)
                 await self.http_response(protocol, True)
 
     async def http_static(self, protocol: 'HttpProtocol'):
         if self._app.server.static and self._app.workspace.static and protocol.request.path.startswith(self._app.server.static) and protocol.request.method == http.HTTPMethod.GET:
-            for key in [ '', '.html', '/index.html' ]:
+            for key in [ '', '.html', 'index.html', '/index.html' ]:
                 try:
                     protocol.response = FileResponse(os.path.join(self._app.workspace.static, protocol.request.path[1:] + key))
 
