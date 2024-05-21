@@ -14,11 +14,8 @@ class Text:
         self.progressBar: ProgressBar = ProgressBar()
 
         self.response_server: str = 'CheeseAPI'
-        self._process_title: str = 'CheeseAPI'
         self.workerProcess_title: str = 'CheeseAPI:Process'
         self.logger: str = '%Y_%m_%d.log'
-
-        setproctitle.setproctitle(self._process_title)
 
     def server_information(self) -> List[Tuple[str, str]]:
         return [
@@ -167,13 +164,3 @@ Static: <cyan>{self._app.server.static}</cyan>''' if self._app.workspace.static 
 
     def validator_enumMessage(self, scope: str, key: str, enum: List[Any]) -> str:
         return f'The {scope}.{key} cannot be a value other than {enum}'
-
-    @property
-    def process_title(self) -> str:
-        return self._process_title
-
-    @process_title.setter
-    def process_title(self, value: str):
-        self._process_title = value
-
-        setproctitle.setproctitle(self._process_title)
