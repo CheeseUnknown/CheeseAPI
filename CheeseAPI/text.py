@@ -14,7 +14,7 @@ class Text:
         self.progressBar: ProgressBar = ProgressBar()
 
         self.response_server: str = 'CheeseAPI'
-        self.workerProcess_title: str = 'CheeseAPI:Process'
+        self.workerProcess_title: str = f'{setproctitle.getproctitle()}:Process'
         self.logger: str = '%Y_%m_%d.log'
 
     def server_information(self) -> List[Tuple[str, str]]:

@@ -1,4 +1,4 @@
-import multiprocessing, os
+import multiprocessing, os, setproctitle, sys
 from typing import Dict, Any, List
 
 from CheeseAPI.text import Text
@@ -275,5 +275,8 @@ class App:
         '''
 
         return self._preferred_localModules
+
+if ' '.join(sys.argv) in setproctitle.getproctitle():
+    setproctitle.setproctitle('CheeseAPI')
 
 app: App = App()
