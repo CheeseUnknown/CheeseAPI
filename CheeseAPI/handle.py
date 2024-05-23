@@ -480,7 +480,7 @@ class Handle:
             try:
                 Server, kwargs = self._app.routeBus._match(protocol.request.path, 'WEBSOCKET')
                 protocol.kwargs.update(kwargs)
-            except KeyError as e:
+            except Route_404_Exception as e:
                 await self.websocket_afterRequest(protocol)
                 if self._app.signal.websocket_afterRequest.receivers:
                     await self._app.signal.websocket_afterRequest.async_send(**{
@@ -488,27 +488,30 @@ class Handle:
                         **protocol.kwargs
                     })
 
-                if e.args[0] == 0:
-                    await self.websocket_404(protocol)
-                    if self._app.signal.websocket_404.receivers:
-                        await self._app.signal.websocket_404.async_send(**{
-                            'request': protocol.request,
-                            'response': protocol.response,
-                            **protocol.kwargs
-                        })
-                    return await self.websocket_response(protocol)
+                await self.websocket_404(protocol)
+                if self._app.signal.websocket_404.receivers:
+                    await self._app.signal.websocket_404.async_send(**{
+                        'request': protocol.request,
+                        'response': protocol.response,
+                        **protocol.kwargs
+                    })
+                return await self.websocket_response(protocol)
+            except Route_405_Exception as e:
+                await self.websocket_afterRequest(protocol)
+                if self._app.signal.websocket_afterRequest.receivers:
+                    await self._app.signal.websocket_afterRequest.async_send(**{
+                        'request': protocol.request,
+                        **protocol.kwargs
+                    })
 
-                elif e.args[0] == 1:
-                    await self.websocket_405(protocol)
-                    if self._app.signal.websocket_405.receivers:
-                        await self._app.signal.websocket_405.async_send(**{
-                            'request': protocol.request,
-                            'response': protocol.response,
-                            **protocol.kwargs
-                        })
-                    return await self.websocket_response(protocol)
-
-                raise e
+                await self.websocket_405(protocol)
+                if self._app.signal.websocket_405.receivers:
+                    await self._app.signal.websocket_405.async_send(**{
+                        'request': protocol.request,
+                        'response': protocol.response,
+                        **protocol.kwargs
+                    })
+                return await self.websocket_response(protocol)
 
             protocol.server = Server()
 
