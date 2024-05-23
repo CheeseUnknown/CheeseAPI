@@ -123,7 +123,10 @@ class Validator:
         if validatedForm[f'{self.scope}.{self.key}'] is None:
             if self.required:
                 raise ValidateError(self.response or Response(app._text.validator_requiredMessage(self.scope, self.key), 400))
-            validatedForm[f'{self.scope}.{self.key}'] = self.default
+            if callable(self.default):
+                validatedForm[f'{self.scope}.{self.key}'] = self.default()
+            else:
+                validatedForm[f'{self.scope}.{self.key}'] = self.default
 
         if validatedForm[f'{self.scope}.{self.key}'] is not None:
             if self.type is not None:
