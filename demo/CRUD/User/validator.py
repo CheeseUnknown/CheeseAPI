@@ -1,23 +1,41 @@
-import datetime
+import uuid
 
-from CheeseAPI import ValidateError, Response, Validator
+from CheeseAPI import Response, ValidateError
+from pydantic import BaseModel, EmailStr, field_validator, PastDatetime
 
 from User import users
+from User.model import Gender
 
-async def form_mail_409_fn(*, validatedForm, **_):
-    for user in users.values():
-        if user.mail == validatedForm['form.mail']:
-            raise ValidateError(Response('该邮箱已被注册', 409))
+class Mail(BaseModel):
+    mail: EmailStr
 
-form_mail_409 = Validator('form', 'mail', required = True, pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', fn = form_mail_409_fn)
+    @field_validator('mail')
+    def _mail(cls, value: EmailStr) -> EmailStr:
+        for user in users.values():
+            if user.mail == value:
+                raise ValidateError(Response('该邮箱已被注册', 409))
+        return value
 
-async def path_id_404_fn(*, validatedForm, **_):
-    if validatedForm['path.id'] not in users:
-        raise ValidateError(Response('没有此id用户', 404))
+class Id(BaseModel):
+    id: uuid.UUID
 
-path_id_404 = Validator('path', 'id', fn = path_id_404_fn)
+    @field_validator('id')
+    def _id(cls, value: uuid.UUID) -> uuid.UUID:
+        if value not in users:
+            raise ValidateError(Response('没有此id用户', 404))
+        return value
 
-async def form_birthDate_400_fn(*, validatedForm, **_):
-    date = datetime.datetime.now()
-    if validatedForm['form.birthDate'] > date:
-        raise ValidateError(Response('来自未来的生日', 400))
+class Add(Mail):
+    ...
+
+class Delete(Id):
+    ...
+
+class SetMail(Id, Mail):
+    ...
+
+class SetGender(Id):
+    gender: Gender
+
+class SetBirthDate(Id):
+    birthDate: PastDatetime

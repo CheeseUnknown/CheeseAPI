@@ -1,5 +1,7 @@
-import datetime, uuid
+import uuid
 from enum import Enum
+
+from pydantic import EmailStr, PastDatetime
 
 class Gender(Enum):
     MALE = 'MALE'
@@ -9,6 +11,6 @@ class Gender(Enum):
 class User:
     def __init__(self, mail: str):
         self.id: uuid.UUID = uuid.uuid4()
-        self.mail: str = mail
+        self.mail: EmailStr = mail
         self.gender: Gender = Gender.UNKNOWN
-        self.birthDate: datetime.datetime | None = None
+        self.birthDate: PastDatetime | None = None

@@ -20,7 +20,9 @@ dependencies = [
     "uvloop",
     "httptools",
     "CheeseSignal==1.1.*",
-    "dill"
+    "dill",
+    "pydantic",
+    "email-validator"
 ]
 
 [project.urls]
