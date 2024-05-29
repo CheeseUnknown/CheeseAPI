@@ -18,7 +18,7 @@ def validator(validator: BaseModel):
     '''
     为路由函数添加校验装饰器。
 
-    校验参数以类的校验属性为key，从路径变量、args、form、cookie、headers按顺序尝试匹配，若全部匹配失败，则会默认为None。
+    校验参数以类的校验属性为key，从路径变量、args、form、cookie、headers按顺序尝试匹配，若全部匹配失败，则会默认为None。对于headers中的校验属性，会自动将'_'转换为'-'进行匹配。
 
     校验通过后，路由函数会收到一个`validator: BaseModel`已校验参数。
 
@@ -68,6 +68,8 @@ def validator(validator: BaseModel):
                     try:
                         if scope == 'path':
                             _kwargs[key] = kwargs.get(key)
+                        elif scope == 'headers':
+                            _kwargs[key] = getattr(request, scope).get(key.replace('_', '-'))
                         else:
                             _kwargs[key] = getattr(request, scope).get(key)
 
