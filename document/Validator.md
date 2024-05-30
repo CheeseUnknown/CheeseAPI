@@ -46,4 +46,4 @@ class Form(BaseModel):
 
 在自定义校验函数中抛出此错误，可结束校验并直接返回响应体。
 
-### **`def __init__(self, response: BaseResponse | None = None)`**
+### **`def __init__(self, response: BaseResponse = Response(status = 400))`**

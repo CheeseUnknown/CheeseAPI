@@ -4,21 +4,21 @@ from functools import wraps
 
 from pydantic import BaseModel, ValidationError
 
-from CheeseAPI.response import JsonResponse
+from CheeseAPI.response import JsonResponse, Response
 
 if TYPE_CHECKING:
     from CheeseAPI.request import Request
     from CheeseAPI.response import BaseResponse
 
 class ValidateError(Exception):
-    def __init__(self, response: 'BaseResponse'):
+    def __init__(self, response: 'BaseResponse' = Response(status = 400)):
         self.response: 'BaseResponse' = response
 
 def validator(validator: BaseModel):
     '''
     为路由函数添加校验装饰器。
 
-    校验参数以类的校验属性为key，从路径变量、args、form、cookie、headers按顺序尝试匹配，若全部匹配失败，则会默认为None。对于headers中的校验属性，会自动将'_'转换为'-'进行匹配。
+    校验参数以类的校验属性为key，从路径变量、args、form、cookie、headers按顺序尝试匹配，若全部匹配失败，则会默认为None。
 
     校验通过后，路由函数会收到一个`validator: BaseModel`已校验参数。
 
