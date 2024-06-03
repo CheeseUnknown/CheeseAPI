@@ -62,16 +62,14 @@ def validator(validator: BaseModel):
 
             _kwargs = {}
             for key in validator.model_fields.keys():
-                _kwargs[key] = None
-
                 for scope in [ 'path', 'args', 'form', 'cookie', 'headers' ]:
                     try:
                         if scope == 'path':
-                            _kwargs[key] = kwargs.get(key)
+                            _kwargs[key] = kwargs[key]
                         elif scope == 'headers':
-                            _kwargs[key] = getattr(request, scope).get(key.replace('_', '-'))
+                            _kwargs[key] = getattr(request, scope)[key.replace('_', '-')]
                         else:
-                            _kwargs[key] = getattr(request, scope).get(key)
+                            _kwargs[key] = getattr(request, scope)[key]
 
                         if _kwargs.get(key):
                             try:
