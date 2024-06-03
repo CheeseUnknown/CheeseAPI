@@ -74,6 +74,10 @@ def validator(validator: BaseModel):
                             _kwargs[key] = getattr(request, scope).get(key)
 
                         if _kwargs.get(key):
+                            try:
+                                _kwargs[key] = json.loads(_kwargs[key])
+                            except:
+                                ...
                             break
                     except:
                         ...
