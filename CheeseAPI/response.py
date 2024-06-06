@@ -360,6 +360,7 @@ class BaseResponse:
             'Transfer-Encoding': 'chunked',
             **headers
         }
+        self.headers['Content-Type'] += '; charset=utf-8'
         self.body: str | bytes | Callable | AsyncIterator = self.status.description if body is None else body
         self._transfering: bool = False
 
@@ -464,7 +465,7 @@ class JsonResponse(BaseResponse):
 
     def __init__(self, body: dict | list = {}, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
         super().__init__(json.dumps(body), status, {
-            'Content-Type': 'application/json; charset=utf-8',
+            'Content-Type': 'application/json',
             **headers
         })
 
