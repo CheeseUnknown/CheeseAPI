@@ -37,7 +37,7 @@ class Request:
         self._method = 'WEBSOCKET'
 
     def _parseBody(self):
-        if 'Content-Type' not in self.headers:
+        if 'Content-Type' not in self.headers or self.body is None:
             return
 
         if 'application/json' in self.headers['Content-Type']:
