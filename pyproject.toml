@@ -14,7 +14,7 @@ authors = [
 keywords = [ 'API', 'BackEnd' ]
 
 dependencies = [
-    "CheeseLog==1.0.*",
+    "CheeseLog==1.1.*",
     "xmltodict",
     "websockets",
     "uvloop",
@@ -22,7 +22,8 @@ dependencies = [
     "CheeseSignal==1.1.*",
     "dill",
     "pydantic",
-    "email-validator"
+    "email-validator",
+    "setproctitle"
 ]
 
 [project.urls]

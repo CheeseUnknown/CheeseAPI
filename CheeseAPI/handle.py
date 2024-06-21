@@ -149,7 +149,6 @@ class Handle:
             logger.error(f'''
 {logger.encode(traceback.format_exc()[:-1])}''')
         finally:
-            logger.destroy()
             os.killpg(os.getpid(), signal.SIGKILL)
 
     def worker_beforeStarting(self):
