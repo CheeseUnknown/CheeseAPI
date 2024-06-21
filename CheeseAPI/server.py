@@ -33,3 +33,7 @@ class Server:
         '''
 
         return self._intervalTime
+
+    @intervalTime.setter
+    def intervalTime(self, value: float):
+        self._intervalTime = value
