@@ -1,4 +1,4 @@
-import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, datetime, traceback
+import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, datetime, traceback, threading
 from typing import TYPE_CHECKING, Dict, Tuple, List
 
 import asyncio, uvloop, setproctitle, websockets
@@ -10,6 +10,7 @@ from CheeseAPI.exception import Route_404_Exception, Route_405_Exception
 if TYPE_CHECKING:
     from CheeseAPI.app import App
     from CheeseAPI.protocol import HttpProtocol, WebsocketProtocol
+    from CheeseAPI.schedule import ScheduleTask
 
 class Handle:
     def __init__(self, app: 'App'):
@@ -242,18 +243,38 @@ class Handle:
             return
 
         timer = datetime.datetime.now()
+        tasks: List[ScheduleTask] = []
 
         for task in self._app.scheduler.tasks.values():
-            triggeredTimer = task.startTimer + task.timer * task.total_repetition_num
+            if task.inactive or task.expired:
+                continue
 
-            if (self._timer < triggeredTimer < timer or self._timer > triggeredTimer + task.timer) and task.active and task.is_unexpired:
-                self._app._managers_['schedules'][task.key] = {
-                    **self._app._managers_['schedules'][task.key],
-                    'total_repetition_num': task.total_repetition_num + 1
-                }
-                await task.fn()
-                if task.is_expired and task.auto_remove:
-                    self._app.scheduler.remove(task.key)
+            if task.mode == 'multiprocessing':
+                if task.key not in self._app.scheduler._taskHandlers:
+                    self._app.scheduler._taskHandlers[task.key] = multiprocessing.Process(target = self._app.scheduler._processHandle, args = (task.key, ), name = f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}', daemon = True)
+                    self._app.scheduler._taskHandlers[task.key].start()
+            elif task.mode == 'threading':
+                if task.key not in self._app.scheduler._taskHandlers:
+                    self._app.scheduler._taskHandlers[task.key] = threading.Thread(target = self._app.scheduler._processHandle, args = (task.key, ), name = f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}', daemon = True)
+                    self._app.scheduler._taskHandlers[task.key].start()
+            elif task.mode == 'asyncio':
+                triggeredTimer = task.startTimer + task.timer * task.total_repetition_num
+
+                if (self._timer < triggeredTimer < timer or self._timer > triggeredTimer + task.timer):
+                    tasks.append(task)
+
+        for task in tasks:
+            self._app._managers_['schedules'][task.key] = {
+                **self._app._managers_['schedules'][task.key],
+                'total_repetition_num': task.total_repetition_num + 1,
+                'lastTimer': timer
+            }
+
+        await asyncio.gather(*[ task.fn() for task in tasks ])
+
+        for task in self._app.scheduler.tasks.values():
+            if task.expired and task.auto_remove:
+                self._app.scheduler.remove(task.key)
 
         self._timer = timer
 

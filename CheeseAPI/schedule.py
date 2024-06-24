@@ -1,7 +1,7 @@
-import uuid, datetime
-from typing import TYPE_CHECKING, Callable, Dict, overload
+import uuid, datetime, multiprocessing, threading, time
+from typing import TYPE_CHECKING, Callable, Dict, overload, Literal
 
-import dill
+import dill, setproctitle
 
 if TYPE_CHECKING:
     from CheeseAPI.app import App
@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 class ScheduleTask:
     def __init__(self, app: 'App', key: str):
         self._app: 'App' = app
-        self.key = key
+        self._key: str = key
 
     def reset(self):
         '''
@@ -20,6 +20,14 @@ class ScheduleTask:
             **self._app._managers_['schedules'][self.key],
             'total_repetition_num': 0
         }
+
+    @property
+    def key(self) -> str:
+        '''
+        【只读】
+        '''
+
+        return self._key
 
     @property
     def timer(self) -> datetime.timedelta:
@@ -52,7 +60,7 @@ class ScheduleTask:
         '''
         自定义的开始时间。若未设置，则为当前时间。
 
-        若设置后`self.is_expired and self.auto_remove`，则该任务会被立刻删除。
+        若设置后`self.expired and self.auto_remove`，则该任务会被立刻删除。
         '''
 
         return self._app._managers_['schedules'][self.key]['startTimer']
@@ -64,7 +72,7 @@ class ScheduleTask:
             'startTimer': value
         }
 
-        if self.auto_remove and self.is_expired:
+        if self.auto_remove and self.expired:
             del self._app._managers_['schedules'][self.key]
 
     @property
@@ -72,7 +80,7 @@ class ScheduleTask:
         '''
         任务过期后是否自动删除。
 
-        若设置后`self.is_expired and self.auto_remove`，则该任务会被立刻删除。
+        若设置后`self.expired and self.auto_remove`，则该任务会被立刻删除。
         '''
 
         return self._app._managers_['schedules'][self.key]['auto_remove']
@@ -84,7 +92,7 @@ class ScheduleTask:
             'auto_remove': value
         }
 
-        if self.auto_remove and self.is_expired:
+        if self.auto_remove and self.expired:
             del self._app._managers_['schedules'][self.key]
 
     @property
@@ -102,15 +110,20 @@ class ScheduleTask:
             'active': value
         }
 
-        if self.auto_remove and self.is_expired:
-            del self._app._managers_['schedules'][self.key]
+    @property
+    def inactive(self) -> bool:
+        '''
+        【只读】 是否未激活。
+        '''
+
+        return not self._app._managers_['schedules'][self.key]['active']
 
     @property
     def expected_repetition_num(self) -> int:
         '''
         期望的重复次数；0代表无限次数。
 
-        若设置后`self.is_expired and self.auto_remove`，则该任务会被立刻删除。
+        若设置后`self.expired and self.auto_remove`，则该任务会被立刻删除。
         '''
 
         return self._app._managers_['schedules'][self.key]['expected_repetition_num']
@@ -122,8 +135,13 @@ class ScheduleTask:
             'expected_repetition_num': value
         }
 
-        if self.auto_remove and self.is_expired:
-            del self._app._managers_['schedules'][self.key]
+    @property
+    def mode(self) -> Literal['multiprocessing', 'threading', 'asyncio']:
+        '''
+        【只读】 运行的模式是进程、线程还是协程。
+        '''
+
+        return self._app._managers_['schedules'][self.key]['mode']
 
     @property
     def total_repetition_num(self) -> int:
@@ -144,7 +162,7 @@ class ScheduleTask:
         return self.expected_repetition_num - self.total_repetition_num
 
     @property
-    def is_unexpired(self) -> bool:
+    def unexpired(self) -> bool:
         '''
         【只读】 任务是否未过期。
         '''
@@ -155,19 +173,56 @@ class ScheduleTask:
         return self.startTimer + self.timer * (self.expected_repetition_num + 1) >= datetime.datetime.now()
 
     @property
-    def is_expired(self) -> bool:
+    def expired(self) -> bool:
         '''
         【只读】 任务是否过期。
         '''
 
-        return not self.is_unexpired
+        return not self.unexpired
+
+    @property
+    def lastTimer(self) -> datetime.datetime | None:
+        '''
+        【只读】 任务上一次的触发时间；`None`代表从未触发过。
+        '''
+
+        return self._app._managers_['schedules'][self.key]['lastTimer']
 
 class Scheduler:
     def __init__(self, app: 'App'):
         self._app: 'App' = app
+        self._taskHandlers: Dict[str, multiprocessing.Process | threading.Thread] = {}
+
+    def _processHandle(self, key: str):
+        task: ScheduleTask = self._app.scheduler.tasks[key]
+        if task.mode == 'multiprocessing':
+            setproctitle.setproctitle(f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}')
+        lastTimer = datetime.datetime.now()
+
+        while True:
+            task: ScheduleTask = self._app.scheduler.tasks.get(key)
+            if not task or task.expired or task.inactive:
+                break
+
+            _timer = datetime.datetime.now()
+
+            triggeredTimer = task.startTimer + task.timer * task.total_repetition_num
+            if (lastTimer < triggeredTimer <= _timer or lastTimer > triggeredTimer + task.timer) and task.active:
+                task.fn()
+
+                self._app._managers_['schedules'][task.key] = {
+                    **self._app._managers_['schedules'][task.key],
+                    'total_repetition_num': task.total_repetition_num + 1,
+                    'lastTimer': _timer
+                }
+
+            lastTimer = _timer
+            time.sleep(self._app.server.intervalTime)
+
+        del self._taskHandlers[key]
 
     @overload
-    def add(self, timer: datetime.timedelta, fn: Callable, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False):
+    def add(self, timer: datetime.timedelta, fn: Callable, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing'):
         '''
         通过函数添加一个任务。
 
@@ -193,10 +248,12 @@ class Scheduler:
             - expected_repetition_num: 期望的重复次数，0代表无限重复。
 
             - auto_remove: 若`expected_repetition_num > 0`且当前计划过期，是否自动删除该计划。
+
+            - mode: 运行的模式是进程、线程还是协程。
         '''
 
     @overload
-    def add(self, timer: datetime.timedelta, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False):
+    def add(self, timer: datetime.timedelta, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing'):
         '''
         通过装饰器添加一个任务。
 
@@ -221,13 +278,15 @@ class Scheduler:
             - expected_repetition_num: 期望的重复次数，0代表无限重复。
 
             - auto_remove: 若`expected_repetition_num > 0`且当前计划过期，是否自动删除该计划。
+
+            - mode: 运行的模式是进程、线程还是协程。
         '''
 
-    def add(self, timer: datetime.timedelta, fn: Callable | None = None, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False):
-        if not key:
+    def add(self, timer: datetime.timedelta, fn: Callable | None = None, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing'):
+        if key is None:
             key = str(uuid.uuid4())
 
-        if not startTimer:
+        if startTimer is None:
             startTimer = datetime.datetime.now()
 
         if fn:
@@ -238,7 +297,9 @@ class Scheduler:
                 'expected_repetition_num': expected_repetition_num,
                 'total_repetition_num': 0,
                 'auto_remove': auto_remove,
-                'active': True
+                'active': True,
+                'mode': mode,
+                'lastTimer': None
             }
             return
 
@@ -250,7 +311,9 @@ class Scheduler:
                 'expected_repetition_num': expected_repetition_num,
                 'total_repetition_num': 0,
                 'auto_remove': auto_remove,
-                'active': True
+                'active': True,
+                'mode': mode,
+                'lastTimer': None
             }
             return fn
         return wrapper

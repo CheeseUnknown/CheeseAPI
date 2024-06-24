@@ -10,9 +10,9 @@
 
 【只读】 所有的任务，`ScheduleTask`请查看[Schedule](../Schedule.md)。
 
-未指定key的任务会自动分配一个uuid字符串为key。
+未指定key的任务会自动分配一个字符串为key。
 
-## **`app.scheduler.add(timer: datetime.timedelta, fn: Callable, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False)`**
+## **`app.scheduler.add(timer: datetime.timedelta, fn: Callable, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing')`**
 
 通过函数添加一个任务。
 
@@ -47,7 +47,11 @@ app.scheduler.add(datetime.timedelta(days = 1), task)
 
         若`expected_repetition_num > 0`且当前计划过期，是否自动删除该计划。
 
-## **`app.scheduler.add(timer: datetime.timedelta, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False)`**
+    - **mode**
+
+        运行的模式是进程、线程还是协程。
+
+## **`app.scheduler.add(timer: datetime.timedelta, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing')`**
 
 通过装饰器添加一个任务。
 
@@ -80,6 +84,10 @@ async def task():
     - **auto_remove**
 
         若`expected_repetition_num > 0`且当前计划过期，是否自动删除该计划。
+
+    - **mode**
+
+        运行的模式是进程、线程还是协程。
 
 ## **`app.scheduler.remove(fn: Callable)`**
 
