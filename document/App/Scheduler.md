@@ -12,7 +12,7 @@
 
 未指定key的任务会自动分配一个字符串为key。
 
-## **`app.scheduler.add(timer: datetime.timedelta, fn: Callable, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing')`**
+## **`app.scheduler.add(timer: datetime.timedelta, fn: Callable, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None)`**
 
 通过函数添加一个任务。
 
@@ -51,7 +51,11 @@ app.scheduler.add(datetime.timedelta(days = 1), task)
 
         运行的模式是进程、线程还是协程。
 
-## **`app.scheduler.add(timer: datetime.timedelta, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing')`**
+    - **intervalTime**
+
+        最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。默认为`app.server.intervalTime`。
+
+## **`app.scheduler.add(timer: datetime.timedelta, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None)`**
 
 通过装饰器添加一个任务。
 
@@ -88,6 +92,10 @@ async def task():
     - **mode**
 
         运行的模式是进程、线程还是协程。
+
+    - **intervalTime**
+
+        最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。默认为`app.server.intervalTime`。
 
 ## **`app.scheduler.remove(fn: Callable)`**
 

@@ -188,6 +188,21 @@ class ScheduleTask:
 
         return self._app._managers_['schedules'][self.key]['lastTimer']
 
+    @property
+    def intervalTime(self) -> float:
+        '''
+        最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。
+        '''
+
+        return self._app._managers_['schedules'][self.key]['intervalTime']
+
+    @intervalTime.setter
+    def intervalTime(self, value: float):
+        self._app._managers_['schedules'][self.key] = {
+            **self._app._managers_['schedules'][self.key],
+            'intervalTime': value
+        }
+
 class Scheduler:
     def __init__(self, app: 'App'):
         self._app: 'App' = app
@@ -217,12 +232,12 @@ class Scheduler:
                 }
 
             lastTimer = _timer
-            time.sleep(self._app.server.intervalTime)
+            time.sleep(task.intervalTime)
 
         del self._taskHandlers[key]
 
     @overload
-    def add(self, timer: datetime.timedelta, fn: Callable, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing'):
+    def add(self, timer: datetime.timedelta, fn: Callable, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
         '''
         通过函数添加一个任务。
 
@@ -250,10 +265,12 @@ class Scheduler:
             - auto_remove: 若`expected_repetition_num > 0`且当前计划过期，是否自动删除该计划。
 
             - mode: 运行的模式是进程、线程还是协程。
+
+            - intervalTime: 最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。默认为`app.server.intervalTime`。
         '''
 
     @overload
-    def add(self, timer: datetime.timedelta, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing'):
+    def add(self, timer: datetime.timedelta, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
         '''
         通过装饰器添加一个任务。
 
@@ -280,9 +297,11 @@ class Scheduler:
             - auto_remove: 若`expected_repetition_num > 0`且当前计划过期，是否自动删除该计划。
 
             - mode: 运行的模式是进程、线程还是协程。
+
+            - intervalTime: 最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。默认为`app.server.intervalTime`。
         '''
 
-    def add(self, timer: datetime.timedelta, fn: Callable | None = None, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing'):
+    def add(self, timer: datetime.timedelta, fn: Callable | None = None, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
         if key is None:
             key = str(uuid.uuid4())
 
@@ -299,7 +318,8 @@ class Scheduler:
                 'auto_remove': auto_remove,
                 'active': True,
                 'mode': mode,
-                'lastTimer': None
+                'lastTimer': None,
+                'intervalTime': intervalTime or self._app.server.intervalTime
             }
             return
 
@@ -313,7 +333,8 @@ class Scheduler:
                 'auto_remove': auto_remove,
                 'active': True,
                 'mode': mode,
-                'lastTimer': None
+                'lastTimer': None,
+                'intervalTime': intervalTime or self._app.server.intervalTime
             }
             return fn
         return wrapper

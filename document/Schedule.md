@@ -68,6 +68,10 @@
 
 【只读】 任务上一次的触发时间；`None`代表从未触发过。
 
+### **`self.intervalTime: float`**
+
+最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。
+
 ### **`def reset(self)`**
 
 重置统计数据，例如`self.total_repetition_num`。
