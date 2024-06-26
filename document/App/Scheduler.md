@@ -66,7 +66,7 @@ import datetime
 
 from CheeseAPI import app
 
-@app.scheduler.add(datetime.timedelta(days = 1))
+@app.scheduler.add( timer = datetime.timedelta(days = 1))
 async def task():
     print('Hello World.')
 ```
@@ -106,7 +106,7 @@ import datetime
 
 from CheeseAPI import app
 
-@app.scheduler.add(datetime.timedelta(days = 1))
+@app.scheduler.add( timer = datetime.timedelta(days = 1))
 async def task():
     print('Hello World.')
 
@@ -122,7 +122,7 @@ import datetime
 
 from CheeseAPI import app
 
-@app.scheduler.add(datetime.timedelta(days = 1), key = 'myTask')
+@app.scheduler.add( timer = datetime.timedelta(days = 1), key = 'myTask')
 async def task():
     print('Hello World.')
 
@@ -138,7 +138,7 @@ import datetime
 
 from CheeseAPI import app
 
-@app.scheduler.add(datetime.timedelta(days = 1))
+@app.scheduler.add( timer = datetime.timedelta(days = 1))
 async def task():
     print('Hello World.')
 
@@ -154,7 +154,7 @@ import datetime
 
 from CheeseAPI import app
 
-@app.scheduler.add(datetime.timedelta(days = 1), key = 'myTask')
+@app.scheduler.add( timer = datetime.timedelta(days = 1), key = 'myTask')
 async def task():
     print('Hello World.')
 

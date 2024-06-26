@@ -237,7 +237,7 @@ class Scheduler:
         del self._taskHandlers[key]
 
     @overload
-    def add(self, timer: datetime.timedelta, fn: Callable, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
+    def add(self, fn: Callable, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
         '''
         通过函数添加一个任务。
 
@@ -270,7 +270,7 @@ class Scheduler:
         '''
 
     @overload
-    def add(self, timer: datetime.timedelta, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
+    def add(self, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
         '''
         通过装饰器添加一个任务。
 
@@ -281,7 +281,7 @@ class Scheduler:
 
         from CheeseAPI import app
 
-        @app.scheduler.add(datetime.timedelta(days = 1))
+        @app.scheduler.add( timer = datetime.timedelta(days = 1))
         async def task():
             print('Hello World.')
         ```
@@ -301,7 +301,10 @@ class Scheduler:
             - intervalTime: 最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。默认为`app.server.intervalTime`。
         '''
 
-    def add(self, timer: datetime.timedelta, fn: Callable | None = None, *, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
+    def add(self, fn: Callable | None = None, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
+        if timer is None:
+            timer = intervalTime or self._app.server.intervalTime
+
         if key is None:
             key = str(uuid.uuid4())
 
@@ -349,7 +352,7 @@ class Scheduler:
 
         from CheeseAPI import app
 
-        @app.scheduler.add(datetime.timedelta(days = 1))
+        @app.scheduler.add( timer = datetime.timedelta(days = 1))
         async def task():
             print('Hello World.')
 
@@ -367,7 +370,7 @@ class Scheduler:
 
         from CheeseAPI import app
 
-        @app.scheduler.add(datetime.timedelta(days = 1), key = 'myTask')
+        @app.scheduler.add( timer = datetime.timedelta(days = 1), key = 'myTask')
         async def task():
             print('Hello World.')
 
@@ -393,7 +396,7 @@ class Scheduler:
 
         from CheeseAPI import app
 
-        @app.scheduler.add(datetime.timedelta(days = 1))
+        @app.scheduler.add( timer = datetime.timedelta(days = 1))
         async def task():
             print('Hello World.')
 
@@ -411,7 +414,7 @@ class Scheduler:
 
         from CheeseAPI import app
 
-        @app.scheduler.add(datetime.timedelta(days = 1), key = 'myTask')
+        @app.scheduler.add( timer = datetime.timedelta(days = 1), key = 'myTask')
         async def task():
             print('Hello World.')
 
