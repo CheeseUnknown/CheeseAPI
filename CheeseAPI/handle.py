@@ -270,7 +270,11 @@ class Handle:
                 'lastTimer': timer
             }
 
-        await asyncio.gather(*[ task.fn() for task in tasks ])
+        returns = await asyncio.gather(*[ task.fn(task._lastReturn, **{
+            'intervalTime': (timer - self._timer).total_seconds()
+        }) for task in tasks ])
+        for i in range(len(tasks)):
+            tasks[i]._lastReturn = returns[i]
 
         for task in self._app.scheduler.tasks.values():
             if task.expired and task.auto_remove:

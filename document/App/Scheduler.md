@@ -23,7 +23,7 @@ import datetime
 
 from CheeseAPI import app
 
-async def task():
+async def task(lastReturn, *, intervalTime: float):
     print('Hello World.')
 
 app.scheduler.add(datetime.timedelta(days = 1), task)
@@ -66,8 +66,8 @@ import datetime
 
 from CheeseAPI import app
 
-@app.scheduler.add( timer = datetime.timedelta(days = 1))
-async def task():
+@app.scheduler.add(timer = datetime.timedelta(days = 1))
+async def task(lastReturn, *, intervalTime: float):
     print('Hello World.')
 ```
 
@@ -97,6 +97,16 @@ async def task():
 
         最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。默认为`app.server.intervalTime`。
 
+- **回调函数参数**
+
+    - **lastReturn**
+
+        上一次触发时的返回值。
+
+    - **intervalTime**
+
+        距离上一次触发的间隔时间。
+
 ## **`app.scheduler.remove(fn: Callable)`**
 
 通过函数删除计划。
@@ -106,8 +116,8 @@ import datetime
 
 from CheeseAPI import app
 
-@app.scheduler.add( timer = datetime.timedelta(days = 1))
-async def task():
+@app.scheduler.add(timer = datetime.timedelta(days = 1))
+async def task(lastReturn, *, intervalTime: float):
     print('Hello World.')
 
 app.scheduler.remove(task)
@@ -122,8 +132,8 @@ import datetime
 
 from CheeseAPI import app
 
-@app.scheduler.add( timer = datetime.timedelta(days = 1), key = 'myTask')
-async def task():
+@app.scheduler.add(timer = datetime.timedelta(days = 1), key = 'myTask')
+async def task(lastReturn, *, intervalTime: float):
     print('Hello World.')
 
 app.scheduler.remove('myTask')
@@ -138,8 +148,8 @@ import datetime
 
 from CheeseAPI import app
 
-@app.scheduler.add( timer = datetime.timedelta(days = 1))
-async def task():
+@app.scheduler.add(timer = datetime.timedelta(days = 1))
+async def task(lastReturn, *, intervalTime: float):
     print('Hello World.')
 
 myTask = app.scheduler.get_task(task)
@@ -154,8 +164,8 @@ import datetime
 
 from CheeseAPI import app
 
-@app.scheduler.add( timer = datetime.timedelta(days = 1), key = 'myTask')
-async def task():
+@app.scheduler.add(timer = datetime.timedelta(days = 1), key = 'myTask')
+async def task(lastReturn, *, intervalTime: float):
     print('Hello World.')
 
 myTask = app.scheduler.get_task('myTask')

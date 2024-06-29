@@ -1,5 +1,5 @@
 import uuid, datetime, multiprocessing, threading, time
-from typing import TYPE_CHECKING, Callable, Dict, overload, Literal
+from typing import TYPE_CHECKING, Callable, Dict, overload, Literal, Any
 
 import dill, setproctitle
 
@@ -10,6 +10,8 @@ class ScheduleTask:
     def __init__(self, app: 'App', key: str):
         self._app: 'App' = app
         self._key: str = key
+
+        self._lastReturn: Any = None
 
     def reset(self):
         '''
@@ -223,7 +225,9 @@ class Scheduler:
 
             triggeredTimer = task.startTimer + task.timer * task.total_repetition_num
             if (lastTimer < triggeredTimer <= _timer or lastTimer > triggeredTimer + task.timer) and task.active:
-                task.fn()
+                task.fn(task._lastReturn, **{
+                    'intervalTime': (_timer - lastTimer).total_seconds()
+                })
 
                 self._app._managers_['schedules'][task.key] = {
                     **self._app._managers_['schedules'][task.key],
@@ -248,7 +252,7 @@ class Scheduler:
 
         from CheeseAPI import app
 
-        async def task():
+        async def task(lastReturn, *, intervalTime: float):
             print('Hello World.')
 
         app.scheduler.add(datetime.timedelta(days = 1), task)
@@ -281,8 +285,8 @@ class Scheduler:
 
         from CheeseAPI import app
 
-        @app.scheduler.add( timer = datetime.timedelta(days = 1))
-        async def task():
+        @app.scheduler.add(timer = datetime.timedelta(days = 1))
+        async def task(lastReturn, *, intervalTime: float):
             print('Hello World.')
         ```
 
@@ -352,8 +356,8 @@ class Scheduler:
 
         from CheeseAPI import app
 
-        @app.scheduler.add( timer = datetime.timedelta(days = 1))
-        async def task():
+        @app.scheduler.add(timer = datetime.timedelta(days = 1))
+        async def task(lastReturn, *, intervalTime: float):
             print('Hello World.')
 
         app.scheduler.remove(task)
@@ -370,8 +374,8 @@ class Scheduler:
 
         from CheeseAPI import app
 
-        @app.scheduler.add( timer = datetime.timedelta(days = 1), key = 'myTask')
-        async def task():
+        @app.scheduler.add(timer = datetime.timedelta(days = 1), key = 'myTask')
+        async def task(lastReturn, *, intervalTime: float):
             print('Hello World.')
 
         app.scheduler.remove('myTask')
@@ -396,8 +400,8 @@ class Scheduler:
 
         from CheeseAPI import app
 
-        @app.scheduler.add( timer = datetime.timedelta(days = 1))
-        async def task():
+        @app.scheduler.add(timer = datetime.timedelta(days = 1))
+        async def task(lastReturn, *, intervalTime: float):
             print('Hello World.')
 
         myTask = app.scheduler.get_task(task)
@@ -414,8 +418,8 @@ class Scheduler:
 
         from CheeseAPI import app
 
-        @app.scheduler.add( timer = datetime.timedelta(days = 1), key = 'myTask')
-        async def task():
+        @app.scheduler.add(timer = datetime.timedelta(days = 1), key = 'myTask')
+        async def task(lastReturn, *, intervalTime: float):
             print('Hello World.')
 
         myTask = app.scheduler.get_task('myTask')
