@@ -252,7 +252,7 @@ class Scheduler:
 
         from CheeseAPI import app
 
-        async def task(lastReturn, *, intervalTime: float):
+        async def task(lastReturn, *, intervalTime: float, **_):
             print('Hello World.')
 
         app.scheduler.add(datetime.timedelta(days = 1), task)
@@ -286,7 +286,7 @@ class Scheduler:
         from CheeseAPI import app
 
         @app.scheduler.add(timer = datetime.timedelta(days = 1))
-        async def task(lastReturn, *, intervalTime: float):
+        async def task(lastReturn, *, intervalTime: float, **_):
             print('Hello World.')
         ```
 
@@ -357,7 +357,7 @@ class Scheduler:
         from CheeseAPI import app
 
         @app.scheduler.add(timer = datetime.timedelta(days = 1))
-        async def task(lastReturn, *, intervalTime: float):
+        async def task(lastReturn, *, intervalTime: float, **_):
             print('Hello World.')
 
         app.scheduler.remove(task)
@@ -375,7 +375,7 @@ class Scheduler:
         from CheeseAPI import app
 
         @app.scheduler.add(timer = datetime.timedelta(days = 1), key = 'myTask')
-        async def task(lastReturn, *, intervalTime: float):
+        async def task(lastReturn, *, intervalTime: float, **_):
             print('Hello World.')
 
         app.scheduler.remove('myTask')
@@ -401,7 +401,7 @@ class Scheduler:
         from CheeseAPI import app
 
         @app.scheduler.add(timer = datetime.timedelta(days = 1))
-        async def task(lastReturn, *, intervalTime: float):
+        async def task(lastReturn, *, intervalTime: float, **_):
             print('Hello World.')
 
         myTask = app.scheduler.get_task(task)
@@ -419,7 +419,7 @@ class Scheduler:
         from CheeseAPI import app
 
         @app.scheduler.add(timer = datetime.timedelta(days = 1), key = 'myTask')
-        async def task(lastReturn, *, intervalTime: float):
+        async def task(lastReturn, *, intervalTime: float, **_):
             print('Hello World.')
 
         myTask = app.scheduler.get_task('myTask')
