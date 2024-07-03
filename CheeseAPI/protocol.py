@@ -85,6 +85,15 @@ class WebsocketProtocol(WebSocketServerProtocol):
         if results:
             return results
 
+        self.open_timeout = self.server.open_timeout
+        self.ping_interval = self.server.ping_interval
+        self.ping_timeout = self.server.ping_timeout
+        self.close_timeout = self.server.close_timeout
+        self.max_size = self.server.max_size
+        self.max_queue = self.server.max_queue
+        self.read_limit = self.server.read_limit
+        self.write_limit = self.server.write_limit
+
         self.server.send = self._send
         self.server.close = self._close
 

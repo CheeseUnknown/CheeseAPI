@@ -7,6 +7,16 @@ from CheeseAPI import WebsocketServer, app, Request
 
 @app.route.websocket('/')
 class MyWebsocket(WebsocketServer):
+    def __init__(self):
+        self.open_timeout: float | None = 10
+        self.ping_interval: float | None = 20
+        self.ping_timeout: float | None = 20
+        self.close_timeout: float | None = None
+        self.max_size: int | None = 2**20
+        self.max_queue: int | None = 2**5
+        self.read_limit: int = 2**16
+        self.write_limit: int = 2**16
+
     async def subprotocol(self, *, request: Request, **kwargs) -> str | None:
         ...
 
@@ -19,6 +29,38 @@ class MyWebsocket(WebsocketServer):
     async def disconnection(self, *, request: Request, **kwargs):
         ...
 ```
+
+### **`self.open_timeout: float | None`**
+
+建立连接的超时时间。
+
+### **`self.ping_interval: float | None`**
+
+ping间隔时间。
+
+### **`self.ping_timeout: float | None`**
+
+ping的超时时间。
+
+### **`self.close_timeout: float | None`**
+
+关闭连接的超时时间。
+
+### **`self.max_size: int | None`**
+
+消息的最大长度限制。
+
+### **`self.max_queue: int | None`**
+
+消息的最大等待个数。
+
+### **`self.read_limit: int`**
+
+每次读取的长度限制。
+
+### **`self.write_limit: int`**
+
+每次发送的长度限制。
 
 ### **`async def subprotocol(self, *, request: Request, **kwargs) -> str | None`**
 
