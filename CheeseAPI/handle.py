@@ -1,4 +1,4 @@
-import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, datetime, traceback, threading
+import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, datetime, traceback, threading, ssl
 from typing import TYPE_CHECKING, Dict, Tuple, List
 
 import asyncio, uvloop, setproctitle, websockets
@@ -120,6 +120,10 @@ class Handle:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             except ipaddress.AddressValueError:
                 sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            if self._app.workspace.cert_file:
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                context.load_cert_chain(self._app.workspace.cert_file, self._app.workspace.key_file)
+                sock = context.wrap_socket(sock, True)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind((self._app.server.host, self._app.server.port))
             sock.listen(self._app.server.backlog)

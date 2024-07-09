@@ -34,3 +34,11 @@ app.run()
 设置为`True`，将转换为`'%Y_%m_%d.log'`格式的文件名。
 
 更多功能请查看[CheeseLog](https://github.com/CheeseUnknown/CheeseLog)。
+
+## **`app.workspace.key_file: str | None = None`**
+
+SSL私钥文件。
+
+## **`app.workspace.cert_key: str | None = None`**
+
+SSL证书文件。

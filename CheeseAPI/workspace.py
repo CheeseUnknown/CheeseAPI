@@ -15,6 +15,8 @@ class Workspace:
         self._static: str = './static/'
         self._log: str = './logs/'
         self._logger: str = ''
+        self.key_file: str | None = None
+        self.cert_file: str | None = None
 
     @property
     def base(self) -> str:
