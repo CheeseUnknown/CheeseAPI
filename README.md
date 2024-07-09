@@ -12,9 +12,7 @@
 
 ## **安装**
 
-系统要求：Linux。
-
-Python要求：目前仅保证支持3.12版本的Python，新版本会优先支持Python的最新稳定版本。
+系统要求：Unix，例如Linux、Mac等；不支持Windows，若有需要请使用Windows的WSL运行程序。
 
 ```
 pip install CheeseAPI
@@ -79,8 +77,7 @@ from CheeseAPI import app, Response
 async def index(**kwargs):
     return Response('这里是CheeseAPI！')
 
-if __name__ == '__main__':
-    app.run()
+app.run()
 ```
 
 运行`app.py`，可以看到打印了一些服务器的基本信息：

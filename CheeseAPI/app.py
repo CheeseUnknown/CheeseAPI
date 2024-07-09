@@ -1,4 +1,4 @@
-import multiprocessing, os, setproctitle, sys
+import multiprocessing, os, setproctitle, sys, multiprocessing.managers
 from typing import Dict, Any, List
 
 from CheeseAPI.text import Text
@@ -12,7 +12,7 @@ from CheeseAPI.schedule import Scheduler
 
 class App:
     def __init__(self):
-        self.manager = multiprocessing.Manager()
+        self.manager: multiprocessing.managers.SyncManager = multiprocessing.Manager()
 
         self._server: Server = Server(self)
         self._workspace: Workspace = Workspace(self)
@@ -59,6 +59,8 @@ class App:
             self.localModules.append(foldername)
 
     def run(self):
+        multiprocessing.set_start_method('fork', True)
+
         self._handle.server_start()
 
     @property
