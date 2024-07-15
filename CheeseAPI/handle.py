@@ -1,7 +1,7 @@
-import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, datetime, traceback, threading, ssl
-from typing import TYPE_CHECKING, Dict, Tuple, List
+import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, datetime, traceback, threading
+from typing import TYPE_CHECKING, Dict, Tuple, List, Callable
 
-import asyncio, uvloop, setproctitle, websockets
+import asyncio, uvloop, setproctitle, websockets, dill
 from CheeseLog import logger
 
 from CheeseAPI.response import BaseResponse, FileResponse, Response
@@ -17,6 +17,7 @@ class Handle:
         self._app: 'App' = app
 
         self._timer: datetime.datetime | None = None
+        self._fns: Dict[str, Callable] = {}
 
     def server_beforeStarting(self):
         self._app.g['startTime'] = time.time()
@@ -120,10 +121,6 @@ class Handle:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             except ipaddress.AddressValueError:
                 sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-            if self._app.workspace.cert_file:
-                context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-                context.load_cert_chain(self._app.workspace.cert_file, self._app.workspace.key_file)
-                sock = context.wrap_socket(sock, True)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind((self._app.server.host, self._app.server.port))
             sock.listen(self._app.server.backlog)
@@ -248,8 +245,11 @@ class Handle:
 
         timer = datetime.datetime.now()
         tasks: List[ScheduleTask] = []
+        keys: List[str] = []
 
         for task in self._app.scheduler.tasks.values():
+            keys.append(task.key)
+
             if task.inactive or task.expired:
                 continue
 
@@ -267,18 +267,36 @@ class Handle:
                 if (self._timer < triggeredTimer < timer or self._timer > triggeredTimer + task.timer):
                     tasks.append(task)
 
+        for key in self._fns.keys():
+            if key not in keys:
+                del self._fns[key]
+
         for task in tasks:
             self._app._managers_['schedules'][task.key] = {
                 **self._app._managers_['schedules'][task.key],
                 'total_repetition_num': task.total_repetition_num + 1,
                 'lastTimer': timer
             }
+            if task.key not in self._fns or self._app._managers_['schedules'][task.key]['needUpdate']:
+                self._fns[task.key] = task.fn
+                self._app._managers_['schedules'][task.key] = {
+                    **self._app._managers_['schedules'][task.key],
+                    'needUpdate': False
+                }
 
-        returns = await asyncio.gather(*[ task.fn(task._lastReturn, **{
+            aaatimer = time.time()
+            await self._fns[task.key](task.lastReturn, **{
+                'intervalTime': (timer - self._timer).total_seconds()
+            })
+        results = await asyncio.gather(*[ self._fns[task.key](task.lastReturn, **{
             'intervalTime': (timer - self._timer).total_seconds()
         }) for task in tasks ])
+
         for i in range(len(tasks)):
-            tasks[i]._lastReturn = returns[i]
+            self._app._managers_['schedules'][tasks[i].key] = {
+                **self._app._managers_['schedules'][tasks[i].key],
+                'lastReturn': dill.dumps(results[i], recurse = True)
+            }
 
         for task in self._app.scheduler.tasks.values():
             if task.expired and task.auto_remove:

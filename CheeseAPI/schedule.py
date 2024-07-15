@@ -11,8 +11,6 @@ class ScheduleTask:
         self._app: 'App' = app
         self._key: str = key
 
-        self._lastReturn: Any = None
-
     def reset(self):
         '''
         重置统计数据，例如`self.total_repetition_num`。
@@ -54,7 +52,8 @@ class ScheduleTask:
     def fn(self, value: Callable):
         self._app._managers_['schedules'][self.key] = {
             **self._app._managers_['schedules'][self.key],
-            'fn': dill.dumps(value)
+            'fn': dill.dumps(value, recurse = True),
+            'needUpdate': True
         }
 
     @property
@@ -205,6 +204,10 @@ class ScheduleTask:
             'intervalTime': value
         }
 
+    @property
+    def lastReturn(self) -> Any:
+        return dill.loads(self._app._managers_['schedules'][self.key]['lastReturn'])
+
 class Scheduler:
     def __init__(self, app: 'App'):
         self._app: 'App' = app
@@ -215,24 +218,33 @@ class Scheduler:
         if task.mode == 'multiprocessing':
             setproctitle.setproctitle(f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}')
         lastTimer = datetime.datetime.now()
+        fn = task.fn
 
         while True:
             task: ScheduleTask = self._app.scheduler.tasks.get(key)
             if not task or task.expired or task.inactive:
                 break
 
+            if self._app._managers_['schedules'][task.key]['needUpdate']:
+                fn = task.fn
+                self._app._managers_['schedules'][task.key] = {
+                    **self._app._managers_['schedules'][task.key],
+                    'needUpdate': False
+                }
+
             _timer = datetime.datetime.now()
 
             triggeredTimer = task.startTimer + task.timer * task.total_repetition_num
             if (lastTimer < triggeredTimer <= _timer or lastTimer > triggeredTimer + task.timer) and task.active:
-                task.fn(task._lastReturn, **{
+                result = fn(task.lastReturn, **{
                     'intervalTime': (_timer - lastTimer).total_seconds()
                 })
 
                 self._app._managers_['schedules'][task.key] = {
                     **self._app._managers_['schedules'][task.key],
                     'total_repetition_num': task.total_repetition_num + 1,
-                    'lastTimer': _timer
+                    'lastTimer': _timer,
+                    'lastReturn': dill.dumps(result, recurse = True)
                 }
 
             lastTimer = _timer
@@ -326,7 +338,9 @@ class Scheduler:
                 'active': True,
                 'mode': mode,
                 'lastTimer': None,
-                'intervalTime': intervalTime or self._app.server.intervalTime
+                'intervalTime': intervalTime or self._app.server.intervalTime,
+                'lastReturn': dill.dumps(None, recurse = True),
+                'needUpdate': False
             }
             return
 
@@ -341,7 +355,9 @@ class Scheduler:
                 'active': True,
                 'mode': mode,
                 'lastTimer': None,
-                'intervalTime': intervalTime or self._app.server.intervalTime
+                'intervalTime': intervalTime or self._app.server.intervalTime,
+                'lastReturn': dill.dumps(None, recurse = True),
+                'needUpdate': False
             }
             return fn
         return wrapper
@@ -385,7 +401,7 @@ class Scheduler:
     def remove(self, arg1: Callable | str):
         if isinstance(arg1, Callable):
             for key, value in self.tasks.items():
-                if value.fn == arg1:
+                if value.encodeFn == dill.dumps(arg1, recurse = True):
                     del self._app._managers_['schedules'][key]
         elif isinstance(arg1, str):
             if arg1 in self._app._managers_['schedules']:
@@ -430,7 +446,7 @@ class Scheduler:
     def get_task(self, arg1: Callable | str) -> ScheduleTask:
         if isinstance(arg1, Callable):
             for key, value in self.tasks.items():
-                if value.fn == arg1:
+                if value.encodeFn == dill.dumps(arg1, recurse = True):
                     return value
         elif isinstance(arg1, str):
             return ScheduleTask(arg1, key)
