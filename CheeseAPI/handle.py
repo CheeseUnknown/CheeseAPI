@@ -211,6 +211,8 @@ class Handle:
                     await self._app.signal.server_afterStarting.async_send()
 
         while server.is_serving():
+            timer = time.time()
+
             if master:
                 await self.server_running()
                 if self._app.signal.server_running.receivers:
@@ -220,7 +222,7 @@ class Handle:
             if self._app.signal.worker_running.receivers:
                 await self._app.signal.worker_running.async_send()
 
-            await asyncio.sleep(self._app.server.intervalTime)
+            await asyncio.sleep(max(self._app.server.intervalTime - time.time() + timer, 0))
 
         with self._app._managers_['lock']:
             if self._app._managers_['server.workers'].value == self._app.server.workers:
@@ -284,10 +286,10 @@ class Handle:
                     'needUpdate': False
                 }
 
-            aaatimer = time.time()
             await self._fns[task.key](task.lastReturn, **{
                 'intervalTime': (timer - self._timer).total_seconds()
             })
+
         results = await asyncio.gather(*[ self._fns[task.key](task.lastReturn, **{
             'intervalTime': (timer - self._timer).total_seconds()
         }) for task in tasks ])
