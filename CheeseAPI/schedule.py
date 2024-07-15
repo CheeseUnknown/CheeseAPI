@@ -307,7 +307,7 @@ class Scheduler:
 
     def add(self, fn: Callable | None = None, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
         if timer is None:
-            timer = intervalTime or self._app.server.intervalTime
+            timer = datetime.timedelta(seconds = intervalTime or self._app.server.intervalTime)
 
         if key is None:
             key = str(uuid.uuid4())
