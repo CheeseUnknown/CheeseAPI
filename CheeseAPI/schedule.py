@@ -388,7 +388,8 @@ class Scheduler:
                 if value.fn == arg1:
                     del self._app._managers_['schedules'][key]
         elif isinstance(arg1, str):
-            del self._app._managers_['schedules'][arg1]
+            if arg1 in self._app._managers_['schedules']:
+                del self._app._managers_['schedules'][arg1]
 
     @overload
     def get_task(self, fn: Callable) -> ScheduleTask:
