@@ -206,6 +206,10 @@ class ScheduleTask:
 
     @property
     def lastReturn(self) -> Any:
+        '''
+        【只读】 上一次的返回值。
+        '''
+
         return dill.loads(self._app._managers_['schedules'][self.key]['lastReturn'])
 
 class Scheduler:
@@ -255,9 +259,7 @@ class Scheduler:
     @overload
     def add(self, fn: Callable, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
         '''
-        通过函数添加一个任务。
-
-        任务函数必须为协程函数。
+        通过函数添加一个任务；若需要获取任务或删除任务，请为其设置一个key。
 
         ```python
         import datetime
@@ -280,7 +282,7 @@ class Scheduler:
 
             - auto_remove: 若`expected_repetition_num > 0`且当前计划过期，是否自动删除该计划。
 
-            - mode: 运行的模式是进程、线程还是协程。
+            - mode: 运行的模式是进程、线程还是协程。线程和协程都将运行于主进程中。
 
             - intervalTime: 最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。默认为`app.server.intervalTime`。
         '''
@@ -288,9 +290,7 @@ class Scheduler:
     @overload
     def add(self, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
         '''
-        通过装饰器添加一个任务。
-
-        任务函数必须为协程函数。
+        通过装饰器添加一个任务；若需要获取任务或删除任务，请为其设置一个key。
 
         ```python
         import datetime
@@ -312,7 +312,7 @@ class Scheduler:
 
             - auto_remove: 若`expected_repetition_num > 0`且当前计划过期，是否自动删除该计划。
 
-            - mode: 运行的模式是进程、线程还是协程。
+            - mode: 运行的模式是进程、线程还是协程。线程和协程都将运行于主进程中。
 
             - intervalTime: 最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。默认为`app.server.intervalTime`。
         '''
@@ -362,28 +362,9 @@ class Scheduler:
             return fn
         return wrapper
 
-    @overload
-    def remove(self, fn: Callable):
-        '''
-        通过函数删除计划。
-
-        ```python
-        import datetime
-
-        from CheeseAPI import app
-
-        @app.scheduler.add(timer = datetime.timedelta(days = 1))
-        async def task(lastReturn, *, intervalTime: float, **_):
-            print('Hello World.')
-
-        app.scheduler.remove(task)
-        ```
-        '''
-
-    @overload
     def remove(self, key: str):
         '''
-        通过key删除计划。
+        删除计划。
 
         ```python
         import datetime
@@ -398,37 +379,12 @@ class Scheduler:
         ```
         '''
 
-    def remove(self, arg1: Callable | str):
-        if isinstance(arg1, Callable):
-            for key, value in self.tasks.items():
-                if value.encodeFn == dill.dumps(arg1, recurse = True):
-                    del self._app._managers_['schedules'][key]
-        elif isinstance(arg1, str):
-            if arg1 in self._app._managers_['schedules']:
-                del self._app._managers_['schedules'][arg1]
+        if key in self._app._managers_['schedules']:
+            del self._app._managers_['schedules'][key]
 
-    @overload
-    def get_task(self, fn: Callable) -> ScheduleTask:
-        '''
-        通过函数获取`ScheduleTask`。
-
-        ```python
-        import datetime
-
-        from CheeseAPI import app
-
-        @app.scheduler.add(timer = datetime.timedelta(days = 1))
-        async def task(lastReturn, *, intervalTime: float, **_):
-            print('Hello World.')
-
-        myTask = app.scheduler.get_task(task)
-        ```
-        '''
-
-    @overload
     def get_task(self, key: str) -> ScheduleTask:
         '''
-        通过key获取`ScheduleTask`，`ScheduleTask`请查看[Schedule](../Schedule.md)。
+        获取`ScheduleTask`，`ScheduleTask`请查看[Schedule](../Schedule.md)。
 
         ```python
         import datetime
@@ -443,13 +399,7 @@ class Scheduler:
         ```
         '''
 
-    def get_task(self, arg1: Callable | str) -> ScheduleTask:
-        if isinstance(arg1, Callable):
-            for key, value in self.tasks.items():
-                if value.encodeFn == dill.dumps(arg1, recurse = True):
-                    return value
-        elif isinstance(arg1, str):
-            return ScheduleTask(arg1, key)
+        return ScheduleTask(self._app, key)
 
     @property
     def tasks(self) -> Dict[str, ScheduleTask]:
