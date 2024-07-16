@@ -49,3 +49,6 @@ class _Signal:
         self.websocket_beforeClosing: Signal = Signal()
         self.websocket_afterClosing: Signal = Signal()
         self.websocket_afterDisconnection: Signal = Signal()
+
+        self.scheduler_beforeRunning: Signal = Signal()
+        self.scheduler_afterRunning: Signal = Signal()

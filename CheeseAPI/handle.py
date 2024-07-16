@@ -1,7 +1,7 @@
-import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, datetime, traceback, threading
-from typing import TYPE_CHECKING, Dict, Tuple, List, Callable
+import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, traceback, queue
+from typing import TYPE_CHECKING, Dict, Tuple, List
 
-import asyncio, uvloop, setproctitle, websockets, dill
+import asyncio, uvloop, setproctitle, websockets
 from CheeseLog import logger
 
 from CheeseAPI.response import BaseResponse, FileResponse, Response
@@ -15,9 +15,6 @@ if TYPE_CHECKING:
 class Handle:
     def __init__(self, app: 'App'):
         self._app: 'App' = app
-
-        self._timer: datetime.datetime | None = None
-        self._fns: Dict[str, Callable] = {}
 
     def server_beforeStarting(self):
         self._app.g['startTime'] = time.time()
@@ -211,8 +208,6 @@ class Handle:
                     await self._app.signal.server_afterStarting.async_send()
 
         while server.is_serving():
-            timer = time.time()
-
             if master:
                 await self.server_running()
                 if self._app.signal.server_running.receivers:
@@ -222,7 +217,7 @@ class Handle:
             if self._app.signal.worker_running.receivers:
                 await self._app.signal.worker_running.async_send()
 
-            await asyncio.sleep(max(self._app.server.intervalTime - time.time() + timer, 0))
+            await asyncio.sleep(0)
 
         with self._app._managers_['lock']:
             if self._app._managers_['server.workers'].value == self._app.server.workers:
@@ -241,70 +236,33 @@ class Handle:
         ...
 
     async def server_running(self):
-        if not self._timer:
-            self._timer = datetime.datetime.now()
-            return
-
-        timer = datetime.datetime.now()
-        tasks: List[ScheduleTask] = []
-        keys: List[str] = []
-
         for task in self._app.scheduler.tasks.values():
-            keys.append(task.key)
+            if task.key not in self._app.scheduler._taskHandlers and not task.inactive and not task.expired:
+                self._app.scheduler._taskHandlers[task.key] = multiprocessing.Process(target = self._app.scheduler._processHandle, args = (task.key, ), name = f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}', daemon = True)
+                self._app.scheduler._taskHandlers[task.key].start()
 
-            if task.inactive or task.expired:
-                continue
+        for key in self._app.scheduler._taskHandlers:
+            if key not in self._app.scheduler.tasks or self._app.scheduler.tasks[key].inactive or self._app.scheduler.tasks[key].expired:
+                self._app.scheduler._taskHandlers[key].terminate()
+                self._app.scheduler._taskHandlers[key].join()
+                del self._app.scheduler._taskHandlers[key]
 
-            if task.mode == 'multiprocessing':
-                if task.key not in self._app.scheduler._taskHandlers:
-                    self._app.scheduler._taskHandlers[task.key] = multiprocessing.Process(target = self._app.scheduler._processHandle, args = (task.key, ), name = f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}', daemon = True)
-                    self._app.scheduler._taskHandlers[task.key].start()
-            elif task.mode == 'threading':
-                if task.key not in self._app.scheduler._taskHandlers:
-                    self._app.scheduler._taskHandlers[task.key] = threading.Thread(target = self._app.scheduler._processHandle, args = (task.key, ), name = f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}', daemon = True)
-                    self._app.scheduler._taskHandlers[task.key].start()
-            elif task.mode == 'asyncio':
-                triggeredTimer = task.startTimer + task.timer * task.total_repetition_num
-
-                if (self._timer < triggeredTimer < timer or self._timer > triggeredTimer + task.timer):
-                    tasks.append(task)
-
-        for key in self._fns.keys():
-            if key not in keys:
-                del self._fns[key]
-
-        for task in tasks:
-            self._app._managers_['schedules'][task.key] = {
-                **self._app._managers_['schedules'][task.key],
-                'total_repetition_num': task.total_repetition_num + 1,
-                'lastTimer': timer
-            }
-            if task.key not in self._fns or self._app._managers_['schedules'][task.key]['needUpdate']:
-                self._fns[task.key] = task.fn
-                self._app._managers_['schedules'][task.key] = {
-                    **self._app._managers_['schedules'][task.key],
-                    'needUpdate': False
-                }
-
-            await self._fns[task.key](task.lastReturn, **{
-                'intervalTime': (timer - self._timer).total_seconds()
-            })
-
-        results = await asyncio.gather(*[ self._fns[task.key](task.lastReturn, **{
-            'intervalTime': (timer - self._timer).total_seconds()
-        }) for task in tasks ])
-
-        for i in range(len(tasks)):
-            self._app._managers_['schedules'][tasks[i].key] = {
-                **self._app._managers_['schedules'][tasks[i].key],
-                'lastReturn': dill.dumps(results[i], recurse = True)
-            }
-
-        for task in self._app.scheduler.tasks.values():
-            if task.expired and task.auto_remove:
-                self._app.scheduler.remove(task.key)
-
-        self._timer = timer
+        try:
+            data = self._app.scheduler._queue.get_nowait()
+            if data[0] == 'before':
+                await self._app._handle.scheduler_beforeRunning(self._app.scheduler.get_task(data[1]))
+                if self._app.signal.scheduler_beforeRunning.receivers:
+                    await self._app.signal.scheduler_beforeRunning.send(**{
+                        'task': self._app.scheduler.get_task(data[1])
+                    })
+            elif data[0] == 'after':
+                if self._app.signal.scheduler_afterRunning.receivers:
+                    await self._app.signal.scheduler_afterRunning.async_send(**{
+                        'task': self._app.scheduler.get_task(data[1])
+                    })
+                await self._app._handle.scheduler_afterRunning(self._app.scheduler.get_task(data[1]))
+        except queue.Empty:
+            ...
 
     async def worker_running(self):
         ...
@@ -847,4 +805,10 @@ class Handle:
         ...
 
     def server_afterStopping(self):
+        ...
+
+    async def scheduler_beforeRunning(self, task: 'ScheduleTask'):
+        ...
+
+    async def scheduler_afterRunning(self, task: 'ScheduleTask'):
         ...

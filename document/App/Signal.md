@@ -503,3 +503,23 @@ Websocket断开连接之后；注意，`app.signal.websocket_beforeDisconnection
     - **`**kwargs`**
 
         路由动态参数。
+
+## **【协程】 `app.signal.scheduler_beforeRunning: Signal = Signal()`**
+
+任意任务被执行前；仅有主进程可触发该信号。
+
+- **参数**
+
+    - **`task: SchedulerTask`**
+
+        任务实例。
+
+## **【协程】 `app.signal.scheduler_beforeRunning: Signal = Signal()`**
+
+任意任务被执行后；仅有主进程可触发该信号。
+
+- **参数**
+
+    - **`task: SchedulerTask`**
+
+        任务实例。

@@ -1,5 +1,5 @@
-import uuid, datetime, multiprocessing, threading, time
-from typing import TYPE_CHECKING, Callable, Dict, overload, Literal, Any
+import uuid, datetime, multiprocessing, threading, time, queue
+from typing import TYPE_CHECKING, Callable, Dict, overload, Any
 
 import dill, setproctitle
 
@@ -137,14 +137,6 @@ class ScheduleTask:
         }
 
     @property
-    def mode(self) -> Literal['multiprocessing', 'threading', 'asyncio']:
-        '''
-        【只读】 运行的模式是进程、线程还是协程。
-        '''
-
-        return self._app._managers_['schedules'][self.key]['mode']
-
-    @property
     def total_repetition_num(self) -> int:
         '''
         【只读】 总计的重复次数。
@@ -192,7 +184,7 @@ class ScheduleTask:
     @property
     def intervalTime(self) -> float:
         '''
-        最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。
+        最小检查间隔。
         '''
 
         return self._app._managers_['schedules'][self.key]['intervalTime']
@@ -216,11 +208,12 @@ class Scheduler:
     def __init__(self, app: 'App'):
         self._app: 'App' = app
         self._taskHandlers: Dict[str, multiprocessing.Process | threading.Thread] = {}
+        self._queue: queue.Queue = multiprocessing.Queue()
 
     def _processHandle(self, key: str):
+        setproctitle.setproctitle(f'{setproctitle.getproctitle()}:SchedulerTask:{key}')
+
         task: ScheduleTask = self._app.scheduler.tasks[key]
-        if task.mode == 'multiprocessing':
-            setproctitle.setproctitle(f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}')
         lastTimer = datetime.datetime.now()
         fn = task.fn
 
@@ -240,6 +233,8 @@ class Scheduler:
 
             triggeredTimer = task.startTimer + task.timer * task.total_repetition_num
             if (lastTimer < triggeredTimer <= _timer or lastTimer > triggeredTimer + task.timer) and task.active:
+                self._queue.put(['before', task.key])
+
                 result = fn(task.lastReturn, **{
                     'intervalTime': (_timer - lastTimer).total_seconds()
                 })
@@ -251,13 +246,13 @@ class Scheduler:
                     'lastReturn': dill.dumps(result, recurse = True)
                 }
 
-            lastTimer = _timer
-            time.sleep(task.intervalTime)
+                self._queue.put(['after', task.key])
 
-        del self._taskHandlers[key]
+            lastTimer = _timer
+            time.sleep(max(task.intervalTime - (_timer - lastTimer).total_seconds(), 0))
 
     @overload
-    def add(self, fn: Callable, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
+    def add(self, fn: Callable, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, intervalTime: float | None = None):
         '''
         通过函数添加一个任务；若需要获取任务或删除任务，请为其设置一个key。
 
@@ -282,13 +277,12 @@ class Scheduler:
 
             - auto_remove: 若`expected_repetition_num > 0`且当前计划过期，是否自动删除该计划。
 
-            - mode: 运行的模式是进程、线程还是协程。线程和协程都将运行于主进程中。
 
-            - intervalTime: 最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。默认为`app.server.intervalTime`。
+            - intervalTime: 最小检查间隔；默认为`app.server.intervalTime`。
         '''
 
     @overload
-    def add(self, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
+    def add(self, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, intervalTime: float | None = None):
         '''
         通过装饰器添加一个任务；若需要获取任务或删除任务，请为其设置一个key。
 
@@ -312,12 +306,10 @@ class Scheduler:
 
             - auto_remove: 若`expected_repetition_num > 0`且当前计划过期，是否自动删除该计划。
 
-            - mode: 运行的模式是进程、线程还是协程。线程和协程都将运行于主进程中。
-
-            - intervalTime: 最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。默认为`app.server.intervalTime`。
+            - intervalTime: 最小检查间隔；默认为`app.server.intervalTime`。
         '''
 
-    def add(self, fn: Callable | None = None, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, mode: Literal['multiprocessing', 'threading', 'asyncio'] = 'multiprocessing', intervalTime: float | None = None):
+    def add(self, fn: Callable | None = None, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, intervalTime: float | None = None):
         if timer is None:
             timer = datetime.timedelta(seconds = intervalTime or self._app.server.intervalTime)
 
@@ -336,7 +328,6 @@ class Scheduler:
                 'total_repetition_num': 0,
                 'auto_remove': auto_remove,
                 'active': True,
-                'mode': mode,
                 'lastTimer': None,
                 'intervalTime': intervalTime or self._app.server.intervalTime,
                 'lastReturn': dill.dumps(None, recurse = True),
@@ -353,7 +344,6 @@ class Scheduler:
                 'total_repetition_num': 0,
                 'auto_remove': auto_remove,
                 'active': True,
-                'mode': mode,
                 'lastTimer': None,
                 'intervalTime': intervalTime or self._app.server.intervalTime,
                 'lastReturn': dill.dumps(None, recurse = True),

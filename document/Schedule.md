@@ -60,17 +60,13 @@
 
 【只读】 任务是否过期。
 
-### **`self.mode: Literal['multiprocessing', 'threading', 'asyncio']`**
-
-【只读】 运行的模式是进程、线程还是协程。
-
 ### **`self.lastTimer: datetime.datetime | None`**
 
 【只读】 任务上一次的触发时间；`None`代表从未触发过。
 
 ### **`self.intervalTime: float`**
 
-最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。
+最小检查间隔。
 
 ### **`self.lastReturn: Any`**
 
