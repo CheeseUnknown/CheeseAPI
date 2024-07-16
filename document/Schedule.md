@@ -72,6 +72,10 @@
 
 最小检查间隔，仅在`mode == 'threading'`或`mode == 'multiprocessing'`时生效。
 
+### **`self.lastReturn: Any`**
+
+【只读】 上一次的返回值。
+
 ### **`def reset(self)`**
 
 重置统计数据，例如`self.total_repetition_num`。

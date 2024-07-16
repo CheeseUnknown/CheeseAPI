@@ -1,6 +1,6 @@
-from CheeseAPI import Route, validator, Response
+from CheeseAPI import Route, validator, Response, JsonResponse
 
-from User import service, validator as _validator
+from User import service, validator as _validator, users
 
 route = Route('/User')
 
@@ -32,3 +32,27 @@ async def setGender(*, validator: _validator.SetGender, **_):
 async def setBirthDate(*, validator: _validator.SetBirthDate, **_):
     await service.setBirthDate(validator.id, validator.birthDate)
     return Response('修改生日成功')
+
+@route.get('')
+async def getAll(**_):
+    return JsonResponse([
+        {
+            'id': str(user.id),
+            'mail': user.mail,
+            'gender': user.gender.value,
+            'birthDate': user.birthDate.timestamp() if user.birthDate else None
+        } for user in users.values()
+    ])
+
+@route.get('/<id:uuid>')
+@validator(_validator.Get)
+async def get(*, validator: _validator.Get, **_):
+    if validator.id in users:
+        return JsonResponse({
+            'id': str(validator.id),
+            'mail': users[validator.id].mail,
+            'gender': users[validator.id].gender.value,
+            'birthDate': users[validator.id].birthDate.timestamp() if users[validator.id].birthDate else None
+        })
+    else:
+        return Response(status = 404)

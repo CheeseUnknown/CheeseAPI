@@ -39,3 +39,6 @@ class SetGender(Id):
 
 class SetBirthDate(Id):
     birthDate: PastDatetime
+
+class Get(Id):
+    ...
