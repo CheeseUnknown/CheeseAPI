@@ -399,7 +399,7 @@ class BaseResponse:
                 _value = self.body.encode()
             elif isinstance(self.body, bytes):
                 _value = self.body
-            if _value:
+            if _value is not None:
                 value += b'%x\r\n' % len(_value) + _value + b'\r\n0\r\n\r\n'
 
             return value, self._transfering
