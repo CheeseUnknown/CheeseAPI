@@ -222,18 +222,20 @@ class Scheduler:
             if not task or task.expired or task.inactive:
                 break
 
-            if self._app._managers_['schedules'][task.key]['needUpdate']:
-                fn = task.fn
-                self._app._managers_['schedules'][task.key] = {
-                    **self._app._managers_['schedules'][task.key],
-                    'needUpdate': False
-                }
-
             _timer = datetime.datetime.now()
 
             triggeredTimer = task.startTimer + task.timer * task.total_repetition_num
             if (lastTimer < triggeredTimer <= _timer or lastTimer > triggeredTimer + task.timer) and task.active:
                 self._queue.put(['before', task.key])
+
+                self._queue.get()
+
+                if self._app._managers_['schedules'][task.key]['needUpdate']:
+                    fn = task.fn
+                    self._app._managers_['schedules'][task.key] = {
+                        **self._app._managers_['schedules'][task.key],
+                        'needUpdate': False
+                    }
 
                 result = fn(task.lastReturn, **{
                     'intervalTime': (_timer - lastTimer).total_seconds()

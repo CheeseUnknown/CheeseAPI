@@ -255,6 +255,7 @@ class Handle:
                     await self._app.signal.scheduler_beforeRunning.send(**{
                         'task': self._app.scheduler.get_task(data[1])
                     })
+                self._app.scheduler._queue.put(None)
             elif data[0] == 'after':
                 if self._app.signal.scheduler_afterRunning.receivers:
                     await self._app.signal.scheduler_afterRunning.async_send(**{
