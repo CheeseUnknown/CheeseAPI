@@ -165,14 +165,10 @@ class Route:
 
         if fn:
             app.routeBus._insert(self.prefix + path, fn, methods)
-            fn.routePath = self.prefix + path
-            fn.routeMethods = methods
             return
 
         def wrapper(fn):
             app.routeBus._insert(self.prefix + path, fn, methods)
-            fn.routePath = self.prefix + path
-            fn.routeMethods = methods
             return fn
         return wrapper
 
@@ -189,14 +185,10 @@ class Route:
 
         if fn:
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.GET ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.GET ]
             return
 
         def wrapper(fn):
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.GET ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.GET ]
             return fn
         return wrapper
 
@@ -213,14 +205,10 @@ class Route:
 
         if fn:
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.POST ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.POST ]
             return
 
         def wrapper(fn):
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.POST ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.POST ]
             return fn
         return wrapper
 
@@ -237,14 +225,10 @@ class Route:
 
         if fn:
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.DELETE ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.DELETE ]
             return
 
         def wrapper(fn):
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.DELETE ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.DELETE ]
             return fn
         return wrapper
 
@@ -261,14 +245,10 @@ class Route:
 
         if fn:
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.PUT ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.PUT ]
             return
 
         def wrapper(fn):
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.PUT ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.PUT ]
             return fn
         return wrapper
 
@@ -285,14 +265,10 @@ class Route:
 
         if fn:
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.PATCH ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.PATCH ]
             return
 
         def wrapper(fn):
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.PATCH ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.PATCH ]
             return fn
         return wrapper
 
@@ -309,14 +285,10 @@ class Route:
 
         if fn:
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.TRACE ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.TRACE ]
             return
 
         def wrapper(fn):
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.TRACE ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.TRACE ]
             return fn
         return wrapper
 
@@ -333,14 +305,10 @@ class Route:
 
         if fn:
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.OPTIONS ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.OPTIONS ]
             return
 
         def wrapper(fn):
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.OPTIONS ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.OPTIONS ]
             return fn
         return wrapper
 
@@ -357,14 +325,10 @@ class Route:
 
         if fn:
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.HEAD ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.HEAD ]
             return
 
         def wrapper(fn):
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.HEAD ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.HEAD ]
             return fn
         return wrapper
 
@@ -381,14 +345,10 @@ class Route:
 
         if fn:
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.CONNECT ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.CONNECT ]
             return
 
         def wrapper(fn):
             app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.CONNECT ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ http.HTTPMethod.CONNECT ]
             return fn
         return wrapper
 
@@ -405,13 +365,9 @@ class Route:
 
         if fn:
             app.routeBus._insert(self.prefix + path, fn, [ 'WEBSOCKET' ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ 'WEBSOCKET' ]
             return
 
         def wrapper(fn):
             app.routeBus._insert(self.prefix + path, fn, [ 'WEBSOCKET' ])
-            fn.routePath = self.prefix + path
-            fn.routeMethods = [ 'WEBSOCKET' ]
             return fn
         return wrapper
