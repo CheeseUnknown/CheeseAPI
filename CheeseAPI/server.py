@@ -1,5 +1,5 @@
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from CheeseAPI.app import App
@@ -13,6 +13,7 @@ class Server:
         self._workers: int = 1
         self.backlog: int = 1024
         self.static: str = '/'
+        self._module_static: List[str] = []
         self._intervalTime: float = 0.016
 
     @property

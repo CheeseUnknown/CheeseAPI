@@ -1,6 +1,6 @@
 import os, sys
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 from CheeseLog import logger
 
@@ -13,6 +13,7 @@ class Workspace:
 
         self._base: str = os.getcwd()
         self._static: str = './static/'
+        self._module_static: List[str] = []
         self._log: str = './logs/'
         self._logger: str = ''
         self.key_file: str | None = None

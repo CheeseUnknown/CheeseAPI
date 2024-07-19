@@ -164,3 +164,15 @@ CheeseAPI_module_type = 'multiple'
     可选的。
 
     对当前模块的某些子模块进行优先加载。
+
+- **`CheeseAPI_module_workspace_static: str = ''`**
+
+    可选的。
+
+    模块暴露的静态目录在工作目录中的相对路径。
+
+- **`CheeseAPI_module_server_static: str = ''`**
+
+    可选的。
+
+    模块暴露的静态目录在路由中的地址前缀。
