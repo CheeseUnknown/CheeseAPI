@@ -169,7 +169,7 @@ CheeseAPI_module_type = 'multiple'
 
     可选的。
 
-    模块暴露的静态目录在工作目录中的相对路径。
+    模块暴露的静态目录在模块目录中的相对路径。
 
 - **`CheeseAPI_module_server_static: str = ''`**
 
