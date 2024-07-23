@@ -6,6 +6,7 @@ from CheeseLog import logger
 
 from CheeseAPI.response import BaseResponse, FileResponse, Response
 from CheeseAPI.exception import Route_404_Exception, Route_405_Exception
+from CheeseAPI.websocket import WebsocketServer
 
 if TYPE_CHECKING:
     from CheeseAPI.app import App
@@ -27,34 +28,26 @@ class Handle:
 
     def loadModule(self, name: str):
         module = __import__(name)
-        module_type = getattr(module, 'CheeseAPI_module_type', 'single')
-        module_dependencies = getattr(module, 'CheeseAPI_module_dependencies', [])
-        module_preferredSubModules = getattr(module, 'CheeseAPI_module_preferredSubModules', [])
-        module_workspace_static = getattr(module, 'CheeseAPI_module_workspace_static', None)
-        module_server_static = getattr(module, 'CheeseAPI_module_server_static', None)
+        type = getattr(module, 'CheeseAPI_module_type', 'single')
+        dependencies = getattr(module, 'CheeseAPI_module_dependencies', [])
+        preferredSubModules = getattr(module, 'CheeseAPI_module_preferredSubModules', [])
 
         # 依赖
-        if module_dependencies:
-            for dependency in module_dependencies:
+        if dependencies:
+            for dependency in dependencies:
                 self.loadModule(dependency)
 
         modulePath = os.path.dirname(inspect.getfile(module))
-
-        # 静态文件
-        if module_workspace_static and module_server_static:
-            self._app.workspace._module_static.append(os.path.join(modulePath, module_workspace_static))
-            self._app.server._module_static.append(module_server_static)
-
         # 单模块
-        if module_type == 'single':
+        if type == 'single':
             for filename in os.listdir(modulePath):
                 filePath = os.path.join(modulePath, filename)
                 if os.path.isfile(filePath) and filename.endswith('.py'):
                     __import__(f'{name}.{filename[:-3]}', fromlist = [''])
         # 多模块
-        elif module_type == 'multiple':
+        elif type == 'multiple':
             foldernames = os.listdir(modulePath)
-            for foldername in module_preferredSubModules:
+            for foldername in preferredSubModules:
                 foldername = f'{name}.{foldername}'
                 if foldername in foldernames:
                     foldernames.remove(foldername)
@@ -249,7 +242,7 @@ class Handle:
                 self._app.scheduler._taskHandlers[task.key] = multiprocessing.Process(target = self._app.scheduler._processHandle, args = (task.key, ), name = f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}', daemon = True)
                 self._app.scheduler._taskHandlers[task.key].start()
 
-        for key in self._app.scheduler._taskHandlers:
+        for key in self._app.scheduler._taskHandlers.copy():
             if key not in self._app.scheduler.tasks or self._app.scheduler.tasks[key].inactive or self._app.scheduler.tasks[key].expired:
                 self._app.scheduler._taskHandlers[key].terminate()
                 self._app.scheduler._taskHandlers[key].join()
@@ -263,7 +256,6 @@ class Handle:
                     await self._app.signal.scheduler_beforeRunning.send(**{
                         'task': self._app.scheduler.get_task(data[1])
                     })
-                self._app.scheduler._queue.put(None)
             elif data[0] == 'after':
                 if self._app.signal.scheduler_afterRunning.receivers:
                     await self._app.signal.scheduler_afterRunning.async_send(**{
@@ -385,41 +377,27 @@ class Handle:
                 await self.http_response(protocol, True)
 
     async def http_static(self, protocol: 'HttpProtocol'):
-        if protocol.request.method == http.HTTPMethod.GET:
-            for i in range(len(self._app.workspace._module_static) + 1):
-                if protocol.response:
+        if self._app.server.static and self._app.workspace.static and protocol.request.path.startswith(self._app.server.static) and protocol.request.method == http.HTTPMethod.GET:
+            for key in [ '', '.html', 'index.html', '/index.html' ]:
+                try:
+                    protocol.response = FileResponse(os.path.join(self._app.workspace.static, protocol.request.path[1:] + key))
+
+                    await self.http_afterRequest(protocol)
+                    if self._app.signal.http_afterRequest.receivers:
+                        await self._app.signal.http_afterRequest.async_send(**{
+                            'request': protocol.request,
+                            **protocol.kwargs
+                        })
+
+                    if self._app.signal.http_static.receivers:
+                        await self._app.signal.http_static.async_send(**{
+                            'request': protocol.request,
+                            **protocol.kwargs
+                        })
+
                     break
-
-                if i == 0:
-                    server_static = self._app.server.static
-                    workspace_static = self._app.workspace.static
-                    if not server_static or not workspace_static:
-                        continue
-                else:
-                    server_static = self._app.server._module_static[i - 1]
-                    workspace_static = self._app.workspace._module_static[i - 1]
-
-                if server_static and workspace_static and protocol.request.path.startswith(server_static):
-                    for key in [ '', '.html', 'index.html', '/index.html' ]:
-                        try:
-                            protocol.response = FileResponse(os.path.join(self._app.workspace.static, protocol.request.path[1:] + key))
-
-                            await self.http_afterRequest(protocol)
-                            if self._app.signal.http_afterRequest.receivers:
-                                await self._app.signal.http_afterRequest.async_send(**{
-                                    'request': protocol.request,
-                                    **protocol.kwargs
-                                })
-
-                            if self._app.signal.http_static.receivers:
-                                await self._app.signal.http_static.async_send(**{
-                                    'request': protocol.request,
-                                    **protocol.kwargs
-                                })
-
-                            break
-                        except (FileNotFoundError, NotADirectoryError, IsADirectoryError):
-                            ...
+                except (FileNotFoundError, NotADirectoryError, IsADirectoryError):
+                    ...
 
     async def http_options(self, protocol: 'HttpProtocol'):
         protocol.response = Response(status = http.HTTPStatus.OK)
@@ -625,10 +603,10 @@ class Handle:
         ...
 
     async def websocket_subprotocol(self, protocol: 'WebsocketProtocol') -> str:
-        if not protocol.request.headers.get('Sec-Websocket-Protocol', None):
+        if not protocol.request.headers.get('Sec-WebSocket-Protocol', None) and protocol.server.__class__.subprotocol is WebsocketServer.subprotocol:
             return
 
-        protocol.request._subprotocols = protocol.request.headers['Sec-Websocket-Protocol'].split(', ')
+        protocol.request._subprotocols = protocol.request.headers.get('Sec-WebSocket-Protocol', '').split(', ')
 
         await self.websocket_beforeSubprotocol(protocol)
         if self._app.signal.websocket_beforeSubprotocol.receivers:
