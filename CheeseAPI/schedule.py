@@ -208,7 +208,8 @@ class Scheduler:
     def __init__(self, app: 'App'):
         self._app: 'App' = app
         self._taskHandlers: Dict[str, multiprocessing.Process | threading.Thread] = {}
-        self._queue: queue.Queue = multiprocessing.Queue()
+        self._inputQueue: queue.Queue = multiprocessing.Queue()
+        self._outputQueue: queue.Queue = multiprocessing.Queue()
 
     def _processHandle(self, key: str):
         setproctitle.setproctitle(f'{setproctitle.getproctitle()}:SchedulerTask:{key}')
@@ -226,9 +227,9 @@ class Scheduler:
 
             triggeredTimer = task.startTimer + task.timer * task.total_repetition_num
             if (lastTimer < triggeredTimer <= _timer or lastTimer > triggeredTimer + task.timer) and task.active:
-                self._queue.put(['before', task.key])
+                self._outputQueue.put(['before', task.key])
 
-                self._queue.get()
+                self._inputQueue.get()
 
                 if self._app._managers_['schedules'][task.key]['needUpdate']:
                     fn = task.fn
@@ -248,7 +249,7 @@ class Scheduler:
                     'lastReturn': dill.dumps(result, recurse = True)
                 }
 
-                self._queue.put(['after', task.key])
+                self._outputQueue.put(['after', task.key])
 
             lastTimer = _timer
             time.sleep(max(task.intervalTime - (_timer - lastTimer).total_seconds(), 0))
