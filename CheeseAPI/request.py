@@ -41,28 +41,33 @@ class Request:
             return
 
         if 'application/json' in self.headers['Content-Type']:
-            self._body = json.loads(self.body)
+            if self.body:
+                self._body = json.loads(self.body)
         elif 'application/xml' in self.headers['Content-Type']:
-            self._body = xmltodict.parse(self.body)
+            if self.body:
+                self._body = xmltodict.parse(self.body)
         elif 'text/plain' in self.headers['Content-Type'] or 'text/html' in self.headers['Content-Type']:
-            self._body = self.body.decode()
+            if self.body:
+                self._body = self.body.decode()
         elif 'multipart/form-data' in self.headers['Content-Type']:
-            spliter = self.headers['Content-Type'].split('boundary=')[1].split(';')[0]
-            self._body = self.body.split(b'--' + spliter.encode())[1:-1]
             self._form = {}
-            for t in self.body:
-                key = re.findall(rb'name="(.*?)"', t)[0].decode()
-                value = t.split(b'\r\n\r\n', 1)[1][:-2]
-                filename = re.findall(rb'filename="(.*?)"', t)
-                if len(filename):
-                    self.form[key] = File(filename[0].decode(), value)
-                else:
-                    self.form[key] = value.decode()
+            if self.body:
+                spliter = self.headers['Content-Type'].split('boundary=')[1].split(';')[0]
+                self._body = self.body.split(b'--' + spliter.encode())[1:-1]
+                for t in self.body:
+                    key = re.findall(rb'name="(.*?)"', t)[0].decode()
+                    value = t.split(b'\r\n\r\n', 1)[1][:-2]
+                    filename = re.findall(rb'filename="(.*?)"', t)
+                    if len(filename):
+                        self.form[key] = File(filename[0].decode(), value)
+                    else:
+                        self.form[key] = value.decode()
         elif 'application/x-www-form-urlencoded' in self.headers['Content-Type']:
             self._form = {}
-            for t in self.body.decode().split('&'):
-                t = t.split('=')
-                self.form[unquote(t[0])] = unquote(t[1].replace(r'+', r'%20'))
+            if self.body:
+                for t in self.body.decode().split('&'):
+                    t = t.split('=')
+                    self.form[unquote(t[0])] = unquote(t[1].replace(r'+', r'%20'))
 
     @property
     def url(self) -> str | None:
