@@ -387,7 +387,7 @@ class BaseResponse:
             for key, _value in self.headers.items():
                 if key == 'Set-Cookies':
                     for _, __value in _value.items():
-                        value += 'Set-Cookie: ' + __value
+                        value += b'Set-Cookie: ' + __value.encode() + b'\r\n'
                 else:
                     value += key.encode() + b': ' + str(_value).encode() + b'\r\n'
             value += b'\r\n'
