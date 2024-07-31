@@ -53,8 +53,8 @@ class Request:
             self._form = {}
             if self.body:
                 spliter = self.headers['Content-Type'].split('boundary=')[1].split(';')[0]
-                self._body = self.body.split(b'--' + spliter.encode())[1:-1]
-                for t in self.body:
+                body = self.body.split(b'--' + spliter.encode())[1:-1]
+                for t in body:
                     key = re.findall(rb'name="(.*?)"', t)[0].decode()
                     value = t.split(b'\r\n\r\n', 1)[1][:-2]
                     filename = re.findall(rb'filename="(.*?)"', t)
