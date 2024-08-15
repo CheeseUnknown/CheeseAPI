@@ -246,7 +246,7 @@ class Handle:
 
     async def server_running(self):
         for task in self._app.scheduler.tasks.values():
-            if task.key not in self._app.scheduler._taskHandlers and not task.inactive and task.unexpired and not task.remaining_repetition_num == 0:
+            if task.key not in self._app.scheduler._taskHandlers and not task.inactive and not task.expired and not task.remaining_repetition_num == 0:
                 self._app.scheduler._taskHandlers[task.key] = multiprocessing.Process(target = self._app.scheduler._processHandle, args = (task.key, ), name = f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}', daemon = True)
                 self._app.scheduler._taskHandlers[task.key].start()
 
