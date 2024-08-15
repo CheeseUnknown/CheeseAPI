@@ -22,7 +22,7 @@
 
 自定义的开始时间。若未设置，则为当前时间。
 
-若设置后`self.expired and self.auto_remove`，则该任务会被立刻删除。
+若设置后`(self.expired or self.remaining_repetition_num == 0) and self.auto_remove`，则该任务会被立刻删除。
 
 ### **`self.auto_remove: bool`**
 
@@ -38,25 +38,25 @@
 
 【只读】 是否未激活。
 
-### **`self.expected_repetition_num: int`**
+### **`self.expected_repetition_num: int | None`**
 
-期望的重复次数；0代表无限次数。
+期望的重复次数。
 
-若设置后`self.expired and self.auto_remove`，则该任务会被立刻删除。
+若设置后`self.remaining_repetition_num == 0 and self.auto_remove`，则该任务会被立刻删除。
 
 ### **`self.total_repetition_num: int`**
 
 【只读】 总计的重复次数。
 
-### **`self.remaining_repetition_num: int`**
+### **`self.remaining_repetition_num: int | None`**
 
-【只读】 剩余的重复次数；-1代表无限次重复。
+【只读】 剩余的重复次数。
 
-### **`self.unexpired: bool`**
+### **`self.unexpired: bool | None`**
 
 【只读】 任务是否未过期。
 
-### **`self.expired: bool`**
+### **`self.expired: bool | None`**
 
 【只读】 任务是否过期。
 
@@ -71,6 +71,12 @@
 ### **`self.lastReturn: Any`**
 
 【只读】 上一次的返回值。
+
+### **`self.endTimer: datetime.datetime | None`**
+
+自定义的结束时间。若未设置，则为当前时间。
+
+若设置后`self.expired and self.auto_remove`，则该任务会被立刻删除。
 
 ### **`def reset(self)`**
 

@@ -246,12 +246,12 @@ class Handle:
 
     async def server_running(self):
         for task in self._app.scheduler.tasks.values():
-            if task.key not in self._app.scheduler._taskHandlers and not task.inactive and not task.expired:
+            if task.key not in self._app.scheduler._taskHandlers and not task.inactive and task.unexpired and not task.remaining_repetition_num == 0:
                 self._app.scheduler._taskHandlers[task.key] = multiprocessing.Process(target = self._app.scheduler._processHandle, args = (task.key, ), name = f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}', daemon = True)
                 self._app.scheduler._taskHandlers[task.key].start()
 
         for key in self._app.scheduler._taskHandlers:
-            if key not in self._app.scheduler.tasks or self._app.scheduler.tasks[key].inactive or self._app.scheduler.tasks[key].expired:
+            if key not in self._app.scheduler.tasks or self._app.scheduler.tasks[key].inactive or self._app.scheduler.tasks[key].expired or self._app.scheduler.tasks[key].remaining_repetition_num == 0:
                 self._app.scheduler._taskHandlers[key].terminate()
                 self._app.scheduler._taskHandlers[key].join()
                 del self._app.scheduler._taskHandlers[key]

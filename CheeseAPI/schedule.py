@@ -60,8 +60,6 @@ class ScheduleTask:
     def startTimer(self) -> datetime.datetime:
         '''
         自定义的开始时间。若未设置，则为当前时间。
-
-        若设置后`self.expired and self.auto_remove`，则该任务会被立刻删除。
         '''
 
         return self._app._managers_['schedules'][self.key]['startTimer']
@@ -81,7 +79,7 @@ class ScheduleTask:
         '''
         任务过期后是否自动删除。
 
-        若设置后`self.expired and self.auto_remove`，则该任务会被立刻删除。
+        若设置后`(self.expired or self.remaining_repetition_num == 0) and self.auto_remove`，则该任务会被立刻删除。
         '''
 
         return self._app._managers_['schedules'][self.key]['auto_remove']
@@ -93,7 +91,7 @@ class ScheduleTask:
             'auto_remove': value
         }
 
-        if self.auto_remove and self.expired:
+        if self.auto_remove and (self.expired or self.remaining_repetition_num == 0):
             del self._app._managers_['schedules'][self.key]
 
     @property
@@ -120,17 +118,17 @@ class ScheduleTask:
         return not self._app._managers_['schedules'][self.key]['active']
 
     @property
-    def expected_repetition_num(self) -> int:
+    def expected_repetition_num(self) -> int | None:
         '''
-        期望的重复次数；0代表无限次数。
+        期望的重复次数。
 
-        若设置后`self.expired and self.auto_remove`，则该任务会被立刻删除。
+        若设置后`self.remaining_repetition_num == 0 and self.auto_remove`，则该任务会被立刻删除。
         '''
 
         return self._app._managers_['schedules'][self.key]['expected_repetition_num']
 
     @expected_repetition_num.setter
-    def expected_repetition_num(self, value: int):
+    def expected_repetition_num(self, value: int | None):
         self._app._managers_['schedules'][self.key] = {
             **self._app._managers_['schedules'][self.key],
             'expected_repetition_num': value
@@ -145,32 +143,33 @@ class ScheduleTask:
         return self._app._managers_['schedules'][self.key]['total_repetition_num']
 
     @property
-    def remaining_repetition_num(self) -> int:
+    def remaining_repetition_num(self) -> int | None:
         '''
-        【只读】 剩余的重复次数；-1代表无限次重复。
+        【只读】 剩余的重复次数。
         '''
 
-        if self.expected_repetition_num == 0:
-            return -1
+        if self.expected_repetition_num is None:
+            return
         return self.expected_repetition_num - self.total_repetition_num
 
     @property
-    def unexpired(self) -> bool:
+    def unexpired(self) -> bool | None:
         '''
         【只读】 任务是否未过期。
         '''
 
-        if self.expected_repetition_num == 0:
-            return True
-
-        return self.startTimer + self.timer * (self.expected_repetition_num + 1) >= datetime.datetime.now()
+        if self.endTimer:
+            return self.endTimer > datetime.datetime.now()
+        return None
 
     @property
-    def expired(self) -> bool:
+    def expired(self) -> bool | None:
         '''
         【只读】 任务是否过期。
         '''
 
+        if self.unexpired is None:
+            return None
         return not self.unexpired
 
     @property
@@ -204,10 +203,30 @@ class ScheduleTask:
 
         return dill.loads(self._app._managers_['schedules'][self.key]['lastReturn'])
 
+    @property
+    def endTimer(self) -> datetime.datetime | None:
+        '''
+        自定义的结束时间。若未设置，则为当前时间。
+
+        若设置后`self.expired and self.auto_remove`，则该任务会被立刻删除。
+        '''
+
+        return self._app._managers_['schedules'][self.key]['endTimer']
+
+    @endTimer.setter
+    def endTimer(self, value: datetime.datetime | None):
+        self._app._managers_['schedules'][self.key] = {
+            **self._app._managers_['schedules'][self.key],
+            'endTimer': value
+        }
+
+        if self.auto_remove and self.expired:
+            del self._app._managers_['schedules'][self.key]
+
 class Scheduler:
     def __init__(self, app: 'App'):
         self._app: 'App' = app
-        self._taskHandlers: Dict[str, multiprocessing.Process | threading.Thread] = {}
+        self._taskHandlers: Dict[str, multiprocessing.Process] = {}
         self._inputQueue: queue.Queue = multiprocessing.Queue()
         self._outputQueue: queue.Queue = multiprocessing.Queue()
 
@@ -255,7 +274,7 @@ class Scheduler:
             time.sleep(max(task.intervalTime - (_timer - lastTimer).total_seconds(), 0))
 
     @overload
-    def add(self, fn: Callable, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, intervalTime: float | None = None):
+    def add(self, fn: Callable, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):
         '''
         通过函数添加一个任务；若需要获取任务或删除任务，请为其设置一个key。
 
@@ -276,16 +295,17 @@ class Scheduler:
 
             - startTimer: 为该计划设定一个开始时间，而不是使用当前时间。
 
-            - expected_repetition_num: 期望的重复次数，0代表无限重复。
+            - expected_repetition_num: 期望的重复次数。
 
-            - auto_remove: 若`expected_repetition_num > 0`且当前计划过期，是否自动删除该计划。
-
+            - auto_remove: 若当前计划过期或执行次数达到预期次数，是否自动删除该计划。
 
             - intervalTime: 最小检查间隔；默认为`app.server.intervalTime`。
+
+            - endTimer: 为该计划设定一个结束时间。
         '''
 
     @overload
-    def add(self, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, intervalTime: float | None = None):
+    def add(self, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):
         '''
         通过装饰器添加一个任务；若需要获取任务或删除任务，请为其设置一个key。
 
@@ -305,14 +325,16 @@ class Scheduler:
 
             - startTimer: 为该计划设定一个开始时间，而不是使用当前时间。
 
-            - expected_repetition_num: 期望的重复次数，0代表无限重复。
+            - expected_repetition_num: 期望的重复次数。
 
-            - auto_remove: 若`expected_repetition_num > 0`且当前计划过期，是否自动删除该计划。
+            - auto_remove: 若当前计划过期或执行次数达到预期次数，是否自动删除该计划。
 
             - intervalTime: 最小检查间隔；默认为`app.server.intervalTime`。
+
+            - endTimer: 为该计划设定一个结束时间。
         '''
 
-    def add(self, fn: Callable | None = None, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int = 0, auto_remove: bool = False, intervalTime: float | None = None):
+    def add(self, fn: Callable | None = None, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):
         if timer is None:
             timer = datetime.timedelta(seconds = intervalTime or self._app.server.intervalTime)
 
@@ -334,7 +356,8 @@ class Scheduler:
                 'lastTimer': None,
                 'intervalTime': intervalTime or self._app.server.intervalTime,
                 'lastReturn': dill.dumps(None, recurse = True),
-                'needUpdate': False
+                'needUpdate': False,
+                'endTimer': endTimer
             }
             return
 
@@ -350,7 +373,8 @@ class Scheduler:
                 'lastTimer': None,
                 'intervalTime': intervalTime or self._app.server.intervalTime,
                 'lastReturn': dill.dumps(None, recurse = True),
-                'needUpdate': False
+                'needUpdate': False,
+                'endTimer': endTimer
             }
             return fn
         return wrapper
