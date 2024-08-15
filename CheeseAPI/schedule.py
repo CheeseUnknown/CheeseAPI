@@ -239,7 +239,7 @@ class Scheduler:
 
         while True:
             task: ScheduleTask = self._app.scheduler.tasks.get(key)
-            if not task or task.expired or task.inactive:
+            if not task or task.expired or task.remaining_repetition_num == 0 or task.inactive:
                 break
 
             _timer = datetime.datetime.now()
