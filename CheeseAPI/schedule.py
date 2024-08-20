@@ -1,4 +1,4 @@
-import uuid, datetime, multiprocessing, threading, time, queue
+import uuid, datetime, multiprocessing, time, queue
 from typing import TYPE_CHECKING, Callable, Dict, overload, Any
 
 import dill, setproctitle

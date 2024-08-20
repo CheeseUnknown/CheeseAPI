@@ -259,7 +259,7 @@ class Handle:
             if data[0] == 'before':
                 await self._app._handle.scheduler_beforeRunning(self._app.scheduler.get_task(data[1]))
                 if self._app.signal.scheduler_beforeRunning.receivers:
-                    await self._app.signal.scheduler_beforeRunning.send(**{
+                    await self._app.signal.scheduler_beforeRunning.async_send(**{
                         'task': self._app.scheduler.get_task(data[1])
                     })
                 self._app.scheduler._inputQueue.put(None)

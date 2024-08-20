@@ -1,5 +1,5 @@
 import os, time, traceback
-from typing import TYPE_CHECKING, List, Tuple, Any
+from typing import TYPE_CHECKING, List, Tuple
 
 import setproctitle
 from CheeseLog import ProgressBar, logger
