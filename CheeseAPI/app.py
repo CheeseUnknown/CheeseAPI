@@ -100,24 +100,20 @@ class App:
         '''
         【只读】 多worker间的同步数据。
 
-        ```python
-        from CheeseAPI import app
-
-        app.managers['myLock'] = app.manager.Lock()
-
-        app.run()
-        ```
+        >>> from CheeseAPI import app
+        >>>
+        >>> app.managers['myLock'] = app.manager.Lock()
+        >>>
+        >>> app.run()
 
         在任意worker中，都可以读写其value，但无法添加或删除`app.managers`中的key，这是不同步的操作！
 
-        ```python
-        from CheeseAPI import app, Response
-
-        @app.route.get('/')
-        async def index(**kwargs):
-            with app.managers['lock']:
-                return Response('这里是CheeseAPI！')
-        ```
+        >>> from CheeseAPI import app, Response
+        >>>
+        >>> @app.route.get('/')
+        >>> async def index(**kwargs):
+        ...     with app.managers['lock']:
+        ...         return Response('这里是CheeseAPI！')
         '''
 
         return self._managers
@@ -127,13 +123,11 @@ class App:
         '''
         【只读】 在server启动时就固定的数据，不需要在server运行时修改。
 
-        ```python
-        from CheeseAPI import app
-
-        app.g['my_project_version'] = '1.0.0'
-
-        app.run()
-        ```
+        >>> from CheeseAPI import app
+        >>>
+        >>> app.g['my_project_version'] = '1.0.0'
+        >>>
+        >>> app.run()
 
         - `startTime: None | float = None`
 
@@ -173,27 +167,21 @@ class App:
 
         请确保该模块是支持CheeseAPI的，并且已经下载至本地仓库：
 
-        ```
-        pip install Xxx
-        ```
+        `$ pip install Xxx`
 
-        ```python
-        from CheeseAPI import app
-
-        app.modules.extends([ 'Xxx' ])
-
-        app.run()
-        ```
+        >>> from CheeseAPI import app
+        >>>
+        >>> app.modules.extends([ 'Xxx' ])
+        >>>
+        >>> app.run()
 
         若该插件模块允许分别加载子模块，可如此导入：
 
-        ```python
-        from CheeseAPI import app
-
-        app.modules.extends([ 'Xxx.module1', 'Xxx.module2' ])
-
-        app.run()
-        ```
+        >>> from CheeseAPI import app
+        >>>
+        >>> app.modules.extends([ 'Xxx.module1', 'Xxx.module2' ])
+        >>>
+        >>> app.run()
 
         最终导入的插件模块都将在启动时的信息中展示。
         '''
@@ -221,13 +209,11 @@ class App:
         | - app.py
         ```
 
-        ```python
-        from CheeseAPI import app
-
-        app.localModules.extends([ 'Module1' ])
-
-        app.run()
-        ```
+        >>> from CheeseAPI import app
+        >>>
+        >>> app.localModules.extends([ 'Module1' ])
+        >>>
+        >>> app.run()
 
         最终导入的本地模块都将在启动时的信息中展示。
         '''
@@ -245,13 +231,11 @@ class App:
 
         多用于`app.localModules`为自动导入的时候，可对少数模块进行过滤。
 
-        ```python
-        from CheeseAPI import app
-
-        app.exclude_localModules.extends([ 'Module1' ]) # 若有Module1模块，则不会加载它
-
-        app.run()
-        ```
+        >>> from CheeseAPI import app
+        >>>
+        >>> app.exclude_localModules.extends([ 'Module1' ]) # 若有Module1模块，则不会加载它
+        >>>
+        >>> app.run()
         '''
 
         return self._exclude_localModules
@@ -267,13 +251,11 @@ class App:
 
         未存在于`app.localModules`的模块仍然不会加载。
 
-        ```python
-        from CheeseAPI import app
-
-        app.preferred_localModules.extends([ 'Module1', 'Module2' ]) # 若模块名都存在，则先加载Module1，再加载Module2
-
-        app.run()
-        ```
+        >>> from CheeseAPI import app
+        >>>
+        >>> app.preferred_localModules.extends([ 'Module1', 'Module2' ]) # 若模块名都存在，则先加载Module1，再加载Module2
+        >>>
+        >>> app.run()
         '''
 
         return self._preferred_localModules

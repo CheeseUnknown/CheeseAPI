@@ -47,19 +47,8 @@ class RouteBus:
         '''
         新增动态路由匹配条件。
 
-        - Args
-
+        - Arg
             - key: 在动态路由中的key。
-
-                ```python
-                import uuid
-
-                from CheeseAPI import app
-
-                @app.route.get('/<id:uuid>')
-                async def test(id: uuid.UUID, **kwargs):
-                    ...
-                ```
 
             - pattern: 使用正则匹配动态路由的字符串。
 

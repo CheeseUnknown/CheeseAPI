@@ -7,11 +7,9 @@ class File:
         '''
         通过文件路径进行读取；支持相对路径以及绝对路径。
 
-        ```python
-        from CheeseAPI import File
-
-        file = File('./media/a.py')
-        ```
+        >>> from CheeseAPI import File
+        >>>
+        >>> file = File('./media/a.py')
         '''
 
     @overload
@@ -19,11 +17,9 @@ class File:
         '''
         通过二进制数据或字符串创建文件。
 
-        ```python
-        from CheeseAPI import File
-
-        file = File('test.txt', '这里是CheeseAPI！')
-        ```
+        >>> from CheeseAPI import File
+        >>>
+        >>> file = File('test.txt', '这里是CheeseAPI！')
         '''
 
     def __init__(self, arg0: str, arg1: bytes | None = None):

@@ -278,16 +278,14 @@ class Scheduler:
         '''
         通过函数添加一个任务；若需要获取任务或删除任务，请为其设置一个key。
 
-        ```python
-        import datetime
-
-        from CheeseAPI import app
-
-        def task(lastReturn, *, intervalTime: float, **_):
-            print('Hello World.')
-
-        app.scheduler.add(datetime.timedelta(days = 1), task)
-        ```
+        >>> import datetime
+        >>>
+        >>> from CheeseAPI import app
+        >>>
+        >>> def task(lastReturn, *, intervalTime: float, **_):
+        ...    print('Hello World.')
+        ...
+        >>> app.scheduler.add(datetime.timedelta(days = 1), task)
 
         - Args
 
@@ -309,15 +307,13 @@ class Scheduler:
         '''
         通过装饰器添加一个任务；若需要获取任务或删除任务，请为其设置一个key。
 
-        ```python
-        import datetime
-
-        from CheeseAPI import app
-
-        @app.scheduler.add(timer = datetime.timedelta(days = 1))
-        def task(lastReturn, *, intervalTime: float, **_):
-            print('Hello World.')
-        ```
+        >>> import datetime
+        >>>
+        >>> from CheeseAPI import app
+        >>>
+        >>> @app.scheduler.add(timer = datetime.timedelta(days = 1))
+        >>> def task(lastReturn, *, intervalTime: float, **_):
+        ...    print('Hello World.')
 
         - Args
 
@@ -383,17 +379,15 @@ class Scheduler:
         '''
         删除计划。
 
-        ```python
-        import datetime
-
-        from CheeseAPI import app
-
-        @app.scheduler.add(timer = datetime.timedelta(days = 1), key = 'myTask')
-        def task(lastReturn, *, intervalTime: float, **_):
-            print('Hello World.')
-
-        app.scheduler.remove('myTask')
-        ```
+        >>> import datetime
+        >>>
+        >>> from CheeseAPI import app
+        >>>
+        >>> @app.scheduler.add(timer = datetime.timedelta(days = 1), key = 'myTask')
+        >>> def task(lastReturn, *, intervalTime: float, **_):
+        ...    print('Hello World.')
+        ...
+        >>> app.scheduler.remove('myTask')
         '''
 
         if key in self._app._managers_['schedules']:
@@ -403,17 +397,15 @@ class Scheduler:
         '''
         获取`ScheduleTask`，`ScheduleTask`请查看[Schedule](../Schedule.md)。
 
-        ```python
-        import datetime
-
-        from CheeseAPI import app
-
-        @app.scheduler.add(timer = datetime.timedelta(days = 1), key = 'myTask')
-        def task(lastReturn, *, intervalTime: float, **_):
-            print('Hello World.')
-
-        myTask = app.scheduler.get_task('myTask')
-        ```
+        >>> import datetime
+        >>>
+        >>> from CheeseAPI import app
+        >>>
+        >>> @app.scheduler.add(timer = datetime.timedelta(days = 1), key = 'myTask')
+        >>> def task(lastReturn, *, intervalTime: float, **_):
+        ...     print('Hello World.')
+        ...
+        >>> myTask = app.scheduler.get_task('myTask')
         '''
 
         return ScheduleTask(self._app, key)

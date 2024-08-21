@@ -22,37 +22,31 @@ def validator(validator: BaseModel):
 
     校验通过后，路由函数会收到一个`validator: BaseModel`已校验参数。
 
-    ```python
-    from CheeseAPI import app, validator
-    from pydantic import BaseModel, EmailStr, PastDatetime
-
-    class User(BaseModel):
-        mail: EmailStr
-        name: str
-        birthDate: PastDatetime
-
-    @app.route.get('/')
-    @validator(Form)
-    async def test(*, validator: User, **kwargs):
-        ...
-    ```
+    >>> from CheeseAPI import app, validator
+    >>> from pydantic import BaseModel, EmailStr, PastDatetime
+    >>>
+    >>> class User(BaseModel):
+    ...    mail: EmailStr
+    ...    name: str
+    ...    birthDate: PastDatetime
+    ...
+    >>> @app.route.get('/')
+    >>> @validator(Form)
+    >>> async def test(*, validator: User, **kwargs):
+    ...     ...
 
     在自定义校验中，可以自定义校验失败后返回的Response：
 
-    ```python
-    from CheeseAPI import ValidateError, Response
-    from pydantic import BaseModel, field_validator
-
-    class Form(BaseModel):
-        value: str
-
-        @field_validator('value')
-        def value(cls, value: str) -> str:
-            if ...:
-                raise ValidateError(Response('My Response', 400))
-
-    ...
-    ```
+    >>> from CheeseAPI import ValidateError, Response
+    >>> from pydantic import BaseModel, field_validator
+    >>>
+    >>> class Form(BaseModel):
+    ...     value: str
+    ... \\
+    ...     @field_validator('value')
+    ...     def value(cls, value: str) -> str:
+    ...         if ...:
+    ...             raise ValidateError(Response('My Response', 400))
     '''
 
     def wrapper(fn):

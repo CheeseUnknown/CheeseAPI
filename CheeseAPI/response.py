@@ -340,15 +340,13 @@ class BaseResponse:
     '''
     其他Response的父类；平时使用它判断response是否是合法的，并不建议使用它创建response。
 
-    ```python
-    from CheeseAPI import app, BaseResponse
-
-    @app.route.get('/')
-    async def index(*args, **kwargs):
-        response = ...
-        if isinstance(response, BaseResponse):
-            ...
-    ```
+    >>> from CheeseAPI import app, BaseResponse
+    >>>
+    >>> @app.route.get('/')
+    >>> async def index(*args, **kwargs):
+    ...     response = ...
+    ...     if isinstance(response, BaseResponse):
+    ...         ...
     '''
 
     def __init__(self, body: str | bytes | Callable | AsyncIterator | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
@@ -433,13 +431,11 @@ class BaseResponse:
 
 class Response(BaseResponse):
     '''
-    ```python
-    from CheeseAPI import app, Response
-
-    @app.route.get('/')
-    async def index(*args, **kwargs):
-        return Response('这里是CheeseAPI！')
-    ```
+    >>> from CheeseAPI import app, Response
+    >>>
+    >>> @app.route.get('/')
+    >>> async def index(*args, **kwargs):
+    ...     return Response('这里是CheeseAPI！')
     '''
 
     def __init__(self, body: str | bytes | Callable | AsyncIterator | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
@@ -452,15 +448,13 @@ class JsonResponse(BaseResponse):
     '''
     可将`dict`或`list`自动转为可发送的格式。
 
-    ```python
-    from CheeseAPI import app, JsonResponse
-
-    @app.route.get('/')
-    async def index(*args, **kwargs):
-        return JsonResponse({
-            'welcome': '这里是CheeseAPI！'
-        })
-    ```
+    >>> from CheeseAPI import app, JsonResponse
+    >>>
+    >>> @app.route.get('/')
+    >>> async def index(*args, **kwargs):
+    ...     return JsonResponse({
+    ...         'welcome': '这里是CheeseAPI！'
+    ...     })
     '''
 
     def __init__(self, body: dict | list = {}, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
