@@ -247,30 +247,33 @@ class Handle:
     async def server_running(self):
         for task in self._app.scheduler.tasks.values():
             if task.key not in self._app.scheduler._taskHandlers and not task.inactive and not task.expired and not task.remaining_repetition_num == 0:
-                self._app.scheduler._taskHandlers[task.key] = multiprocessing.Process(target = self._app.scheduler._processHandle, args = (task.key, ), name = f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}', daemon = True)
+                self._app.scheduler._queues[task.key] = (multiprocessing.Queue(), multiprocessing.Queue())
+                self._app.scheduler._taskHandlers[task.key] = multiprocessing.Process(target = self._app.scheduler._processHandle, args = (task.key, self._app.scheduler._queues[task.key]), name = f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}', daemon = True)
                 self._app.scheduler._taskHandlers[task.key].start()
 
         for key in self._app.scheduler._taskHandlers.copy():
             if key not in self._app.scheduler.tasks or self._app.scheduler.tasks[key].inactive or self._app.scheduler.tasks[key].expired or self._app.scheduler.tasks[key].remaining_repetition_num == 0:
                 del self._app.scheduler._taskHandlers[key]
+                del self._app.scheduler._queues[key]
 
-        try:
-            data = self._app.scheduler._outputQueue.get_nowait()
-            if data[0] == 'before':
-                await self._app._handle.scheduler_beforeRunning(self._app.scheduler.get_task(data[1]))
-                if self._app.signal.scheduler_beforeRunning.receivers:
-                    await self._app.signal.scheduler_beforeRunning.async_send(**{
-                        'task': self._app.scheduler.get_task(data[1])
-                    })
-                self._app.scheduler._inputQueue.put(None)
-            elif data[0] == 'after':
-                if self._app.signal.scheduler_afterRunning.receivers:
-                    await self._app.signal.scheduler_afterRunning.async_send(**{
-                        'task': self._app.scheduler.get_task(data[1])
-                    })
-                await self._app._handle.scheduler_afterRunning(self._app.scheduler.get_task(data[1]))
-        except queue.Empty:
-            ...
+        for key, _queues in self._app.scheduler._queues.items():
+            try:
+                data = _queues[0].get_nowait()
+                if data == 'before':
+                    await self._app._handle.scheduler_beforeRunning(self._app.scheduler.get_task(key))
+                    if self._app.signal.scheduler_beforeRunning.receivers:
+                        await self._app.signal.scheduler_beforeRunning.async_send(**{
+                            'task': self._app.scheduler.get_task(key)
+                        })
+                    _queues[1].put(None)
+                elif data == 'after':
+                    if self._app.signal.scheduler_afterRunning.receivers:
+                        await self._app.signal.scheduler_afterRunning.async_send(**{
+                            'task': self._app.scheduler.get_task(key)
+                        })
+                    await self._app._handle.scheduler_afterRunning(self._app.scheduler.get_task(key))
+            except queue.Empty:
+                ...
 
     async def worker_running(self):
         ...

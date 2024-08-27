@@ -1,5 +1,5 @@
 import uuid, datetime, multiprocessing, time, queue
-from typing import TYPE_CHECKING, Callable, Dict, overload, Any
+from typing import TYPE_CHECKING, Callable, Dict, overload, Any, Tuple
 
 import dill, setproctitle
 
@@ -227,10 +227,9 @@ class Scheduler:
     def __init__(self, app: 'App'):
         self._app: 'App' = app
         self._taskHandlers: Dict[str, multiprocessing.Process] = {}
-        self._inputQueue: queue.Queue = multiprocessing.Queue()
-        self._outputQueue: queue.Queue = multiprocessing.Queue()
+        self._queues: Dict[str, Tuple[queue.Queue, queue.Queue]] = {}
 
-    def _processHandle(self, key: str):
+    def _processHandle(self, key: str, queues: Tuple[queue.Queue, queue.Queue]):
         setproctitle.setproctitle(f'{setproctitle.getproctitle()}:SchedulerTask:{key}')
 
         task: ScheduleTask = self._app.scheduler.tasks[key]
@@ -246,9 +245,8 @@ class Scheduler:
 
             triggeredTimer = task.startTimer + task.timer * task.total_repetition_num
             if (lastTimer < triggeredTimer <= _timer or lastTimer > triggeredTimer + task.timer) and task.active:
-                self._outputQueue.put(['before', task.key])
-
-                self._inputQueue.get()
+                queues[0].put('before')
+                queues[1].get()
 
                 if self._app._managers_['schedules'][task.key]['needUpdate']:
                     fn = task.fn
@@ -268,10 +266,9 @@ class Scheduler:
                     'lastReturn': dill.dumps(result, recurse = True)
                 }
 
-                self._outputQueue.put(['after', task.key])
-
-            lastTimer = _timer
+                queues[0].put('after')
             time.sleep(max(task.intervalTime - (_timer - lastTimer).total_seconds(), 0))
+            lastTimer = _timer
 
     @overload
     def add(self, fn: Callable, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):
