@@ -259,16 +259,31 @@ class Scheduler:
                     'intervalTime': (_timer - lastTimer).total_seconds()
                 })
 
+                queues[0].put('after')
+
                 self._app._managers_['schedules'][task.key] = {
                     **self._app._managers_['schedules'][task.key],
                     'total_repetition_num': task.total_repetition_num + 1,
                     'lastTimer': _timer,
                     'lastReturn': dill.dumps(result, recurse = True)
                 }
-
-                queues[0].put('after')
             time.sleep(max(task.intervalTime - (_timer - lastTimer).total_seconds(), 0))
             lastTimer = _timer
+
+    async def _beforeHandle(self, key: str, queue: queue.Queue):
+        await self._app._handle.scheduler_beforeRunning(self._app.scheduler.get_task(key))
+        if self._app.signal.scheduler_beforeRunning.receivers:
+            await self._app.signal.scheduler_beforeRunning.async_send(**{
+                'task': self._app.scheduler.get_task(key)
+            })
+        queue.put(None)
+
+    async def _afterHandle(self, key: str):
+        if self._app.signal.scheduler_afterRunning.receivers:
+            await self._app.signal.scheduler_afterRunning.async_send(**{
+                'task': self._app.scheduler.get_task(key)
+            })
+        await self._app._handle.scheduler_afterRunning(self._app.scheduler.get_task(key))
 
     @overload
     def add(self, fn: Callable, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):

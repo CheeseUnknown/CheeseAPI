@@ -216,6 +216,7 @@ class Handle:
                 if self._app.signal.server_afterStarting.receivers:
                     await self._app.signal.server_afterStarting.async_send()
 
+        lastTimer = time.time()
         while server.is_serving():
             if master:
                 await self.server_running()
@@ -226,7 +227,9 @@ class Handle:
             if self._app.signal.worker_running.receivers:
                 await self._app.signal.worker_running.async_send()
 
-            await asyncio.sleep(self._app.server.intervalTime)
+            timer = time.time()
+            await asyncio.sleep(max(self._app.server.intervalTime - timer + lastTimer, 0))
+            lastTimer = timer
 
         with self._app._managers_['lock']:
             if self._app._managers_['server.workers'].value == self._app.server.workers:
@@ -245,35 +248,30 @@ class Handle:
         ...
 
     async def server_running(self):
+        schedulerTasks = self._app.scheduler.tasks
+        for key in list(self._app.scheduler._taskHandlers.keys()):
+            if key not in schedulerTasks or not self._app.scheduler._taskHandlers[key].is_alive():
+                del self._app.scheduler._taskHandlers[key]
+                del self._app.scheduler._queues[key]
+
+        keys = list(self._app.scheduler._taskHandlers.keys())
         for task in self._app.scheduler.tasks.values():
-            if task.key not in self._app.scheduler._taskHandlers and not task.inactive and not task.expired and not task.remaining_repetition_num == 0:
+            if task.key not in keys:
                 self._app.scheduler._queues[task.key] = (multiprocessing.Queue(), multiprocessing.Queue())
                 self._app.scheduler._taskHandlers[task.key] = multiprocessing.Process(target = self._app.scheduler._processHandle, args = (task.key, self._app.scheduler._queues[task.key]), name = f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}', daemon = True)
                 self._app.scheduler._taskHandlers[task.key].start()
 
-        for key in self._app.scheduler._taskHandlers.copy():
-            if key not in self._app.scheduler.tasks or self._app.scheduler.tasks[key].inactive or self._app.scheduler.tasks[key].expired or self._app.scheduler.tasks[key].remaining_repetition_num == 0:
-                del self._app.scheduler._taskHandlers[key]
-                del self._app.scheduler._queues[key]
-
+        tasks = []
         for key, _queues in self._app.scheduler._queues.items():
             try:
                 data = _queues[0].get_nowait()
                 if data == 'before':
-                    await self._app._handle.scheduler_beforeRunning(self._app.scheduler.get_task(key))
-                    if self._app.signal.scheduler_beforeRunning.receivers:
-                        await self._app.signal.scheduler_beforeRunning.async_send(**{
-                            'task': self._app.scheduler.get_task(key)
-                        })
-                    _queues[1].put(None)
+                    tasks.append(self._app.scheduler._beforeHandle(key, _queues[1]))
                 elif data == 'after':
-                    if self._app.signal.scheduler_afterRunning.receivers:
-                        await self._app.signal.scheduler_afterRunning.async_send(**{
-                            'task': self._app.scheduler.get_task(key)
-                        })
-                    await self._app._handle.scheduler_afterRunning(self._app.scheduler.get_task(key))
+                    tasks.append(self._app.scheduler._afterHandle(key))
             except queue.Empty:
                 ...
+        await asyncio.gather(*tasks)
 
     async def worker_running(self):
         ...
