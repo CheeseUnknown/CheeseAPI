@@ -381,14 +381,15 @@ class BaseResponse:
 
             self.headers['Data'] = formatdate(time.time(), usegmt = True)
 
-            value = b'HTTP/1.1 ' + str(self.status).encode() + b' ' + http.HTTPStatus(self.status).phrase.encode() + b'\r\n'
+            value = f'HTTP/1.1 {self.status} {http.HTTPStatus(self.status).phrase}\r\n'
             for key, _value in self.headers.items():
                 if key == 'Set-Cookies':
                     for _, __value in _value.items():
-                        value += b'Set-Cookie: ' + __value.encode() + b'\r\n'
+                        value += f'Set-Cookie: {__value}\r\n'
                 else:
-                    value += key.encode() + b': ' + str(_value).encode() + b'\r\n'
-            value += b'\r\n'
+                    value += f'{key}: {_value}\r\n'
+            value += '\r\n'
+            value = value.encode()
 
             _value = None
             if isinstance(self.body, Callable):

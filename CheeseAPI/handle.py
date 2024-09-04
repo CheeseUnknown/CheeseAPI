@@ -1,4 +1,4 @@
-import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, traceback, queue
+import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, traceback
 from typing import TYPE_CHECKING, Dict, Tuple, List
 
 import asyncio, uvloop, setproctitle, websockets
@@ -35,9 +35,8 @@ class Handle:
         module_server_static = getattr(module, 'CheeseAPI_module_server_static', None)
 
         # 依赖
-        if module_dependencies:
-            for dependency in module_dependencies:
-                self.loadModule(dependency)
+        for dependency in module_dependencies:
+            self.loadModule(dependency)
 
         modulePath = os.path.dirname(inspect.getfile(module))
 
@@ -49,8 +48,7 @@ class Handle:
         # 单模块
         if module_type == 'single':
             for filename in os.listdir(modulePath):
-                filePath = os.path.join(modulePath, filename)
-                if os.path.isfile(filePath) and filename.endswith('.py'):
+                if os.path.isfile(os.path.join(modulePath, filename)) and filename.endswith('.py'):
                     __import__(f'{name}.{filename[:-3]}', fromlist = [''])
         # 多模块
         elif module_type == 'multiple':
@@ -89,8 +87,7 @@ class Handle:
     def loadLocalModule(self, name: str):
         modulePath = os.path.join(self._app.workspace.base, name)
         for filename in os.listdir(modulePath):
-            filePath = os.path.join(modulePath, filename)
-            if os.path.isfile(filePath) and filename.endswith('.py'):
+            if os.path.isfile(os.path.join(modulePath, filename)) and filename.endswith('.py'):
                 __import__(f'{name}.{filename[:-3]}', fromlist = [''])
 
     def loadLocalModules(self):
@@ -132,12 +129,10 @@ class Handle:
             sock.listen(self._app.server.backlog)
             sock.set_inheritable(True)
 
-            processes: List[multiprocessing.Process] = []
             multiprocessing.allow_connection_pickling()
-            for i in range(self._app.server.workers - 1):
-                process = multiprocessing.Process(target = self.worker_start, args = (sock,), name = self._app._text.workerProcess_title)
+            processes: List[multiprocessing.Process] = [multiprocessing.Process(target = self.worker_start, args = (sock,), name = self._app._text.workerProcess_title) for i in range(self._app.server.workers - 1)]
+            for process in processes:
                 process.start()
-                processes.append(process)
 
             self.worker_start(sock, True)
 
@@ -255,23 +250,20 @@ class Handle:
                 del self._app.scheduler._queues[key]
 
         keys = list(self._app.scheduler._taskHandlers.keys())
-        for task in self._app.scheduler.tasks.values():
-            if task.key not in keys:
-                self._app.scheduler._queues[task.key] = (multiprocessing.Queue(), multiprocessing.Queue())
-                self._app.scheduler._taskHandlers[task.key] = multiprocessing.Process(target = self._app.scheduler._processHandle, args = (task.key, self._app.scheduler._queues[task.key]), name = f'{setproctitle.getproctitle()}:SchedulerTask:{task.key}', daemon = True)
-                self._app.scheduler._taskHandlers[task.key].start()
+        taskKeys = [task.key for task in self._app.scheduler.tasks.values() if task.key not in keys]
+        if taskKeys:
+            self._app.scheduler._queues.update({
+                key: (multiprocessing.Queue(), multiprocessing.Queue()) for key in taskKeys
+            })
+            self._app.scheduler._taskHandlers.update({
+                key: multiprocessing.Process(target = self._app.scheduler._processHandle, args = (key, self._app.scheduler._queues[key]), name = f'{setproctitle.getproctitle()}:SchedulerTask:{key}', daemon = True) for key in taskKeys
+            })
+            for key in taskKeys:
+                self._app.scheduler._taskHandlers[key].start()
 
-        tasks = []
-        for key, _queues in self._app.scheduler._queues.items():
-            try:
-                data = _queues[0].get_nowait()
-                if data == 'before':
-                    tasks.append(self._app.scheduler._beforeHandle(key, _queues[1]))
-                elif data == 'after':
-                    tasks.append(self._app.scheduler._afterHandle(key))
-            except queue.Empty:
-                ...
-        await asyncio.gather(*tasks)
+        tasks = [self._app.scheduler._beforeHandle(d[0], d[2]) if not d[1] else self._app.scheduler._afterHandle(d[0]) for d in [(key, _queues[0].get_nowait(), _queues[1]) for key, _queues in self._app.scheduler._queues.items() if not _queues[0].empty()]]
+        if tasks:
+            await asyncio.gather(*tasks)
 
     async def worker_running(self):
         ...

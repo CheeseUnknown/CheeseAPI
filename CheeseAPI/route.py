@@ -66,10 +66,7 @@ class RouteBus:
         self.patterns = sorted(self.patterns, key = lambda x: x['weight'], reverse = True)
 
     def _insert(self, path: str, fn: Callable, methods: List[http.HTTPMethod | str]):
-        for method in methods:
-            if method != 'WEBSOCKET':
-                method = http.HTTPMethod(method)
-
+        methods = [http.HTTPMethod(method) if method != 'WEBSOCKET' else method for method in methods]
         node = self._node
 
         for part in path.split('/')[1:]:
@@ -87,8 +84,9 @@ class RouteBus:
 
         if not node.methods:
             node.methods = {}
-        for method in methods:
-            node.methods[method] = path, fn
+        node.methods.update({
+            method: (path, fn) for method in methods
+        })
 
     def _match(self, path: str, method: http.HTTPMethod | Literal['WEBSOCKET']) -> Tuple[Callable, Dict[str, Any]]:
         paths = path.split('/')[1:]
@@ -124,9 +122,9 @@ class RouteBus:
                     break
 
         if not paths and node.methods:
-            for key, value in node.methods.items():
-                if key not in results:
-                    results[key] = value
+            results.update({
+                key: value for key, value in node.methods.items() if key not in results
+            })
         return results
 
     @property

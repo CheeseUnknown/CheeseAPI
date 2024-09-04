@@ -52,9 +52,7 @@ class Request:
         elif 'multipart/form-data' in self.headers['Content-Type']:
             self._form = {}
             if self.body:
-                spliter = self.headers['Content-Type'].split('boundary=')[1].split(';')[0]
-                body = self.body.split(b'--' + spliter.encode())[1:-1]
-                for t in body:
+                for t in self.body.split(f'--{self.headers["Content-Type"].split("boundary=")[1].split(";")[0]}'.encode())[1:-1]:
                     key = re.findall(rb'name="(.*?)"', t)[0].decode()
                     value = t.split(b'\r\n\r\n', 1)[1][:-2]
                     filename = re.findall(rb'filename="(.*?)"', t)

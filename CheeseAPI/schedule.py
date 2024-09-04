@@ -245,7 +245,7 @@ class Scheduler:
 
             triggeredTimer = task.startTimer + task.timer * task.total_repetition_num
             if (lastTimer < triggeredTimer <= _timer or lastTimer > triggeredTimer + task.timer) and task.active:
-                queues[0].put('before')
+                queues[0].put(False)
                 queues[1].get()
 
                 if self._app._managers_['schedules'][task.key]['needUpdate']:
@@ -259,7 +259,7 @@ class Scheduler:
                     'intervalTime': (_timer - lastTimer).total_seconds()
                 })
 
-                queues[0].put('after')
+                queues[0].put(True)
 
                 self._app._managers_['schedules'][task.key] = {
                     **self._app._managers_['schedules'][task.key],
@@ -271,19 +271,21 @@ class Scheduler:
             lastTimer = _timer
 
     async def _beforeHandle(self, key: str, queue: queue.Queue):
-        await self._app._handle.scheduler_beforeRunning(self._app.scheduler.get_task(key))
+        task = self._app.scheduler.get_task(key)
+        await self._app._handle.scheduler_beforeRunning(task)
         if self._app.signal.scheduler_beforeRunning.receivers:
             await self._app.signal.scheduler_beforeRunning.async_send(**{
-                'task': self._app.scheduler.get_task(key)
+                'task': task
             })
         queue.put(None)
 
     async def _afterHandle(self, key: str):
+        task = self._app.scheduler.get_task(key)
         if self._app.signal.scheduler_afterRunning.receivers:
             await self._app.signal.scheduler_afterRunning.async_send(**{
-                'task': self._app.scheduler.get_task(key)
+                'task': task
             })
-        await self._app._handle.scheduler_afterRunning(self._app.scheduler.get_task(key))
+        await self._app._handle.scheduler_afterRunning(task)
 
     @overload
     def add(self, fn: Callable, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):
