@@ -302,7 +302,6 @@ class Scheduler:
         >>> app.scheduler.add(datetime.timedelta(days = 1), task)
 
         - Args
-
             - timer: 触发任务的间隔时间。
 
             - startTimer: 为该计划设定一个开始时间，而不是使用当前时间。
@@ -330,7 +329,6 @@ class Scheduler:
         ...    print('Hello World.')
 
         - Args
-
             - timer: 触发任务的间隔时间。
 
             - startTimer: 为该计划设定一个开始时间，而不是使用当前时间。

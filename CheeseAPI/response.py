@@ -469,7 +469,6 @@ class FileResponse(BaseResponse):
     def __init__(self, path: str, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1024 * 1024):
         '''
         - Args
-
             - path: 文件路径；支持相对路径与绝对路径。
 
             - downloaded: 文件是否下载；为`False`时优先预览，若无法预览则仍然下载。
@@ -481,7 +480,6 @@ class FileResponse(BaseResponse):
     def __init__(self, data: File, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1024 * 1024):
         '''
         - Args
-
             - downloaded: 文件是否下载；为`False`时优先预览，若无法预览则仍然下载。
 
             - chunkSize: 发送文件的chunk大小。
