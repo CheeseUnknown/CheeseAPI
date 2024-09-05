@@ -407,7 +407,7 @@ class Scheduler:
         if key in self._app._managers_['schedules']:
             del self._app._managers_['schedules'][key]
 
-    def get_task(self, key: str) -> ScheduleTask:
+    def get_task(self, key: str) -> ScheduleTask | None:
         '''
         获取`ScheduleTask`，`ScheduleTask`请查看[Schedule](../Schedule.md)。
 
@@ -422,7 +422,8 @@ class Scheduler:
         >>> myTask = app.scheduler.get_task('myTask')
         '''
 
-        return ScheduleTask(self._app, key)
+        if key in self._app._managers_['schedules']:
+            return ScheduleTask(self._app, key)
 
     @property
     def tasks(self) -> Dict[str, ScheduleTask]:
