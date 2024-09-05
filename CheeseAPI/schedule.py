@@ -233,18 +233,19 @@ class Scheduler:
         setproctitle.setproctitle(f'{setproctitle.getproctitle()}:SchedulerTask:{key}')
 
         task: ScheduleTask = self._app.scheduler.tasks[key]
-        lastTimer = datetime.datetime.now()
         fn = task.fn
+        lastTimer = lastRunTimer = datetime.datetime.now()
 
         while True:
             task: ScheduleTask = self._app.scheduler.tasks.get(key)
             if not task or task.expired or task.remaining_repetition_num == 0 or task.inactive:
                 break
 
-            _timer = datetime.datetime.now()
+            timer = datetime.datetime.now()
 
-            triggeredTimer = task.startTimer + task.timer * task.total_repetition_num
-            if (lastTimer < triggeredTimer <= _timer or lastTimer > triggeredTimer + task.timer) and task.active:
+            triggeredTimer = lastRunTimer + task.timer
+            if (lastTimer < triggeredTimer <= timer or lastTimer > triggeredTimer + task.timer) and task.active:
+                runTimer = timer
                 queues[0].put(False)
                 queues[1].get()
 
@@ -256,7 +257,7 @@ class Scheduler:
                     }
 
                 result = fn(task.lastReturn, **{
-                    'intervalTime': (_timer - lastTimer).total_seconds()
+                    'intervalTime': (runTimer - lastRunTimer).total_seconds()
                 })
 
                 queues[0].put(True)
@@ -264,11 +265,12 @@ class Scheduler:
                 self._app._managers_['schedules'][task.key] = {
                     **self._app._managers_['schedules'][task.key],
                     'total_repetition_num': task.total_repetition_num + 1,
-                    'lastTimer': _timer,
+                    'lastTimer': runTimer,
                     'lastReturn': dill.dumps(result, recurse = True)
                 }
-            time.sleep(max(task.intervalTime - (_timer - lastTimer).total_seconds(), 0))
-            lastTimer = _timer
+                lastRunTimer = runTimer
+            time.sleep(max(task.intervalTime - (timer - lastTimer).total_seconds(), 0))
+            lastTimer = timer
 
     async def _beforeHandle(self, key: str, queue: queue.Queue):
         task = self._app.scheduler.get_task(key)
