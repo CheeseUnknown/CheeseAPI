@@ -1,4 +1,4 @@
-import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, traceback
+import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, traceback, gc
 from typing import TYPE_CHECKING, Dict, Tuple, List
 
 import asyncio, uvloop, setproctitle, websockets
@@ -214,6 +214,8 @@ class Handle:
 
         lastTimer = time.time()
         while server.is_serving():
+            gc.disable()
+
             if master:
                 await self.server_running()
                 if self._app.signal.server_running.receivers:
@@ -223,6 +225,7 @@ class Handle:
             if self._app.signal.worker_running.receivers:
                 await self._app.signal.worker_running.async_send()
 
+            gc.enable()
             timer = time.time()
             await asyncio.sleep(max(self._app.server.intervalTime - timer + lastTimer, 0))
             lastTimer = timer
