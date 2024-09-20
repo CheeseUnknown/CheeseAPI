@@ -1,4 +1,4 @@
-import uuid, datetime, multiprocessing, time, queue
+import uuid, datetime, multiprocessing, time, queue, gc
 from typing import TYPE_CHECKING, Callable, Dict, overload, Any, Tuple
 
 import dill, setproctitle
@@ -245,6 +245,7 @@ class Scheduler:
 
             triggeredTimer = lastRunTimer + task.timer
             if (lastTimer < triggeredTimer <= timer or lastTimer > triggeredTimer + task.timer) and task.active:
+                gc.disable()
                 runTimer = timer
                 queues[0].put(False)
                 queues[1].get()
@@ -269,6 +270,7 @@ class Scheduler:
                     'lastReturn': dill.dumps(result, recurse = True)
                 }
                 lastRunTimer = runTimer
+                gc.enable()
             time.sleep(max(task.intervalTime - (timer - lastTimer).total_seconds(), 0))
             lastTimer = timer
 
