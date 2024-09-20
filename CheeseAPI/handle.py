@@ -30,7 +30,9 @@ class Handle:
         module = __import__(name)
         module_type = getattr(module, 'CheeseAPI_module_type', 'single')
         module_dependencies = getattr(module, 'CheeseAPI_module_dependencies', [])
+        module_dependencies.reverse()
         module_preferredSubModules = getattr(module, 'CheeseAPI_module_preferredSubModules', [])
+        module_preferredSubModules.reverse()
         module_workspace_static = getattr(module, 'CheeseAPI_module_workspace_static', None)
         module_server_static = getattr(module, 'CheeseAPI_module_server_static', None)
 
@@ -54,7 +56,6 @@ class Handle:
         elif module_type == 'multiple':
             foldernames = os.listdir(modulePath)
             for foldername in module_preferredSubModules:
-                foldername = f'{name}.{foldername}'
                 if foldername in foldernames:
                     foldernames.remove(foldername)
                 foldernames.insert(0, foldername)
