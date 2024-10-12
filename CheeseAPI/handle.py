@@ -252,6 +252,7 @@ class Handle:
             if key not in schedulerTasks or not self._app.scheduler._taskHandlers[key].is_alive():
                 del self._app.scheduler._taskHandlers[key]
                 del self._app.scheduler._queues[key]
+                self._app.scheduler.remove(key)
 
         keys = list(self._app.scheduler._taskHandlers.keys())
         taskKeys = [task.key for task in self._app.scheduler.tasks.values() if task.key not in keys]
