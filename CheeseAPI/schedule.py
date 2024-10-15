@@ -1,7 +1,8 @@
-import uuid, datetime, multiprocessing, time, queue, gc
+import uuid, datetime, multiprocessing, time, queue, gc, os, signal
 from typing import TYPE_CHECKING, Callable, Dict, overload, Any, Tuple
 
 import dill, setproctitle
+from CheeseLog import logger
 
 if TYPE_CHECKING:
     from CheeseAPI.app import App
@@ -269,8 +270,15 @@ class Scheduler:
                     'lastTimer': runTimer,
                     'lastReturn': dill.dumps(result, recurse = True)
                 }
+
+                runTime = (datetime.datetime.now() - runTimer).total_seconds()
+                taskTime = task.timer.total_seconds()
+                if runTime > taskTime:
+                    logger.debug(f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: {taskTime:.6f}s\n  Actual run time:   {runTime:.6f}s')
+
                 lastRunTimer = runTimer
                 gc.enable()
+
             time.sleep(max(task.intervalTime - (timer - lastTimer).total_seconds(), 0))
             lastTimer = timer
 
