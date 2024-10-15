@@ -259,7 +259,7 @@ class Handle:
             for key in taskKeys:
                 self._app.scheduler._taskHandlers[key].start()
 
-        tasks = [self._app.scheduler._beforeHandle(d[0], d[2]) if not d[1] else self._app.scheduler._afterHandle(d[0]) for d in [(key, _queues[0].get_nowait(), _queues[1]) for key, _queues in self._app.scheduler._queues.items() if not _queues[0].empty()]]
+        tasks = [self._app.scheduler._taskHandle(key) for key in self._app.scheduler._queues]
         if tasks:
             await asyncio.gather(*tasks)
 

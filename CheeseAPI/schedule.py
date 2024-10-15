@@ -1,5 +1,5 @@
-import uuid, datetime, multiprocessing, time, queue, gc
-from typing import TYPE_CHECKING, Callable, Dict, overload, Any, Tuple
+import uuid, datetime, multiprocessing, time, queue, gc, asyncio
+from typing import TYPE_CHECKING, Callable, Dict, overload, Any, Tuple, Literal
 
 import dill, setproctitle
 from CheeseLog import logger
@@ -14,7 +14,7 @@ class ScheduleTask:
 
     def reset(self):
         '''
-        重置统计数据，例如`self.total_repetition_num`。
+        重置统计数据，例如`self.total_repetition_num`
         '''
 
         self._app._managers_['schedules'][self.key] = {
@@ -31,15 +31,15 @@ class ScheduleTask:
         return self._key
 
     @property
-    def timer(self) -> datetime.timedelta:
+    def timer(self) -> datetime.timedelta | Literal['PER_FRAME']:
         '''
-        任务触发的间隔时间。
+        任务触发的间隔时间，"PER_FRAME"代表该任务会在每一帧运行
         '''
 
         return self._app._managers_['schedules'][self.key]['timer']
 
     @timer.setter
-    def timer(self, value: datetime.timedelta):
+    def timer(self, value: datetime.timedelta | Literal['PER_FRAME']):
         self._app._managers_['schedules'][self.key] = {
             **self._app._managers_['schedules'][self.key],
             'timer': value
@@ -60,7 +60,7 @@ class ScheduleTask:
     @property
     def startTimer(self) -> datetime.datetime:
         '''
-        自定义的开始时间。若未设置，则为当前时间。
+        自定义的开始时间。若未设置，则为当前时间
         '''
 
         return self._app._managers_['schedules'][self.key]['startTimer']
@@ -78,9 +78,9 @@ class ScheduleTask:
     @property
     def auto_remove(self) -> bool:
         '''
-        任务过期后是否自动删除。
+        任务过期后是否自动删除
 
-        若设置后`(self.expired or self.remaining_repetition_num == 0) and self.auto_remove`，则该任务会被立刻删除。
+        若设置后`(self.expired or self.remaining_repetition_num == 0) and self.auto_remove`，则该任务会被立刻删除
         '''
 
         return self._app._managers_['schedules'][self.key]['auto_remove']
@@ -98,7 +98,7 @@ class ScheduleTask:
     @property
     def active(self) -> bool:
         '''
-        是否激活；未激活将忽略触发信号。
+        是否激活；未激活将忽略触发信号
         '''
 
         return self._app._managers_['schedules'][self.key]['active']
@@ -113,7 +113,7 @@ class ScheduleTask:
     @property
     def inactive(self) -> bool:
         '''
-        【只读】 是否未激活。
+        【只读】 是否未激活
         '''
 
         return not self._app._managers_['schedules'][self.key]['active']
@@ -121,9 +121,9 @@ class ScheduleTask:
     @property
     def expected_repetition_num(self) -> int | None:
         '''
-        期望的重复次数。
+        期望的重复次数
 
-        若设置后`self.remaining_repetition_num == 0 and self.auto_remove`，则该任务会被立刻删除。
+        若设置后`self.remaining_repetition_num == 0 and self.auto_remove`，则该任务会被立刻删除
         '''
 
         return self._app._managers_['schedules'][self.key]['expected_repetition_num']
@@ -138,7 +138,7 @@ class ScheduleTask:
     @property
     def total_repetition_num(self) -> int:
         '''
-        【只读】 总计的重复次数。
+        【只读】 总计的重复次数
         '''
 
         return self._app._managers_['schedules'][self.key]['total_repetition_num']
@@ -146,7 +146,7 @@ class ScheduleTask:
     @property
     def remaining_repetition_num(self) -> int | None:
         '''
-        【只读】 剩余的重复次数。
+        【只读】 剩余的重复次数
         '''
 
         if self.expected_repetition_num is None:
@@ -156,7 +156,7 @@ class ScheduleTask:
     @property
     def unexpired(self) -> bool | None:
         '''
-        【只读】 任务是否未过期。
+        【只读】 任务是否未过期
         '''
 
         if self.endTimer:
@@ -166,7 +166,7 @@ class ScheduleTask:
     @property
     def expired(self) -> bool | None:
         '''
-        【只读】 任务是否过期。
+        【只读】 任务是否过期
         '''
 
         if self.unexpired is None:
@@ -176,7 +176,7 @@ class ScheduleTask:
     @property
     def lastTimer(self) -> datetime.datetime | None:
         '''
-        【只读】 任务上一次的触发时间；`None`代表从未触发过。
+        【只读】 任务上一次的触发时间；`None`代表从未触发过
         '''
 
         return self._app._managers_['schedules'][self.key]['lastTimer']
@@ -184,7 +184,7 @@ class ScheduleTask:
     @property
     def intervalTime(self) -> float:
         '''
-        最小检查间隔。
+        最小检查间隔
         '''
 
         return self._app._managers_['schedules'][self.key]['intervalTime']
@@ -199,7 +199,7 @@ class ScheduleTask:
     @property
     def lastReturn(self) -> Any:
         '''
-        【只读】 上一次的返回值。
+        【只读】 上一次的返回值
         '''
 
         return dill.loads(self._app._managers_['schedules'][self.key]['lastReturn'])
@@ -207,9 +207,9 @@ class ScheduleTask:
     @property
     def endTimer(self) -> datetime.datetime | None:
         '''
-        自定义的结束时间。若未设置，则为当前时间。
+        自定义的结束时间。若未设置，则为当前时间
 
-        若设置后`self.expired and self.auto_remove`，则该任务会被立刻删除。
+        若设置后`self.expired and self.auto_remove`，则该任务会被立刻删除
         '''
 
         return self._app._managers_['schedules'][self.key]['endTimer']
@@ -230,26 +230,48 @@ class Scheduler:
         self._taskHandlers: Dict[str, multiprocessing.Process] = {}
         self._queues: Dict[str, Tuple[queue.Queue, queue.Queue]] = {}
 
+    async def _taskHandle(self, key: str):
+        task = self.tasks[key]
+        queues = self._queues[key]
+
+        if task.timer == 'PER_FRAME':
+            while True:
+                if not queues[0].empty():
+                    if queues[0].get_nowait():
+                        await self._afterHandle(key)
+                        break
+                    else:
+                        await self._beforeHandle(key, queues[1])
+                await asyncio.sleep(0)
+        else:
+            if not queues[0].empty():
+                if queues[0].get_nowait():
+                    await self._afterHandle(key)
+                else:
+                    await self._beforeHandle(key, queues[1])
+
     def _processHandle(self, key: str, queues: Tuple[queue.Queue, queue.Queue]):
         setproctitle.setproctitle(f'{setproctitle.getproctitle()}:SchedulerTask:{key}')
 
         task: ScheduleTask = self._app.scheduler.tasks[key]
         fn = task.fn
-        lastTimer = lastRunTimer = datetime.datetime.now()
+        intervalTime = task.intervalTime
+        taskTime = self._app.server.intervalTime if task.timer == 'PER_FRAME' else task.timer.total_seconds()
+        lastTime = lastRunTime = triggeredTime = time.time()
 
         while True:
             task: ScheduleTask = self._app.scheduler.tasks.get(key)
             if not task or task.expired or task.remaining_repetition_num == 0 or task.inactive:
                 break
 
-            timer = datetime.datetime.now()
+            _time = time.time()
 
-            triggeredTimer = lastRunTimer + task.timer
-            if (lastTimer < triggeredTimer <= timer or lastTimer > triggeredTimer + task.timer) and task.active:
-                gc.disable()
-                runTimer = timer
+            triggeredTime = lastRunTime + taskTime
+            if triggeredTime - intervalTime / 2 < _time and task.active:
                 queues[0].put(False)
                 queues[1].get()
+                gc.disable()
+                runTime = time.time()
 
                 if self._app._managers_['schedules'][task.key]['needUpdate']:
                     fn = task.fn
@@ -259,7 +281,7 @@ class Scheduler:
                     }
 
                 result = fn(task.lastReturn, **{
-                    'intervalTime': (runTimer - lastRunTimer).total_seconds()
+                    'intervalTime': runTime - lastRunTime
                 })
 
                 queues[0].put(True)
@@ -267,20 +289,19 @@ class Scheduler:
                 self._app._managers_['schedules'][task.key] = {
                     **self._app._managers_['schedules'][task.key],
                     'total_repetition_num': task.total_repetition_num + 1,
-                    'lastTimer': runTimer,
+                    'lastTimer': datetime.datetime.fromtimestamp(runTime),
                     'lastReturn': dill.dumps(result, recurse = True)
                 }
 
-                runTime = (datetime.datetime.now() - runTimer).total_seconds()
-                taskTime = task.timer.total_seconds()
-                if runTime > taskTime:
-                    logger.debug(f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycle\n  Expected run time: {taskTime:.6f}s\n  Actual run time:   {runTime:.6f}s', f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycle\n  Expected run time: <blue>{taskTime:.6f}</blue> seconds\n  Actual run time:   <blue>{runTime:.6f}</blue> seconds')
+                _runTime = time.time() - runTime
+                if _runTime > taskTime:
+                    logger.debug(f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: {taskTime:.6f}s\n  Actual run time:   {_runTime:.6f}s', f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: <blue>{taskTime:.6f}</blue> seconds\n  Actual run time:   <blue>{_runTime:.6f}</blue> seconds')
 
-                lastRunTimer = runTimer
+                lastRunTime = runTime
                 gc.enable()
 
-            time.sleep(max(task.intervalTime - (timer - lastTimer).total_seconds(), 0))
-            lastTimer = timer
+            time.sleep(max(intervalTime - _time + lastTime, 0))
+            lastTime = _time
 
     async def _beforeHandle(self, key: str, queue: queue.Queue):
         task = self._app.scheduler.get_task(key)
@@ -298,9 +319,9 @@ class Scheduler:
         await self._app._handle.scheduler_afterRunning(task)
 
     @overload
-    def add(self, fn: Callable, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):
+    def add(self, fn: Callable, *, timer: datetime.timedelta | Literal['PER_FRAME'] | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):
         '''
-        通过函数添加一个任务；若需要获取任务或删除任务，请为其设置一个key。
+        通过函数添加一个任务；若需要获取任务或删除任务，请为其设置一个key
 
         >>> import datetime
         >>>
@@ -312,23 +333,23 @@ class Scheduler:
         >>> app.scheduler.add(datetime.timedelta(days = 1), task)
 
         - Args
-            - timer: 触发任务的间隔时间。
+            - timer: 触发任务的间隔时间，"PER_FRAME"代表该任务会在每一帧运行
 
-            - startTimer: 为该计划设定一个开始时间，而不是使用当前时间。
+            - startTimer: 为该计划设定一个开始时间，而不是使用当前时间
 
-            - expected_repetition_num: 期望的重复次数。
+            - expected_repetition_num: 期望的重复次数
 
-            - auto_remove: 若当前计划过期或执行次数达到预期次数，是否自动删除该计划。
+            - auto_remove: 若当前计划过期或执行次数达到预期次数，是否自动删除该计划
 
-            - intervalTime: 最小检查间隔；默认为`app.server.intervalTime`。
+            - intervalTime: 最小检查间隔；默认为`app.server.intervalTime`
 
-            - endTimer: 为该计划设定一个结束时间。
+            - endTimer: 为该计划设定一个结束时间
         '''
 
     @overload
-    def add(self, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):
+    def add(self, *, timer: datetime.timedelta | Literal['PER_FRAME'] | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):
         '''
-        通过装饰器添加一个任务；若需要获取任务或删除任务，请为其设置一个key。
+        通过装饰器添加一个任务；若需要获取任务或删除任务，请为其设置一个key
 
         >>> import datetime
         >>>
@@ -339,20 +360,20 @@ class Scheduler:
         ...    print('Hello World.')
 
         - Args
-            - timer: 触发任务的间隔时间。
+            - timer: 触发任务的间隔时间，"PER_FRAME"代表该任务会在每一帧运行
 
-            - startTimer: 为该计划设定一个开始时间，而不是使用当前时间。
+            - startTimer: 为该计划设定一个开始时间，而不是使用当前时间
 
-            - expected_repetition_num: 期望的重复次数。
+            - expected_repetition_num: 期望的重复次数
 
-            - auto_remove: 若当前计划过期或执行次数达到预期次数，是否自动删除该计划。
+            - auto_remove: 若当前计划过期或执行次数达到预期次数，是否自动删除该计划
 
-            - intervalTime: 最小检查间隔；默认为`app.server.intervalTime`。
+            - intervalTime: 最小检查间隔；默认为`app.server.intervalTime`
 
-            - endTimer: 为该计划设定一个结束时间。
+            - endTimer: 为该计划设定一个结束时间
         '''
 
-    def add(self, fn: Callable | None = None, *, timer: datetime.timedelta | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):
+    def add(self, fn: Callable | None = None, *, timer: datetime.timedelta | Literal['PER_FRAME'] | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):
         if timer is None:
             timer = datetime.timedelta(seconds = intervalTime or self._app.server.intervalTime)
 
@@ -372,7 +393,7 @@ class Scheduler:
                 'auto_remove': auto_remove,
                 'active': True,
                 'lastTimer': None,
-                'intervalTime': intervalTime or self._app.server.intervalTime,
+                'intervalTime': intervalTime or (self._app.server.intervalTime if timer == 'PER_FRAME' else timer.total_seconds()) / 10,
                 'lastReturn': dill.dumps(None, recurse = True),
                 'needUpdate': False,
                 'endTimer': endTimer
@@ -389,7 +410,7 @@ class Scheduler:
                 'auto_remove': auto_remove,
                 'active': True,
                 'lastTimer': None,
-                'intervalTime': intervalTime or self._app.server.intervalTime,
+                'intervalTime': intervalTime or (self._app.server.intervalTime if timer == 'PER_FRAME' else timer.total_seconds()) / 10,
                 'lastReturn': dill.dumps(None, recurse = True),
                 'needUpdate': False,
                 'endTimer': endTimer
@@ -399,7 +420,7 @@ class Scheduler:
 
     def remove(self, key: str):
         '''
-        删除计划。
+        删除计划
 
         >>> import datetime
         >>>
@@ -417,7 +438,7 @@ class Scheduler:
 
     def get_task(self, key: str) -> ScheduleTask | None:
         '''
-        获取`ScheduleTask`，`ScheduleTask`请查看[Schedule](../Schedule.md)。
+        获取`ScheduleTask`，`ScheduleTask`请查看[Schedule](../Schedule.md)
 
         >>> import datetime
         >>>
@@ -436,9 +457,9 @@ class Scheduler:
     @property
     def tasks(self) -> Dict[str, ScheduleTask]:
         '''
-        【只读】 所有的任务。
+        【只读】 所有的任务
 
-        未指定key的任务会自动分配一个uuid字符串为key。
+        未指定key的任务会自动分配一个uuid字符串为key
         '''
 
         return {
