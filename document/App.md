@@ -1,8 +1,8 @@
 # **App**
 
-与其他web框架有所不同的是，CheeseAPI已为用户实例化了`App`，因为底层调用方法可能有所不同。
+与其他web框架有所不同的是，CheeseAPI已为用户实例化了`App`，因为底层调用方法可能有所不同
 
-所有的配置项应当在`app.run()`之前设置完毕，以免出现数据不同步的情况。
+所有的配置项应当在`app.run()`之前设置完毕，以免出现数据不同步的情况
 
 ```python
 from CheeseAPI import app
@@ -19,19 +19,19 @@ app.run()
 
 ## **`app.server: Server = Server(app)`**
 
-【只读】 服务器运行时需要的配置，更多请查看[App - Server](./App/Server.md)。
+【只读】 服务器运行时需要的配置，更多请查看[App - Server](./App/Server.md)
 
 ## **`app.workspace: Workspace = Workspace(app)`**
 
-【只读】 工作目录相关的配置，都与路径有关，更多请查看[App - Workspace](./App/Workspace.md)。
+【只读】 工作目录相关的配置，都与路径有关，更多请查看[App - Workspace](./App/Workspace.md)
 
 ## **`app.signal: Signal = Signal(app)`**
 
-【只读】 插槽，更多请查看[App - Signal](./App/Signal.md)。
+【只读】 插槽，更多请查看[App - Signal](./App/Signal.md)
 
 ## **`app.scheduler: Scheduler(app)`**
 
-【只读】 任务调度者，更多请查看[App - Scheduler](./App/Scheduler.md)。
+【只读】 任务调度者，更多请查看[App - Scheduler](./App/Scheduler.md)
 
 ## **`app.managers: Dict[str, Any] = {}`**
 
@@ -58,7 +58,7 @@ async def index(**kwargs):
 
 ## **`app.g: Dict[str, Any] = { 'startTime': None }`**
 
-【只读】 在server启动时就固定的数据，不需要在server运行时修改。
+【只读】 在server启动时就固定的数据，不需要在server运行时修改
 
 ```python
 from CheeseAPI import app
@@ -70,23 +70,23 @@ app.run()
 
 - **`startTime: None | float = None`**
 
-    在server启动时会自动赋值为`float`类型的时间戳。
+    在server启动时会自动赋值为`float`类型的时间戳
 
 ## **`app.route: Route = Route()`**
 
-【只读】 无前缀的路由，更多请查看[Route](./Route.md)。
+【只读】 无前缀的路由，更多请查看[Route](./Route.md)
 
 ## **`app.routeBus: RouteBus = RouteBus()`**
 
-【只读】 路由总线，管理所有的路由，更多请查看[App - RouteBus](./App/RouteBus.md)。
+【只读】 路由总线，管理所有的路由，更多请查看[App - RouteBus](./App/RouteBus.md)
 
 ## **`app.cors: Cors = Cors()`**
 
-【只读】 跨域管理，更多请查看[App - Cors](./App/Cors.md)。
+【只读】 跨域管理，更多请查看[App - Cors](./App/Cors.md)
 
 ## **`app.modules: List[str] = []`**
 
-【只读】 加载的插件模块，这部分一般由第三方开发者开发，具体的使用方法最终应参考该模块文档。
+【只读】 加载的插件模块，这部分一般由第三方开发者开发，具体的使用方法最终应参考该模块文档
 
 请确保该模块是支持CheeseAPI的，并且已经下载至本地仓库：
 
@@ -112,15 +112,15 @@ app.modules.extends([ 'Xxx.module1', 'Xxx.module2' ])
 app.run()
 ```
 
-最终导入的插件模块都将在启动时的信息中展示。
+最终导入的插件模块都将在启动时的信息中展示
 
 ## **`app.localModules: List[str] = [...]`**
 
-【只读】 前提：所有本地模块未使用代码导入。
+【只读】 前提：所有本地模块未使用代码导入
 
-本地模块都是基于`app.workspace.base`路径的文件夹。
+本地模块都是基于`app.workspace.base`路径的文件夹
 
-默认所有本地模块都会加载，不能确保模块的加载顺序。
+默认所有本地模块都会加载，不能确保模块的加载顺序
 
 若自定义加载的本地模块，可以强制规定加载顺序，并忽略其他未加入的模块：
 
@@ -142,17 +142,17 @@ app.localModules.extends([ 'Module1' ])
 app.run()
 ```
 
-最终导入的本地模块都将在启动时的信息中展示。
+最终导入的本地模块都将在启动时的信息中展示
 
 ## **`app.exclude_localModules: List[str] = []`**
 
-【只读】 前提：所有本地模块未使用代码导入。
+【只读】 前提：所有本地模块未使用代码导入
 
-忽略的本地模块；静态文件路径和日志路径会自动忽略，不需要额外添加。
+忽略的本地模块；静态文件路径和日志路径会自动忽略，不需要额外添加
 
-优先级最高，该列表中的模块名若存在于`app.localModules`中，则在加载过程中会忽略该模块。
+优先级最高，该列表中的模块名若存在于`app.localModules`中，则在加载过程中会忽略该模块
 
-多用于`app.localModules`为自动导入的时候，可对少数模块进行过滤。
+多用于`app.localModules`为自动导入的时候，可对少数模块进行过滤
 
 ```python
 from CheeseAPI import app
@@ -164,13 +164,13 @@ app.run()
 
 ## **`app.preferred_localModules: List[str] = []`**
 
-【只读】 前提：所有本地模块未使用代码导入。
+【只读】 前提：所有本地模块未使用代码导入
 
-优先加载的本地模块，按列表顺序加载。
+优先加载的本地模块，按列表顺序加载
 
-优先级低于`app.exclude_localModules`，其中的模块名仍优先忽略。
+优先级低于`app.exclude_localModules`，其中的模块名仍优先忽略
 
-未存在于`app.localModules`的模块仍然不会加载。
+未存在于`app.localModules`的模块仍然不会加载
 
 ```python
 from CheeseAPI import app

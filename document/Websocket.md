@@ -38,55 +38,55 @@ class MyWebsocket(WebsocketServer):
 
 ### **`self.open_timeout: float | None`**
 
-建立连接的超时时间。
+建立连接的超时时间
 
 ### **`self.ping_interval: float | None`**
 
-ping间隔时间。
+ping间隔时间
 
 ### **`self.ping_timeout: float | None`**
 
-ping的超时时间。
+ping的超时时间
 
 ### **`self.close_timeout: float | None`**
 
-关闭连接的超时时间。
+关闭连接的超时时间
 
 ### **`self.max_size: int | None`**
 
-消息的最大长度限制。
+消息的最大长度限制
 
 ### **`self.max_queue: int | None`**
 
-消息的最大等待个数。
+消息的最大等待个数
 
 ### **`self.read_limit: int`**
 
-每次读取的长度限制。
+每次读取的长度限制
 
 ### **`self.write_limit: int`**
 
-每次发送的长度限制。
+每次发送的长度限制
 
 ### **`async def subprotocol(self, *, request: Request, **kwargs) -> str | None`**
 
-选择子协议。
+选择子协议
 
 ### **`async def connection(self, *, request: Request, **kwargs)`**
 
-连接成功后。
+连接成功后
 
 ### **`async def message(self, *, request: Request, message: bytes | str, **kwargs)`**
 
-接收消息。
+接收消息
 
 ### **`async def disconnection(self, *, request: Request, **kwargs)`**
 
-断开连接后。
+断开连接后
 
 ### **`async def send(self, message: str | bytes)`**
 
-发送消息。
+发送消息
 
 ```python
 from CheeseAPI import WebsocketServer, app
@@ -99,7 +99,7 @@ class MyWebsocket(WebsocketServer):
 
 ### **`async def close(self, code: int = 1000, reason: str = '')`**
 
-主动关闭连接。
+主动关闭连接
 
 ```python
 from CheeseAPI import WebsocketServer, app

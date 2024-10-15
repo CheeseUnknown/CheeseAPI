@@ -22,7 +22,7 @@ class Workspace:
     @property
     def base(self) -> str:
         '''
-        工作区的基础路径，后续所有操作都将基于该工作区。
+        工作区的基础路径，后续所有操作都将基于该工作区
         '''
 
         return self._base
@@ -55,7 +55,7 @@ class Workspace:
     @property
     def static(self) -> str:
         '''
-        工作区中静态文件的存放路径；若`app.server.static and app.workspace.static`为`False`，则不开启静态资源功能。
+        工作区中静态文件的存放路径；若`app.server.static and app.workspace.static`为`False`，则不开启静态资源功能
         '''
 
         return self._static
@@ -67,7 +67,7 @@ class Workspace:
     @property
     def log(self) -> str:
         '''
-        工作区中日志文件的存放路径；若`app.workspace.log and app.workspace.logger`为`False`，则不输出日志文件。
+        工作区中日志文件的存放路径；若`app.workspace.log and app.workspace.logger`为`False`，则不输出日志文件
         '''
 
         return self._log
@@ -88,9 +88,9 @@ class Workspace:
     @logger.setter
     def logger(self, value: str | bool):
         '''
-        当前日志文件名；支持时间模板，会在服务器运行的时候自动转换；若`app.workspace.log and app.workspace.logger`为`False`，则不输出日志文件。
+        当前日志文件名；支持时间模板，会在服务器运行的时候自动转换；若`app.workspace.log and app.workspace.logger`为`False`，则不输出日志文件
 
-        设置为`True`，将转换为`'%Y_%m_%d.log'`格式的文件名。
+        设置为`True`，将转换为`'%Y_%m_%d.log'`格式的文件名
         '''
 
         if value is True:

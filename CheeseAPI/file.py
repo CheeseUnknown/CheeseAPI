@@ -5,7 +5,7 @@ class File:
     @overload
     def __init__(self, filePath: str):
         '''
-        通过文件路径进行读取；支持相对路径以及绝对路径。
+        通过文件路径进行读取；支持相对路径以及绝对路径
 
         >>> from CheeseAPI import File
         >>>
@@ -15,7 +15,7 @@ class File:
     @overload
     def __init__(self, name: str, data: bytes | str):
         '''
-        通过二进制数据或字符串创建文件。
+        通过二进制数据或字符串创建文件
 
         >>> from CheeseAPI import File
         >>>
@@ -43,7 +43,7 @@ class File:
 
     def save(self, filePath: str):
         '''
-        保存文件；支持相对路径以及绝对路径。
+        保存文件；支持相对路径以及绝对路径
         '''
 
         from CheeseAPI.app import app

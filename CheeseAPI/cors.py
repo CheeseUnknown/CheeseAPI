@@ -14,7 +14,7 @@ class Cors:
     @property
     def origin(self) -> Set[str] | Literal['*']:
         '''
-        允许访问的host地址，`'*'`代表允许所有。
+        允许访问的host地址，`'*'`代表允许所有
         '''
 
         return self._origin
@@ -26,7 +26,7 @@ class Cors:
     @property
     def exclude_origin(self) -> Set[str]:
         '''
-        【只读】 不允许访问的host地址；优先级高于`app.cors.origin`。
+        【只读】 不允许访问的host地址；优先级高于`app.cors.origin`
         '''
 
         return self._exclude_origin
@@ -34,7 +34,7 @@ class Cors:
     @property
     def methods(self) -> Set[http.HTTPMethod]:
         '''
-        允许访问的method。
+        允许访问的method
         '''
 
         return self._methods
@@ -46,7 +46,7 @@ class Cors:
     @property
     def exclude_methods(self) -> Set[http.HTTPMethod]:
         '''
-        不允许访问的method；优先级高于`app.cors.methods`。
+        不允许访问的method；优先级高于`app.cors.methods`
         '''
 
         return self._exclude_methods
@@ -58,7 +58,7 @@ class Cors:
     @property
     def headers(self) -> Set[str] | Literal['*']:
         '''
-        允许的header keys，`'*'`代表允许所有。
+        允许的header keys，`'*'`代表允许所有
         '''
 
         return self._headers

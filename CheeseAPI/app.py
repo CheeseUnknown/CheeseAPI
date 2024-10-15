@@ -68,7 +68,7 @@ class App:
     @property
     def server(self) -> Server:
         '''
-        【只读】 服务器运行时需要的配置。
+        【只读】 服务器运行时需要的配置
         '''
 
         return self._server
@@ -76,7 +76,7 @@ class App:
     @property
     def workspace(self) -> Workspace:
         '''
-        【只读】 工作目录相关配置。
+        【只读】 工作目录相关配置
         '''
 
         return self._workspace
@@ -84,7 +84,7 @@ class App:
     @property
     def signal(self) -> _Signal:
         '''
-        【只读】 插槽。
+        【只读】 插槽
         '''
 
         return self._signal
@@ -92,7 +92,7 @@ class App:
     @property
     def scheduler(self) -> Scheduler:
         '''
-        【只读】 任务调度者。
+        【只读】 任务调度者
         '''
 
         return self._scheduler
@@ -100,7 +100,7 @@ class App:
     @property
     def managers(self) -> Dict[str, Any]:
         '''
-        【只读】 多worker间的同步数据。
+        【只读】 多worker间的同步数据
 
         >>> from CheeseAPI import app
         >>>
@@ -123,7 +123,7 @@ class App:
     @property
     def g(self) -> Dict[str, Any]:
         '''
-        【只读】 在server启动时就固定的数据，不需要在server运行时修改。
+        【只读】 在server启动时就固定的数据，不需要在server运行时修改
 
         >>> from CheeseAPI import app
         >>>
@@ -133,7 +133,7 @@ class App:
 
         - `startTime: None | float = None`
 
-            在server启动时会自动赋值为`float`类型的时间戳。
+            在server启动时会自动赋值为`float`类型的时间戳
         '''
 
         return self._g
@@ -141,7 +141,7 @@ class App:
     @property
     def route(self) -> Route:
         '''
-        【只读】 无前缀的路由。
+        【只读】 无前缀的路由
         '''
 
         return self._route
@@ -149,7 +149,7 @@ class App:
     @property
     def routeBus(self) -> RouteBus:
         '''
-        【只读】 路由总线，管理所有的路由。
+        【只读】 路由总线，管理所有的路由
         '''
 
         return self._routeBus
@@ -157,7 +157,7 @@ class App:
     @property
     def cors(self) -> Cors:
         '''
-        【只读】 跨域管理。
+        【只读】 跨域管理
         '''
 
         return self._cors
@@ -165,7 +165,7 @@ class App:
     @property
     def modules(self) -> List[str]:
         '''
-        【只读】 加载的插件模块，这部分一般由第三方开发者开发，具体的使用方法最终应参考该模块文档。
+        【只读】 加载的插件模块，这部分一般由第三方开发者开发，具体的使用方法最终应参考该模块文档
 
         请确保该模块是支持CheeseAPI的，并且已经下载至本地仓库：
 
@@ -185,7 +185,7 @@ class App:
         >>>
         >>> app.run()
 
-        最终导入的插件模块都将在启动时的信息中展示。
+        最终导入的插件模块都将在启动时的信息中展示
         '''
 
         return self._modules
@@ -193,11 +193,11 @@ class App:
     @property
     def localModules(self) -> List[str]:
         '''
-        【只读】 前提：所有本地模块未使用代码导入。
+        【只读】 前提：所有本地模块未使用代码导入
 
-        本地模块都是基于`app.workspace.base`路径的文件夹。
+        本地模块都是基于`app.workspace.base`路径的文件夹
 
-        默认所有本地模块都会加载，不能确保模块的加载顺序。
+        默认所有本地模块都会加载，不能确保模块的加载顺序
 
         若自定义加载的本地模块，可以强制规定加载顺序，并忽略其他未加入的模块：
 
@@ -217,7 +217,7 @@ class App:
         >>>
         >>> app.run()
 
-        最终导入的本地模块都将在启动时的信息中展示。
+        最终导入的本地模块都将在启动时的信息中展示
         '''
 
         return self._localModules
@@ -225,13 +225,13 @@ class App:
     @property
     def exclude_localModules(self) -> List[str]:
         '''
-        【只读】 前提：所有本地模块未使用代码导入。
+        【只读】 前提：所有本地模块未使用代码导入
 
-        忽略的本地模块；静态文件路径和日志路径会自动忽略，不需要额外添加。
+        忽略的本地模块；静态文件路径和日志路径会自动忽略，不需要额外添加
 
-        优先级最高，该列表中的模块名若存在于`app.localModules`中，则在加载过程中会忽略该模块。
+        优先级最高，该列表中的模块名若存在于`app.localModules`中，则在加载过程中会忽略该模块
 
-        多用于`app.localModules`为自动导入的时候，可对少数模块进行过滤。
+        多用于`app.localModules`为自动导入的时候，可对少数模块进行过滤
 
         >>> from CheeseAPI import app
         >>>
@@ -245,13 +245,13 @@ class App:
     @property
     def preferred_localModules(self) -> List[str]:
         '''
-        【只读】 前提：所有本地模块未使用代码导入。
+        【只读】 前提：所有本地模块未使用代码导入
 
-        优先加载的本地模块，按列表顺序加载。
+        优先加载的本地模块，按列表顺序加载
 
-        优先级低于`app.exclude_localModules`，其中的模块名仍优先忽略。
+        优先级低于`app.exclude_localModules`，其中的模块名仍优先忽略
 
-        未存在于`app.localModules`的模块仍然不会加载。
+        未存在于`app.localModules`的模块仍然不会加载
 
         >>> from CheeseAPI import app
         >>>

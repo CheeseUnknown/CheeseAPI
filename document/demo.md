@@ -10,7 +10,7 @@ cd CheeseAPI
 python ./demo/<某个demo>/.py
 ```
 
-若工作区不在CheeseAPI目录，会有引用错误。
+若工作区不在CheeseAPI目录，会有引用错误
 
 ## **单个demo项目启动**
 

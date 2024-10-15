@@ -1,6 +1,6 @@
 # **Route**
 
-路由。通常来说，一个路由函数对应一个路由，一对多是不合理的。
+路由。通常来说，一个路由函数对应一个路由，一对多是不合理的
 
 ## **`class Route`**
 
@@ -143,8 +143,8 @@ route.get('/test', test)
 
 ## **`def websocket(self, path: str)`**
 
-该方式调用与http路由不同，具体请查看[Websocket](./Websocket.md)。
+该方式调用与http路由不同，具体请查看[Websocket](./Websocket.md)
 
 ## **`def websocket(self, path: str, fn: WebsocketServer)`**
 
-该方式调用与http路由不同，具体请查看[Websocket](./Websocket.md)。
+该方式调用与http路由不同，具体请查看[Websocket](./Websocket.md)

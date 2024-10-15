@@ -4,15 +4,15 @@
 
 一款协程友好的web框架，它具有以下功能：
 
-1. 插件支持，更可塑的事件处理以及个性化设置。
+1. 插件支持，更可塑的事件处理以及个性化设置
 
-2. 以模块为主的项目结构，以及灵活的模块导入方式。
+2. 以模块为主的项目结构，以及灵活的模块导入方式
 
-3. Websocket支持。
+3. Websocket支持
 
 ## **安装**
 
-系统要求：Unix，例如Linux、Mac等；不支持Windows，若有需要请使用Windows的WSL运行程序。
+系统要求：Unix，例如Linux、Mac等；不支持Windows，若有需要请使用Windows的WSL运行程序
 
 ```
 pip install CheeseAPI
@@ -22,7 +22,7 @@ pip install CheeseAPI
 
 1. **[CheeseLog](https://github.com/CheeseUnknown/CheeseLog)**
 
-日志系统，CheeseAPI使用它进行日志的输出与记录。
+日志系统，CheeseAPI使用它进行日志的输出与记录
 
 ## **项目结构**
 
@@ -100,7 +100,7 @@ $ python app.py
 (STARTING) 2024-03-19 14:03:12.419363 > The server started on 0.0.0.0:5214
 ```
 
-出现`The process xxx started`日志时，代表其中某个worker已启动，此时已经可以进行网络请求访问；出现`The server started on 0.0.0.0:5214`日志时，代表服务器已完全启动。
+出现`The process xxx started`日志时，代表其中某个worker已启动，此时已经可以进行网络请求访问；出现`The server started on 0.0.0.0:5214`日志时，代表服务器已完全启动
 
 使用`ctrl + c`或`kill`命令杀死主进程，会输出结束日志，此时整个程序才算正式关闭：
 
@@ -150,4 +150,4 @@ $ python app.py
 
 ### 1. **[CheeseAPI_Websocket](https://github.com/CheeseUnknown/CheeseAPI_Websocket)**
 
-websocket的升级插件，支持了更多、更便捷的通讯方式。
+websocket的升级插件，支持了更多、更便捷的通讯方式

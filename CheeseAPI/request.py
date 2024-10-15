@@ -70,7 +70,7 @@ class Request:
     @property
     def url(self) -> str | None:
         '''
-        【只读】 请求的完整地址，例如：`'http://127.0.0.1:5214/test?key1=value1&key2=value2'`。
+        【只读】 请求的完整地址，例如：`'http://127.0.0.1:5214/test?key1=value1&key2=value2'`
         '''
 
         if not self.scheme or not self.origin:
@@ -80,7 +80,7 @@ class Request:
     @property
     def fullPath(self) -> str:
         '''
-        【只读】 完整路由，例如：`'/test?key1=value1&key2=value2'`。
+        【只读】 完整路由，例如：`'/test?key1=value1&key2=value2'`
         '''
 
         return self._fullPath
@@ -88,7 +88,7 @@ class Request:
     @property
     def path(self) -> str:
         '''
-        【只读】 不带参数的路由，例如：`'/test'`。
+        【只读】 不带参数的路由，例如：`'/test'`
         '''
 
         return self._path
@@ -112,7 +112,7 @@ class Request:
     @property
     def origin(self) -> str | None:
         '''
-        【只读】 请求的原始url地址。
+        【只读】 请求的原始url地址
         '''
 
         return self._origin
@@ -120,7 +120,7 @@ class Request:
     @property
     def client(self) -> str | None:
         '''
-        【只读】 请求的客户端ip。
+        【只读】 请求的客户端ip
         '''
 
         return self._client
@@ -140,7 +140,7 @@ class Request:
     @property
     def subprotocols(self) -> List[str] | None:
         '''
-        【只读】 Websocket可选的子协议；在http或websocket未提供子协议的时候为`None`。
+        【只读】 Websocket可选的子协议；在http或websocket未提供子协议的时候为`None`
         '''
 
         return self._subprotocols
@@ -148,7 +148,7 @@ class Request:
     @property
     def subprotocol(self) -> str | None:
         '''
-        【只读】 Websocket选择的子协议；在http、websocket未提供子协议或选择子协议之前的时候为`None`。
+        【只读】 Websocket选择的子协议；在http、websocket未提供子协议或选择子协议之前的时候为`None`
         '''
 
         return self._subprotocol

@@ -338,7 +338,7 @@ contentTypes = {
 
 class BaseResponse:
     '''
-    其他Response的父类；平时使用它判断response是否是合法的，并不建议使用它创建response。
+    其他Response的父类；平时使用它判断response是否是合法的，并不建议使用它创建response
 
     >>> from CheeseAPI import app, BaseResponse
     >>>
@@ -447,7 +447,7 @@ class Response(BaseResponse):
 
 class JsonResponse(BaseResponse):
     '''
-    可将`dict`或`list`自动转为可发送的格式。
+    可将`dict`或`list`自动转为可发送的格式
 
     >>> from CheeseAPI import app, JsonResponse
     >>>
@@ -469,20 +469,20 @@ class FileResponse(BaseResponse):
     def __init__(self, path: str, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1024 * 1024):
         '''
         - Args
-            - path: 文件路径；支持相对路径与绝对路径。
+            - path: 文件路径；支持相对路径与绝对路径
 
-            - downloaded: 文件是否下载；为`False`时优先预览，若无法预览则仍然下载。
+            - downloaded: 文件是否下载；为`False`时优先预览，若无法预览则仍然下载
 
-            - chunkSize: 发送文件的chunk大小。
+            - chunkSize: 发送文件的chunk大小
         '''
 
     @overload
     def __init__(self, data: File, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1024 * 1024):
         '''
         - Args
-            - downloaded: 文件是否下载；为`False`时优先预览，若无法预览则仍然下载。
+            - downloaded: 文件是否下载；为`False`时优先预览，若无法预览则仍然下载
 
-            - chunkSize: 发送文件的chunk大小。
+            - chunkSize: 发送文件的chunk大小
         '''
 
     def __init__(self, arg: str | File, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1024 * 1024):

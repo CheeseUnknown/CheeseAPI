@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "CheeseAPI"
 version = "1.6.15"
-description = "一款web协程框架。"
+description = "一款web协程框架"
 readme = "README.md"
 license-files = { paths = [ "LICENSE" ] }
 authors = [

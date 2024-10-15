@@ -45,16 +45,16 @@ class RouteBus:
 
     def addPattern(self, key: str, pattern: str, type: object | Callable, weight: int):
         '''
-        新增动态路由匹配条件。
+        新增动态路由匹配条件
 
         - Arg
-            - key: 在动态路由中的key。
+            - key: 在动态路由中的key
 
-            - pattern: 使用正则匹配动态路由的字符串。
+            - pattern: 使用正则匹配动态路由的字符串
 
-            - type: 若匹配成功，则会将字符串转为该类；请确保该类可以使用`Xxx(value: str)`进行转换，或是一个返回值为该类的函数。
+            - type: 若匹配成功，则会将字符串转为该类；请确保该类可以使用`Xxx(value: str)`进行转换，或是一个返回值为该类的函数
 
-            - weight: 匹配优先级的权重；更高的权重意味着优先级更高的匹配，若匹配成功则不会继续匹配。
+            - weight: 匹配优先级的权重；更高的权重意味着优先级更高的匹配，若匹配成功则不会继续匹配
         '''
 
         self.patterns.append({
@@ -130,7 +130,7 @@ class RouteBus:
     @property
     def patterns(self) -> List[Dict[str, Any]]:
         '''
-        【只读】 可匹配的动态路由参数。
+        【只读】 可匹配的动态路由参数
         '''
 
         return self._patterns

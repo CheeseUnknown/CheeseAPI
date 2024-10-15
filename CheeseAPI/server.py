@@ -30,7 +30,7 @@ class Server:
     @property
     def intervalTime(self) -> float:
         '''
-        服务器处理间隔时间，单位为秒；越小的处理间隔意味着服务器对于某些特定的响应会更快。
+        服务器处理间隔时间，单位为秒；越小的处理间隔意味着服务器对于某些特定的响应会更快
         '''
 
         return self._intervalTime
