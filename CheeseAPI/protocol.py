@@ -34,10 +34,11 @@ class HttpProtocol(asyncio.Protocol):
             self.transport.set_protocol(websocketProtocol)
 
     def on_url(self, url: bytes):
+        url = url.decode()
         try:
-            self.request = Request(http.HTTPMethod(self.parser.get_method().decode()), url.decode())
+            self.request = Request(http.HTTPMethod(self.parser.get_method().decode()), url)
         except ValueError:
-            self.request = Request(None, url.decode())
+            self.request = Request(None, url)
         self.response = None
         self.kwargs = {}
 

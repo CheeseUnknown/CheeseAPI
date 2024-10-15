@@ -11,6 +11,8 @@ from CheeseAPI.cors import Cors
 from CheeseAPI.schedule import Scheduler
 
 class App:
+    __slots__ = {'manager', '_server', '_workspace', '_signal', '_scheduler', '_managers', '_g', '_route', '_routeBus', '_cors', '_modules', '_localModules', '_exclude_localModules', '_preferred_localModules', '_text', '_handle'}
+
     def __init__(self):
         self.manager: multiprocessing.managers.SyncManager = multiprocessing.Manager()
 

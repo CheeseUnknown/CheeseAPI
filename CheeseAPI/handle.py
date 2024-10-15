@@ -37,8 +37,9 @@ class Handle:
         module_server_static = getattr(module, 'CheeseAPI_module_server_static', None)
 
         # 依赖
-        for dependency in module_dependencies:
-            self.loadModule(dependency)
+        if module_dependencies:
+            for dependency in module_dependencies:
+                self.loadModule(dependency)
 
         modulePath = os.path.dirname(inspect.getfile(module))
 
@@ -67,8 +68,7 @@ class Handle:
                 folderPath = os.path.join(modulePath, foldername)
                 if os.path.isdir(folderPath):
                     for filename in os.listdir(folderPath):
-                        filePath = os.path.join(folderPath, filename)
-                        if os.path.isfile(filePath) and filename.endswith('.py'):
+                        if os.path.isfile(os.path.join(folderPath, filename)) and filename.endswith('.py'):
                             __import__(f'{name}.{foldername}.{filename[:-3]}', fromlist = [''])
 
     def loadModules(self):
@@ -77,8 +77,7 @@ class Handle:
             print()
 
             for i in range(moduleNum):
-                message, styledMessage = self._app._text.loadingModule(i / moduleNum, self._app.modules[i])
-                logger.loading(message, styledMessage)
+                logger.loading(*self._app._text.loadingModule(i / moduleNum, self._app.modules[i]))
 
                 self.loadModule(self._app.modules[i])
 
@@ -117,8 +116,7 @@ class Handle:
     def server_start(self):
         try:
             self._app._handle.server_beforeStarting()
-            if self._app.signal.server_beforeStarting.receivers:
-                self._app.signal.server_beforeStarting.send()
+            self._app.signal.server_beforeStarting.send()
 
             try:
                 ipaddress.IPv4Address(self._app.server.host)
@@ -145,8 +143,7 @@ class Handle:
                 logger.ending(text[0], text[1])
 
             self.server_afterStopping()
-            if self._app.signal.server_afterStopping.receivers:
-                self._app.signal.server_afterStopping.send()
+            self._app.signal.server_afterStopping.send()
         except KeyboardInterrupt:
             ...
         except:
@@ -165,8 +162,7 @@ class Handle:
                 setproctitle.setproctitle(self._app._text.workerProcess_title)
 
             self.worker_beforeStarting()
-            if self._app.signal.worker_beforeStarting.receivers:
-                self._app.signal.worker_beforeStarting.send()
+            self._app.signal.worker_beforeStarting.send()
 
             asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
             asyncio.run(self.worker_run(sock, master))
@@ -178,8 +174,7 @@ class Handle:
                     logger.debug(text[0], text[1])
 
                 self.worker_afterStopping()
-                if self._app.signal.worker_afterStopping.receivers:
-                    self._app.signal.worker_afterStopping.send()
+                self._app.signal.worker_afterStopping.send()
         except:
             logger.error(f'''The process {os.getpid()} stopped
 {logger.encode(traceback.format_exc()[:-1])}''', f'''The process <blue>{os.getpid()}</blue> stopped
@@ -199,8 +194,7 @@ class Handle:
         loop.add_signal_handler(signal.SIGTERM, lambda server: server.close(), server)
 
         await self.worker_afterStarting()
-        if self._app.signal.worker_afterStarting.receivers:
-            await self._app.signal.worker_afterStarting.async_send()
+        await self._app.signal.worker_afterStarting.async_send()
 
         with self._app._managers_['lock']:
             self._app._managers_['server.workers'].value += 1
@@ -209,8 +203,7 @@ class Handle:
                     logger.starting(text[0], text[1])
 
                 await self.server_afterStarting()
-                if self._app.signal.server_afterStarting.receivers:
-                    await self._app.signal.server_afterStarting.async_send()
+                await self._app.signal.server_afterStarting.async_send()
 
         lastTimer = time.time()
         while server.is_serving():
@@ -218,12 +211,10 @@ class Handle:
 
             if master:
                 await self.server_running()
-                if self._app.signal.server_running.receivers:
-                    await self._app.signal.server_running.async_send()
+                await self._app.signal.server_running.async_send()
 
             await self.worker_running()
-            if self._app.signal.worker_running.receivers:
-                await self._app.signal.worker_running.async_send()
+            await self._app.signal.worker_running.async_send()
 
             gc.enable()
             timer = time.time()
@@ -233,12 +224,10 @@ class Handle:
         with self._app._managers_['lock']:
             if self._app._managers_['server.workers'].value == self._app.server.workers:
                 await self.server_beforeStopping()
-                if self._app.signal.server_beforeStopping.receivers:
-                    await self._app.signal.server_beforeStopping.async_send()
+                await self._app.signal.server_beforeStopping.async_send()
 
             await self.worker_beforeStopping()
-            if self._app.signal.worker_beforeStopping.receivers:
-                await self._app.signal.worker_beforeStopping.async_send()
+            await self._app.signal.worker_beforeStopping.async_send()
 
     async def worker_afterStarting(self):
         ...
@@ -247,22 +236,26 @@ class Handle:
         ...
 
     async def server_running(self):
-        schedulerTasks = self._app.scheduler.tasks
-        for key in list(self._app.scheduler._taskHandlers.keys()):
-            if key not in schedulerTasks or not self._app.scheduler._taskHandlers[key].is_alive():
+        taskKeys = set(self._app.scheduler.tasks)
+        taskHandleKeys = set(self._app.scheduler._taskHandlers)
+        for key in taskHandleKeys:
+            if key not in taskKeys or not self._app.scheduler._taskHandlers[key].is_alive():
                 del self._app.scheduler._taskHandlers[key]
                 del self._app.scheduler._queues[key]
                 self._app.scheduler.remove(key)
 
-        keys = list(self._app.scheduler._taskHandlers.keys())
-        taskKeys = [task.key for task in self._app.scheduler.tasks.values() if task.key not in keys]
+        taskKeys = [key for key in self._app.scheduler.tasks if key not in taskHandleKeys]
         if taskKeys:
-            self._app.scheduler._queues.update({
+            queues = {
                 key: (multiprocessing.Queue(), multiprocessing.Queue()) for key in taskKeys
-            })
-            self._app.scheduler._taskHandlers.update({
-                key: multiprocessing.Process(target = self._app.scheduler._processHandle, args = (key, self._app.scheduler._queues[key]), name = f'{setproctitle.getproctitle()}:SchedulerTask:{key}', daemon = True) for key in taskKeys
-            })
+            }
+            taskHandles = {
+                key: multiprocessing.Process(target = self._app.scheduler._processHandle, args = (key, queues[key]), name = f'{setproctitle.getproctitle()}:SchedulerTask:{key}', daemon = True) for key in taskKeys
+            }
+
+            self._app.scheduler._queues.update(queues)
+            self._app.scheduler._taskHandlers.update(taskHandles)
+
             for key in taskKeys:
                 self._app.scheduler._taskHandlers[key].start()
 
@@ -282,17 +275,15 @@ class Handle:
     async def http(self, protocol: 'HttpProtocol'):
         try:
             await self._app._handle.http_beforeRequest(self)
-            if self._app.signal.http_beforeRequest.receivers:
-                await self._app.signal.http_beforeRequest.async_send()
+            await self._app.signal.http_beforeRequest.async_send()
 
             await self.http_static(protocol)
             if isinstance(protocol.response, BaseResponse):
-                if self._app.signal.http_static.receivers:
-                    await self._app.signal.http_static.async_send(**{
-                        'request': protocol.request,
-                        'response': protocol.response,
-                        **protocol.kwargs
-                    })
+                await self._app.signal.http_static.async_send(**{
+                    'request': protocol.request,
+                    'response': protocol.response,
+                    **protocol.kwargs
+                })
                 await self.http_response(protocol)
                 return
 
@@ -300,57 +291,51 @@ class Handle:
                 fn, protocol.kwargs = self._app.routeBus._match(protocol.request.path, protocol.request.method)
             except Route_404_Exception as e:
                 await self.http_afterRequest(protocol)
-                if self._app.signal.http_afterRequest.receivers:
-                    await self._app.signal.http_afterRequest.async_send(**{
-                        'request': protocol.request,
-                        **protocol.kwargs
-                    })
+                await self._app.signal.http_afterRequest.async_send(**{
+                    'request': protocol.request,
+                    **protocol.kwargs
+                })
 
                 await self.http_404(protocol)
-                if self._app.signal.http_404.receivers:
-                    await self._app.signal.http_404.async_send(**{
-                        'request': protocol.request,
-                        'response': protocol.response,
-                        **protocol.kwargs
-                    })
+                await self._app.signal.http_404.async_send(**{
+                    'request': protocol.request,
+                    'response': protocol.response,
+                    **protocol.kwargs
+                })
                 await self.http_response(protocol)
                 return
             except Route_405_Exception as e:
                 await self.http_afterRequest(protocol)
-                if self._app.signal.http_afterRequest.receivers:
-                    await self._app.signal.http_afterRequest.async_send(**{
-                        'request': protocol.request,
-                        **protocol.kwargs
-                    })
+                await self._app.signal.http_afterRequest.async_send(**{
+                    'request': protocol.request,
+                    **protocol.kwargs
+                })
 
                 if protocol.request.method == http.HTTPMethod.OPTIONS:
                     protocol.response = Response(status = 200)
 
-                    if self._app.signal.http_options.receivers:
-                        await self._app.signal.http_options.async_send(**{
-                            'request': protocol.request,
-                            'response': protocol.response,
-                            **protocol.kwargs
-                        })
+                    await self._app.signal.http_options.async_send(**{
+                        'request': protocol.request,
+                        'response': protocol.response,
+                        **protocol.kwargs
+                    })
                     await self.http_response(protocol)
                     return
 
                 await self.http_405(protocol)
-                if self._app.signal.http_405.receivers:
-                    await self._app.signal.http_405.async_send(**{
-                        'request': protocol.request,
-                        'response': protocol.response,
-                        'e': e,
-                        **protocol.kwargs
-                    })
+                await self._app.signal.http_405.async_send(**{
+                    'request': protocol.request,
+                    'response': protocol.response,
+                    'e': e,
+                    **protocol.kwargs
+                })
                 await self.http_response(protocol)
                 return
 
             await self.http_afterRequest(protocol)
-            if self._app.signal.http_afterRequest.receivers:
-                await self._app.signal.http_afterRequest.async_send(**{
-                    'request': protocol.request,
-                    **protocol.kwargs
+            await self._app.signal.http_afterRequest.async_send(**{
+                'request': protocol.request,
+                **protocol.kwargs
             })
 
             protocol.response = await fn(**{
@@ -358,24 +343,22 @@ class Handle:
                 **protocol.kwargs
             })
 
-            if self._app.signal.http_custom.receivers:
-                await self._app.signal.http_custom.async_send(**{
-                    'request': protocol.request,
-                    'response': protocol.response,
-                    **protocol.kwargs
-                })
+            await self._app.signal.http_custom.async_send(**{
+                'request': protocol.request,
+                'response': protocol.response,
+                **protocol.kwargs
+            })
 
             await self.http_response(protocol)
         except Exception as e:
             try:
                 await self.http_500(protocol, e)
-                if self._app.signal.http_500.receivers:
-                    await self._app.signal.http_500.async_send(**{
-                        'request': protocol.request,
-                        'response': protocol.response,
-                        'e': e,
-                        **protocol.kwargs
-                    })
+                await self._app.signal.http_500.async_send(**{
+                    'request': protocol.request,
+                    'response': protocol.response,
+                    'e': e,
+                    **protocol.kwargs
+                })
                 await self.http_response(protocol)
             except Exception as e:
                 await self.http_500(protocol, e, True)
@@ -397,22 +380,20 @@ class Handle:
                     workspace_static = self._app.workspace._module_static[i - 1]
 
                 if server_static and workspace_static and protocol.request.path.startswith(server_static):
-                    for key in [ '', '.html', 'index.html', '/index.html' ]:
+                    for key in ['', '.html', 'index.html', '/index.html']:
                         try:
                             protocol.response = FileResponse(os.path.join(self._app.workspace.static, protocol.request.path[1:] + key))
 
                             await self.http_afterRequest(protocol)
-                            if self._app.signal.http_afterRequest.receivers:
-                                await self._app.signal.http_afterRequest.async_send(**{
-                                    'request': protocol.request,
-                                    **protocol.kwargs
-                                })
+                            await self._app.signal.http_afterRequest.async_send(**{
+                                'request': protocol.request,
+                                **protocol.kwargs
+                            })
 
-                            if self._app.signal.http_static.receivers:
-                                await self._app.signal.http_static.async_send(**{
-                                    'request': protocol.request,
-                                    **protocol.kwargs
-                                })
+                            await self._app.signal.http_static.async_send(**{
+                                'request': protocol.request,
+                                **protocol.kwargs
+                            })
 
                             break
                         except (FileNotFoundError, NotADirectoryError, IsADirectoryError):
@@ -440,12 +421,11 @@ class Handle:
 
         if not recycled:
             await self.http_beforeResponse(protocol)
-            if self._app.signal.http_beforeResponse.receivers:
-                await self._app.signal.http_beforeResponse.async_send(**{
-                    'request': protocol.request,
-                    'response': protocol.response,
-                    **protocol.kwargs
-                })
+            await self._app.signal.http_beforeResponse.async_send(**{
+                'request': protocol.request,
+                'response': protocol.response,
+                **protocol.kwargs
+            })
 
         if (
             (
@@ -484,12 +464,11 @@ class Handle:
 
         if not recycled:
             await self.http_afterResponse(protocol)
-            if self._app.signal.http_afterResponse.receivers:
-                await self._app.signal.http_afterResponse.async_send(**{
-                    'request': protocol.request,
-                    'response': protocol.response,
-                    **protocol.kwargs
-                })
+            await self._app.signal.http_afterResponse.async_send(**{
+                'request': protocol.request,
+                'response': protocol.response,
+                **protocol.kwargs
+            })
 
     async def noResponse(self, protocol: 'HttpProtocol') -> BaseResponse:
         protocol.response = Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -508,45 +487,40 @@ class Handle:
                 protocol.kwargs.update(kwargs)
             except Route_404_Exception as e:
                 await self.websocket_afterRequest(protocol)
-                if self._app.signal.websocket_afterRequest.receivers:
-                    await self._app.signal.websocket_afterRequest.async_send(**{
-                        'request': protocol.request,
-                        **protocol.kwargs
-                    })
+                await self._app.signal.websocket_afterRequest.async_send(**{
+                    'request': protocol.request,
+                    **protocol.kwargs
+                })
 
                 await self.websocket_404(protocol)
-                if self._app.signal.websocket_404.receivers:
-                    await self._app.signal.websocket_404.async_send(**{
-                        'request': protocol.request,
-                        'response': protocol.response,
-                        **protocol.kwargs
-                    })
+                await self._app.signal.websocket_404.async_send(**{
+                    'request': protocol.request,
+                    'response': protocol.response,
+                    **protocol.kwargs
+                })
                 return await self.websocket_response(protocol)
             except Route_405_Exception as e:
                 await self.websocket_afterRequest(protocol)
-                if self._app.signal.websocket_afterRequest.receivers:
-                    await self._app.signal.websocket_afterRequest.async_send(**{
-                        'request': protocol.request,
-                        **protocol.kwargs
-                    })
+                await self._app.signal.websocket_afterRequest.async_send(**{
+                    'request': protocol.request,
+                    **protocol.kwargs
+                })
 
                 await self.websocket_405(protocol)
-                if self._app.signal.websocket_405.receivers:
-                    await self._app.signal.websocket_405.async_send(**{
-                        'request': protocol.request,
-                        'response': protocol.response,
-                        **protocol.kwargs
-                    })
+                await self._app.signal.websocket_405.async_send(**{
+                    'request': protocol.request,
+                    'response': protocol.response,
+                    **protocol.kwargs
+                })
                 return await self.websocket_response(protocol)
 
             protocol.server = Server()
 
             await self.websocket_afterRequest(protocol)
-            if self._app.signal.websocket_afterRequest.receivers:
-                await self._app.signal.websocket_afterRequest.async_send(**{
-                    'request': protocol.request,
-                    **protocol.kwargs
-                })
+            await self._app.signal.websocket_afterRequest.async_send(**{
+                'request': protocol.request,
+                **protocol.kwargs
+            })
 
             await self.websocket_subprotocol(protocol)
 
@@ -554,13 +528,12 @@ class Handle:
         except BaseException as e:
             try:
                 await self.websocket_500(protocol, e)
-                if self._app.signal.websocket_500.receivers:
-                    await self._app.signal.websocket_500.async_send(**{
-                        'request': protocol.request,
-                        'response': protocol.response,
-                        'e': e,
-                        **protocol.kwargs
-                    })
+                await self._app.signal.websocket_500.async_send(**{
+                    'request': protocol.request,
+                    'response': protocol.response,
+                    'e': e,
+                    **protocol.kwargs
+                })
                 await self.websocket_response(protocol)
             except BaseException as e:
                 await self.websocket_500(protocol, e, True)
@@ -592,12 +565,11 @@ class Handle:
 
         if not recycled:
             await self.websocket_beforeResponse(protocol)
-            if self._app.signal.websocket_beforeResponse.receivers:
-                await self._app.signal.websocket_beforeResponse.async_send(**{
-                    'request': protocol.request,
-                    'response': protocol.response,
-                    **protocol.kwargs
-                })
+            await self._app.signal.websocket_beforeResponse.async_send(**{
+                'request': protocol.request,
+                'response': protocol.response,
+                **protocol.kwargs
+            })
 
         results = int(protocol.response.status), protocol.response.headers, protocol.response.body.encode()
 
@@ -606,12 +578,11 @@ class Handle:
                 logger.websocket(text[0], text[1])
 
             await self.websocket_afterResponse(protocol)
-            if self._app.signal.websocket_afterResponse.receivers:
-                await self._app.signal.websocket_afterResponse.async_send(**{
-                    'request': protocol.request,
-                    'response': protocol.response,
-                    **protocol.kwargs
-                })
+            await self._app.signal.websocket_afterResponse.async_send(**{
+                'request': protocol.request,
+                'response': protocol.response,
+                **protocol.kwargs
+            })
 
         return results
 
@@ -628,11 +599,10 @@ class Handle:
         protocol.request._subprotocols = protocol.request.headers.get('Sec-Websocket-Protocol', '').split(', ')
 
         await self.websocket_beforeSubprotocol(protocol)
-        if self._app.signal.websocket_beforeSubprotocol.receivers:
-            await self._app.signal.websocket_beforeSubprotocol.async_send(**{
-                'request': protocol.request,
-                **protocol.kwargs
-            })
+        await self._app.signal.websocket_beforeSubprotocol.async_send(**{
+            'request': protocol.request,
+            **protocol.kwargs
+        })
 
         protocol.request._subprotocol = await protocol.server.subprotocol(**{
             'request': protocol.request,
@@ -643,12 +613,11 @@ class Handle:
             del protocol.response.headers['Transfer-Encoding']
 
         await self.websocket_afterSubprotocol(protocol)
-        if self._app.signal.websocket_afterSubprotocol.receivers:
-            await self._app.signal.websocket_afterSubprotocol.async_send(**{
-                'request': protocol.request,
-                'response': protocol.response,
-                **protocol.kwargs
-            })
+        await self._app.signal.websocket_afterSubprotocol.async_send(**{
+            'request': protocol.request,
+            'response': protocol.response,
+            **protocol.kwargs
+        })
 
     async def websocket_beforeSubprotocol(self, protocol: 'WebsocketProtocol'):
         ...
@@ -659,11 +628,10 @@ class Handle:
     async def websocket(self, protocol: 'WebsocketProtocol'):
         try:
             await self.websocket_beforeConnection(protocol)
-            if self._app.signal.websocket_beforeConnection.receivers:
-                await self._app.signal.websocket_beforeConnection.async_send(**{
-                    'request': protocol.request,
-                    **protocol.kwargs
-                })
+            await self._app.signal.websocket_beforeConnection.async_send(**{
+                'request': protocol.request,
+                **protocol.kwargs
+            })
 
             await self.websocket_connection(protocol)
             await protocol.server.connection(**{
@@ -672,11 +640,10 @@ class Handle:
             })
 
             await self.websocket_afterConnection(protocol)
-            if self._app.signal.websocket_afterConnection.receivers:
-                await self._app.signal.websocket_afterConnection.async_send(**{
-                    'request': protocol.request,
-                    **protocol.kwargs
-                })
+            await self._app.signal.websocket_afterConnection.async_send(**{
+                'request': protocol.request,
+                **protocol.kwargs
+            })
 
             try:
                 while not protocol.transport.is_closing():
@@ -686,21 +653,19 @@ class Handle:
 
             await self.websocket_disconnection(protocol)
             await self.websocket_afterDisconnection()
-            if self._app.signal.websocket_afterDisconnection.receivers:
-                await self._app.signal.websocket_afterDisconnection.async_send(**{
-                    'request': protocol.request,
-                    **protocol.kwargs
-                })
+            await self._app.signal.websocket_afterDisconnection.async_send(**{
+                'request': protocol.request,
+                **protocol.kwargs
+            })
         except BaseException as e:
             try:
                 await self.websocket_500(protocol, e, False, True)
-                if self._app.signal.websocket_500.receivers:
-                    await self._app.signal.websocket_500.async_send(**{
-                        'request': protocol.request,
-                        'response': protocol.response,
-                        'e': e,
-                        **protocol.kwargs
-                    })
+                await self._app.signal.websocket_500.async_send(**{
+                    'request': protocol.request,
+                    'response': protocol.response,
+                    'e': e,
+                    **protocol.kwargs
+                })
             except BaseException as e:
                 await self.websocket_500(protocol, e, True, True)
 
@@ -722,12 +687,11 @@ class Handle:
             message = await asyncio.wait_for(protocol.recv(), timeout = self._app.server.intervalTime)
 
             await self.websocket_beforeMessage(protocol, message)
-            if self._app.signal.websocket_beforeMessage.receivers:
-                await self._app.signal.websocket_beforeMessage.async_send(**{
-                    'request': protocol.request,
-                    'message': message,
-                    **protocol.kwargs
-                })
+            await self._app.signal.websocket_beforeMessage.async_send(**{
+                'request': protocol.request,
+                'message': message,
+                **protocol.kwargs
+            })
 
             await protocol.server.message(**{
                 'request': protocol.request,
@@ -736,12 +700,11 @@ class Handle:
             })
 
             await self.websocket_afterMessage(protocol, message)
-            if self._app.signal.websocket_afterMessage.receivers:
-                await self._app.signal.websocket_afterMessage.async_send({
-                    'request': protocol.request,
-                    'message': message,
-                    **protocol.kwargs
-                })
+            await self._app.signal.websocket_afterMessage.async_send({
+                'request': protocol.request,
+                'message': message,
+                **protocol.kwargs
+            })
         except (websockets.exceptions.ConnectionClosed, websockets.exceptions.ConnectionClosedError, websockets.exceptions.ConnectionClosedOK, asyncio.TimeoutError):
             ...
 
@@ -753,22 +716,20 @@ class Handle:
 
     async def websocket_send(self, protocol: 'WebsocketProtocol', message: str | bytes):
         await self.websocket_beforeSending(protocol, message)
-        if self._app.signal.websocket_beforeSending.receivers:
-            await self._app.signal.websocket_beforeSending.async_send(**{
-                'request': protocol.request,
-                'message': message,
-                **protocol.kwargs
-            })
+        await self._app.signal.websocket_beforeSending.async_send(**{
+            'request': protocol.request,
+            'message': message,
+            **protocol.kwargs
+        })
 
         await protocol.send(message)
 
         await self.websocket_afterSending(protocol, message)
-        if self._app.signal.websocket_afterSending.receivers:
-            await self._app.signal.websocket_afterSending.async_send(**{
-                'request': protocol.request,
-                'message': message,
-                **protocol.kwargs
-            })
+        await self._app.signal.websocket_afterSending.async_send(**{
+            'request': protocol.request,
+            'message': message,
+            **protocol.kwargs
+        })
 
     async def websocket_beforeSending(self, protocol: 'WebsocketProtocol', message: str | bytes):
         ...
@@ -778,24 +739,22 @@ class Handle:
 
     async def websocket_close(self, protocol: 'WebsocketProtocol', code: int, reason: str):
         await self.websocket_beforeClosing(protocol, code, reason)
-        if self._app.signal.websocket_beforeClosing.receivers:
-            await self._app.signal.websocket_beforeClosing.async_send(**{
-                'request': protocol.request,
-                'code': code,
-                'reason': reason,
-                **protocol.kwargs
-            })
+        await self._app.signal.websocket_beforeClosing.async_send(**{
+            'request': protocol.request,
+            'code': code,
+            'reason': reason,
+            **protocol.kwargs
+        })
 
         await protocol.close(code, reason)
 
         await self.websocket_afterClosing(protocol, code, reason)
-        if self._app.signal.websocket_afterSending.receivers:
-            await self._app.signal.websocket_afterSending.async_send(**{
-                'request': protocol.request,
-                'code': code,
-                'reason': reason,
-                **protocol.kwargs
-            })
+        await self._app.signal.websocket_afterSending.async_send(**{
+            'request': protocol.request,
+            'code': code,
+            'reason': reason,
+            **protocol.kwargs
+        })
 
     async def websocket_beforeClosing(self, protocol: 'WebsocketProtocol', code: int, reason: str):
         ...

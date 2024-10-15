@@ -2,6 +2,8 @@ import http
 from typing import Set, Literal
 
 class Cors:
+    __slots__ = {'_origin', '_exclude_origin', '_methods', '_exclude_methods', '_headers'}
+
     def __init__(self):
         self._origin: Set[str] | Literal['*'] = '*'
         self._exclude_origin: Set[str] = set()

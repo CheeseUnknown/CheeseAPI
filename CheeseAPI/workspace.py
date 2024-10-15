@@ -100,7 +100,4 @@ class Workspace:
         else:
             self._logger = value
 
-        if self.log and self.logger:
-            logger.filePath = os.path.join(self.base, self.log, self.logger)
-        else:
-            logger.filePath = ''
+        logger.filePath = os.path.join(self.base, self.log, self.logger) if self.log and self.logger else ''

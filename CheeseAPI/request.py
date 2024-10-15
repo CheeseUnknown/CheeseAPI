@@ -75,7 +75,7 @@ class Request:
 
         if not self.scheme or not self.origin:
             return None
-        return self.scheme + '://' + self.origin + self.fullPath
+        return f'{self.scheme}://{self.origin}{self.fullPath}'
 
     @property
     def fullPath(self) -> str:

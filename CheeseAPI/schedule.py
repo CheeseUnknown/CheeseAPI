@@ -1,4 +1,4 @@
-import uuid, datetime, multiprocessing, time, queue, gc, os, signal
+import uuid, datetime, multiprocessing, time, queue, gc
 from typing import TYPE_CHECKING, Callable, Dict, overload, Any, Tuple
 
 import dill, setproctitle
@@ -274,7 +274,7 @@ class Scheduler:
                 runTime = (datetime.datetime.now() - runTimer).total_seconds()
                 taskTime = task.timer.total_seconds()
                 if runTime > taskTime:
-                    logger.debug(f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: {taskTime:.6f}s\n  Actual run time:   {runTime:.6f}s')
+                    logger.debug(f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycle\n  Expected run time: {taskTime:.6f}s\n  Actual run time:   {runTime:.6f}s', f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycle\n  Expected run time: <blue>{taskTime:.6f}</blue> seconds\n  Actual run time:   <blue>{runTime:.6f}</blue> seconds')
 
                 lastRunTimer = runTimer
                 gc.enable()
@@ -285,18 +285,16 @@ class Scheduler:
     async def _beforeHandle(self, key: str, queue: queue.Queue):
         task = self._app.scheduler.get_task(key)
         await self._app._handle.scheduler_beforeRunning(task)
-        if self._app.signal.scheduler_beforeRunning.receivers:
-            await self._app.signal.scheduler_beforeRunning.async_send(**{
-                'task': task
-            })
+        await self._app.signal.scheduler_beforeRunning.async_send(**{
+            'task': task
+        })
         queue.put(None)
 
     async def _afterHandle(self, key: str):
         task = self._app.scheduler.get_task(key)
-        if self._app.signal.scheduler_afterRunning.receivers:
-            await self._app.signal.scheduler_afterRunning.async_send(**{
-                'task': task
-            })
+        await self._app.signal.scheduler_afterRunning.async_send(**{
+            'task': task
+        })
         await self._app._handle.scheduler_afterRunning(task)
 
     @overload

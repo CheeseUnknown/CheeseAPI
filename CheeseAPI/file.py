@@ -22,7 +22,7 @@ class File:
         >>> file = File('test.txt', '这里是CheeseAPI！')
         '''
 
-    def __init__(self, arg0: str, arg1: bytes | None = None):
+    def __init__(self, arg0: str, arg1: bytes | str | None = None):
         from CheeseAPI.app import app
 
         self.name: str
@@ -36,6 +36,11 @@ class File:
             with open(arg0 if arg0[0] == '/' else os.path.join(app.workspace.base, arg0), 'rb') as f:
                 self.data = f.read()
 
+            try:
+                self.data = self.data.decode()
+            except:
+                ...
+
     def save(self, filePath: str):
         '''
         保存文件；支持相对路径以及绝对路径。
@@ -43,5 +48,5 @@ class File:
 
         from CheeseAPI.app import app
 
-        with open(filePath if filePath[0] == '/' else os.path.join(app.workspace.base, filePath), 'w') as f:
+        with open(filePath if filePath[0] == '/' else os.path.join(app.workspace.base, filePath), 'w' if isinstance(self.data, str) else 'wb') as f:
             f.write(self.data)
