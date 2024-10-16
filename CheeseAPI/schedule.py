@@ -271,7 +271,9 @@ class Scheduler:
 
             triggeredTime = lastRunTime + taskTime
             if (task.timer == 'PER_FRAME' or triggeredTime - intervalTime / 2 < _time) and task.active:
-                queues[1].get()
+                if task.timer == 'PER_FRAME':
+                    queues[1].get()
+                    _time = time.time()
                 queues[0].put(False)
                 queues[1].get()
                 gc.disable()
@@ -288,18 +290,17 @@ class Scheduler:
                     'intervalTime': runTime - lastRunTime
                 })
 
-                queues[0].put(True)
-
                 self._app._managers_['schedules'][task.key] = {
                     **self._app._managers_['schedules'][task.key],
                     'total_repetition_num': task.total_repetition_num + 1,
                     'lastTimer': datetime.datetime.fromtimestamp(runTime),
                     'lastReturn': dill.dumps(result, recurse = True)
                 }
+                queues[0].put(True)
 
-                _runTime = time.time() - _time if task.timer == 'PER_FRAME' else runTime
-                # if _runTime > taskTime:
-                #     logger.debug(f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: {taskTime:.6f}s\n  Actual run time:   {_runTime:.6f}s', f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: <blue>{taskTime:.6f}</blue> seconds\n  Actual run time:   <blue>{_runTime:.6f}</blue> seconds')
+                _runTime = time.time() - (_time if task.timer == 'PER_FRAME' else runTime)
+                if _runTime > taskTime:
+                    logger.debug(f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: {taskTime:.6f}s\n  Actual run time:   {_runTime:.6f}s', f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: <blue>{taskTime:.6f}</blue> seconds\n  Actual run time:   <blue>{_runTime:.6f}</blue> seconds')
 
                 lastRunTime = runTime
                 gc.enable()

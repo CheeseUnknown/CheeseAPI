@@ -205,8 +205,8 @@ class Handle:
                 await self.server_afterStarting()
                 await self._app.signal.server_afterStarting.async_send()
 
-        lastTimer = time.time()
         while server.is_serving():
+            timer = time.time()
             gc.disable()
 
             if master:
@@ -217,9 +217,7 @@ class Handle:
             await self._app.signal.worker_running.async_send()
 
             gc.enable()
-            timer = time.time()
-            await asyncio.sleep(max(self._app.server.intervalTime - timer + lastTimer, 0))
-            lastTimer = max(timer, self._app.server.intervalTime + lastTimer)
+            await asyncio.sleep(max(self._app.server.intervalTime - time.time() + timer, 0))
 
         with self._app._managers_['lock']:
             if self._app._managers_['server.workers'].value == self._app.server.workers:
