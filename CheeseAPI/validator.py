@@ -16,11 +16,11 @@ class ValidateError(Exception):
 
 def validator(validator: BaseModel):
     '''
-    为路由函数添加校验装饰器
+    为路由函数添加校验装饰器。
 
-    校验参数以类的校验属性为key，从路径变量、args、form、cookie、headers按顺序尝试匹配，若全部匹配失败，则会默认为None
+    校验参数以类的校验属性为key，从路径变量、args、form、cookie、headers按顺序尝试匹配，若全部匹配失败，则会默认为None。
 
-    校验通过后，路由函数会收到一个`validator: BaseModel`已校验参数
+    校验通过后，路由函数会收到一个`validator: BaseModel`已校验参数。
 
     >>> from CheeseAPI import app, validator
     >>> from pydantic import BaseModel, EmailStr, PastDatetime
@@ -67,6 +67,12 @@ def validator(validator: BaseModel):
                     else:
                         if getattr(request, scope) and key in getattr(request, scope):
                             _kwargs[key] = getattr(request, scope)[key]
+
+                            if scope in ['form', 'args']:
+                                try:
+                                    _kwargs[key] = json.loads(_kwargs[key])
+                                except:
+                                    ...
 
             try:
                 _validator = validator(**_kwargs)
