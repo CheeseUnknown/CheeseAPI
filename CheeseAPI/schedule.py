@@ -33,7 +33,7 @@ class ScheduleTask:
     @property
     def timer(self) -> datetime.timedelta | Literal['PER_FRAME']:
         '''
-        任务触发的间隔时间，"PER_FRAME"代表该任务会在每一帧运行
+        任务触发的间隔时间
         '''
 
         return self._app._managers_['schedules'][self.key]['timer']
@@ -235,20 +235,23 @@ class Scheduler:
         queues = self._queues[key]
 
         if task.timer == 'PER_FRAME':
+            queues[1].put(None)
             while True:
                 if not queues[0].empty():
                     if queues[0].get_nowait():
                         await self._afterHandle(key)
                         break
                     else:
-                        await self._beforeHandle(key, queues[1])
+                        await self._beforeHandle(key)
+                        queues[1].put(None)
                 await asyncio.sleep(0)
         else:
             if not queues[0].empty():
                 if queues[0].get_nowait():
                     await self._afterHandle(key)
                 else:
-                    await self._beforeHandle(key, queues[1])
+                    await self._beforeHandle(key)
+                    queues[1].put(None)
 
     def _processHandle(self, key: str, queues: Tuple[queue.Queue, queue.Queue]):
         setproctitle.setproctitle(f'{setproctitle.getproctitle()}:SchedulerTask:{key}')
@@ -267,7 +270,8 @@ class Scheduler:
             _time = time.time()
 
             triggeredTime = lastRunTime + taskTime
-            if triggeredTime - intervalTime / 2 < _time and task.active:
+            if (task.timer == 'PER_FRAME' or triggeredTime - intervalTime / 2 < _time) and task.active:
+                queues[1].get()
                 queues[0].put(False)
                 queues[1].get()
                 gc.disable()
@@ -293,9 +297,9 @@ class Scheduler:
                     'lastReturn': dill.dumps(result, recurse = True)
                 }
 
-                _runTime = time.time() - runTime
-                if _runTime > taskTime:
-                    logger.debug(f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: {taskTime:.6f}s\n  Actual run time:   {_runTime:.6f}s', f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: <blue>{taskTime:.6f}</blue> seconds\n  Actual run time:   <blue>{_runTime:.6f}</blue> seconds')
+                _runTime = time.time() - _time if task.timer == 'PER_FRAME' else runTime
+                # if _runTime > taskTime:
+                #     logger.debug(f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: {taskTime:.6f}s\n  Actual run time:   {_runTime:.6f}s', f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: <blue>{taskTime:.6f}</blue> seconds\n  Actual run time:   <blue>{_runTime:.6f}</blue> seconds')
 
                 lastRunTime = runTime
                 gc.enable()
@@ -303,13 +307,12 @@ class Scheduler:
             time.sleep(max(intervalTime - _time + lastTime, 0))
             lastTime = _time
 
-    async def _beforeHandle(self, key: str, queue: queue.Queue):
+    async def _beforeHandle(self, key: str):
         task = self._app.scheduler.get_task(key)
         await self._app._handle.scheduler_beforeRunning(task)
         await self._app.signal.scheduler_beforeRunning.async_send(**{
             'task': task
         })
-        queue.put(None)
 
     async def _afterHandle(self, key: str):
         task = self._app.scheduler.get_task(key)

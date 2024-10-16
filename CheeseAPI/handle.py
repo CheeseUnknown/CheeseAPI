@@ -219,7 +219,7 @@ class Handle:
             gc.enable()
             timer = time.time()
             await asyncio.sleep(max(self._app.server.intervalTime - timer + lastTimer, 0))
-            lastTimer = timer
+            lastTimer = max(timer, self._app.server.intervalTime + lastTimer)
 
         with self._app._managers_['lock']:
             if self._app._managers_['server.workers'].value == self._app.server.workers:
