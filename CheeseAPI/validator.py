@@ -68,7 +68,7 @@ def validator(validator: BaseModel):
                         if getattr(request, scope) and key in getattr(request, scope):
                             _kwargs[key] = getattr(request, scope)[key]
 
-                            if scope in ['form', 'args']:
+                            if scope in ['form', 'args'] and _kwargs[key][0] in ['{', '['] and _kwargs[key][-1] in ['}', ']']:
                                 try:
                                     _kwargs[key] = json.loads(_kwargs[key])
                                 except:
