@@ -409,7 +409,7 @@ class BaseResponse:
 
             return value, self._transfering
 
-    def setCookie(self, key: str, value: str, *, path: str = '/', secure: bool = False, httpOnly: bool = False, domain: str = '', sameSite: Literal['Strict', 'Lax', 'None'] = 'Lax', expires: datetime.datetime | str | None = None, maxAge: datetime.timedelta | int | None = None):
+    def setCookie(self, key: str, value: str, *, path: str = '/', secure: bool = False, httpOnly: bool = False, domain: str = '', sameSite: Literal['Strict', 'Lax', 'None'] = 'Lax', expires: datetime | str | None = None, maxAge: timedelta | int | None = None):
         if 'Set-Cookies' not in self.headers:
             self.headers['Set-Cookies'] = {}
 
