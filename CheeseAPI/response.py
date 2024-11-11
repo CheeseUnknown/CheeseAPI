@@ -1,10 +1,16 @@
-import http, json, time, datetime
+from json import dumps
 from typing import Callable, Dict, AsyncIterator, Tuple, overload, Literal
 from email.utils import formatdate
+from http import HTTPStatus
+from time import time
+from datetime import datetime, timedelta
 
 from CheeseAPI.file import File
 
-contentTypes = {
+HTTPStatus_OK = HTTPStatus.OK
+HTTPStatus_FOUND = HTTPStatus.FOUND
+
+CONTENT_TYPES = {
     'tif': 'image/tiff',
     '001': 'application/x-001',
     '301': 'application/x-301',
@@ -349,10 +355,10 @@ class BaseResponse:
     ...         ...
     '''
 
-    def __init__(self, body: str | bytes | Callable | AsyncIterator | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
+    def __init__(self, body: str | bytes | Callable | AsyncIterator | None = None, status: HTTPStatus | int = HTTPStatus_OK, headers: Dict[str, str] = {}):
         from CheeseAPI.app import app
 
-        self.status: http.HTTPStatus = http.HTTPStatus(status)
+        self.status: HTTPStatus = HTTPStatus(status)
         self.headers: Dict[str, str] = {
             'Server': app._text.response_server,
             'Transfer-Encoding': 'chunked',
@@ -379,9 +385,9 @@ class BaseResponse:
             if isinstance(self.body, AsyncIterator):
                 self._transfering = True
 
-            self.headers['Data'] = formatdate(time.time(), usegmt = True)
+            self.headers['Data'] = formatdate(time(), usegmt = True)
 
-            value = f'HTTP/1.1 {self.status} {http.HTTPStatus(self.status).phrase}\r\n'
+            value = f'HTTP/1.1 {self.status} {HTTPStatus(self.status).phrase}\r\n'
             for key, _value in self.headers.items():
                 if key == 'Set-Cookies':
                     for _, __value in _value.items():
@@ -421,12 +427,12 @@ class BaseResponse:
         if expires:
             if isinstance(expires, str):
                 s += f' Expires={expires};'
-            elif isinstance(expires, datetime.datetime):
+            elif isinstance(expires, datetime):
                 s += f' Expires={expires.strftime("%a, %d-%b-%Y %H:%M:%S GMT")};'
         if maxAge:
             if isinstance(maxAge, int):
                 s += f' Max-Age={maxAge};'
-            elif isinstance(maxAge, datetime.timedelta):
+            elif isinstance(maxAge, timedelta):
                 s += f' Max-Age={maxAge.total_seconds()};'
         self.headers['Set-Cookies'][key] = s
 
@@ -439,7 +445,7 @@ class Response(BaseResponse):
     ...     return Response('这里是CheeseAPI！')
     '''
 
-    def __init__(self, body: str | bytes | Callable | AsyncIterator | None = None, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
+    def __init__(self, body: str | bytes | Callable | AsyncIterator | None = None, status: HTTPStatus | int = HTTPStatus_OK, headers: Dict[str, str] = {}):
         super().__init__(body, status, {
             'Content-Type': 'text/plain',
             **headers
@@ -458,15 +464,15 @@ class JsonResponse(BaseResponse):
     ...     })
     '''
 
-    def __init__(self, body: dict | list = {}, status: http.HTTPStatus | int = http.HTTPStatus.OK, headers: Dict[str, str] = {}):
-        super().__init__(json.dumps(body), status, {
+    def __init__(self, body: dict | list = {}, status: HTTPStatus | int = HTTPStatus_OK, headers: Dict[str, str] = {}):
+        super().__init__(dumps(body), status, {
             'Content-Type': 'application/json',
             **headers
         })
 
 class FileResponse(BaseResponse):
     @overload
-    def __init__(self, path: str, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1024 * 1024):
+    def __init__(self, path: str, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1048576):
         '''
         - Args
             - path: 文件路径；支持相对路径与绝对路径
@@ -477,7 +483,7 @@ class FileResponse(BaseResponse):
         '''
 
     @overload
-    def __init__(self, data: File, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1024 * 1024):
+    def __init__(self, data: File, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1048576):
         '''
         - Args
             - downloaded: 文件是否下载；为`False`时优先预览，若无法预览则仍然下载
@@ -485,18 +491,18 @@ class FileResponse(BaseResponse):
             - chunkSize: 发送文件的chunk大小
         '''
 
-    def __init__(self, arg: str | File, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1024 * 1024):
+    def __init__(self, arg: str | File, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1048576):
         self.file: File = File(arg) if isinstance(arg, str) else arg
         self.downloaded: bool = downloaded
         self.chunkSize: int = chunkSize
 
         suffix = self.file.name.split('.')[-1]
-        if downloaded or suffix not in contentTypes:
+        if downloaded or suffix not in CONTENT_TYPES:
             headers['Content-Type'] = 'application/octet-stream'
         else:
-            headers['Content-Type'] = contentTypes[suffix]
+            headers['Content-Type'] = CONTENT_TYPES[suffix]
 
-        super().__init__(self._chunk(), http.HTTPStatus.OK, headers = headers)
+        super().__init__(self._chunk(), HTTPStatus_OK, headers = headers)
 
     async def _chunk(self):
         length = len(self.file.data)
@@ -508,7 +514,7 @@ class FileResponse(BaseResponse):
             index = endIndex
 
 class RedirectResponse(BaseResponse):
-    def __init__(self, location: str, status: http.HTTPStatus | int = http.HTTPStatus.FOUND, body: str | bytes | None = None, headers: Dict[str, str] = {}):
+    def __init__(self, location: str, status: HTTPStatus | int = HTTPStatus_FOUND, body: str | bytes | None = None, headers: Dict[str, str] = {}):
         super().__init__(body, status, {
             'Content-Type': 'text/plain',
             'Location': location,

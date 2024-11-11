@@ -1,8 +1,9 @@
-import http
 from typing import TYPE_CHECKING, Dict, Any, Tuple
+from http import HTTPMethod
+from asyncio import get_event_loop, Protocol, Transport
 
-import asyncio, httptools
 from websockets.server import WebSocketServerProtocol
+from httptools import HttpRequestParser, HttpParserUpgrade
 
 from CheeseAPI.request import Request
 from CheeseAPI.app import app
@@ -11,21 +12,21 @@ if TYPE_CHECKING:
     from CheeseAPI.response import BaseResponse
     from CheeseAPI.websocket import WebsocketServer
 
-class HttpProtocol(asyncio.Protocol):
+class HttpProtocol(Protocol):
     def __init__(self):
-        self.transport: asyncio.Transport | None = None
-        self.parser = httptools.HttpRequestParser(self)
+        self.transport: Transport | None = None
+        self.parser = HttpRequestParser(self)
         self.request: Request | None = None
         self.response: 'BaseResponse' | None = None
         self.kwargs: Dict[str, Any] = {}
 
-    def connection_made(self, transport: asyncio.Transport):
+    def connection_made(self, transport: Transport):
         self.transport = transport
 
     def data_received(self, data: bytes) -> None:
         try:
             self.parser.feed_data(data)
-        except httptools.HttpParserUpgrade:
+        except HttpParserUpgrade:
             self.request._upgrade()
 
             websocketProtocol = WebsocketProtocol(self)
@@ -36,7 +37,7 @@ class HttpProtocol(asyncio.Protocol):
     def on_url(self, url: bytes):
         url = url.decode()
         try:
-            self.request = Request(http.HTTPMethod(self.parser.get_method().decode()), url)
+            self.request = Request(HTTPMethod(self.parser.get_method().decode()), url)
         except ValueError:
             self.request = Request(None, url)
         self.response = None
@@ -63,14 +64,14 @@ class HttpProtocol(asyncio.Protocol):
     def on_message_complete(self):
         if not self.parser.should_upgrade():
             self.request._parseBody()
-            asyncio.get_event_loop().create_task(app._handle.http(self))
+            get_event_loop().create_task(app._handle.http(self))
 
     def connection_lost(self, exc: Exception | None):
         self.transport.close()
 
 class WebsocketProtocol(WebSocketServerProtocol):
     def __init__(self, httpProcotol: HttpProtocol):
-        self.transport: asyncio.Transport = httpProcotol.transport
+        self.transport: Transport = httpProcotol.transport
         self.server: 'WebsocketServer' | None = None
         self.request: Request = httpProcotol.request
         self.response: 'BaseResponse' | None = None

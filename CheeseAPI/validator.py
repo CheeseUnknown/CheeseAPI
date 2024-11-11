@@ -1,4 +1,4 @@
-import json
+from json import loads
 from typing import TYPE_CHECKING
 from functools import wraps
 
@@ -7,8 +7,12 @@ from pydantic import BaseModel, ValidationError
 from CheeseAPI.response import JsonResponse, Response
 
 if TYPE_CHECKING:
-    from CheeseAPI.request import Request
     from CheeseAPI.response import BaseResponse
+
+SCOPES = ('path', 'args', 'form', 'cookie', 'headers')
+SCOPES_JSON = ('form', 'args')
+JSON_PREFIX = ('{', '[')
+JSON_SUFFIX = ('}', ']')
 
 class ValidateError(Exception):
     def __init__(self, response: 'BaseResponse' = Response(status = 400)):
@@ -52,32 +56,30 @@ def validator(validator: BaseModel):
     def wrapper(fn):
         @wraps(fn)
         async def decorator(*args, **kwargs):
-            request: 'Request' = kwargs['request']
-
             _kwargs = {}
             for key in validator.model_fields.keys():
-                for scope in ['path', 'args', 'form', 'cookie', 'headers']:
+                for scope in SCOPES:
                     if scope == 'path':
                         if key in kwargs:
                             _kwargs[key] = kwargs[key]
                     elif scope == 'headers':
                         _key = key.replace('_', '-')
-                        if _key in request.headers:
-                            _kwargs[key] = getattr(request, scope)[_key]
+                        if _key in kwargs['request'].headers:
+                            _kwargs[key] = getattr(kwargs['request'], scope)[_key]
                     else:
-                        if getattr(request, scope) and key in getattr(request, scope):
-                            _kwargs[key] = getattr(request, scope)[key]
+                        if getattr(kwargs['request'], scope) and key in getattr(kwargs['request'], scope):
+                            _kwargs[key] = getattr(kwargs['request'], scope)[key]
 
-                            if scope in ['form', 'args'] and _kwargs[key][0] in ['{', '['] and _kwargs[key][-1] in ['}', ']']:
+                            if scope in SCOPES_JSON and _kwargs[key][0] in JSON_PREFIX and _kwargs[key][-1] in JSON_SUFFIX:
                                 try:
-                                    _kwargs[key] = json.loads(_kwargs[key])
+                                    _kwargs[key] = loads(_kwargs[key])
                                 except:
                                     ...
 
             try:
                 _validator = validator(**_kwargs)
             except ValidationError as e:
-                return JsonResponse(json.loads(e.json()), 400)
+                return JsonResponse(loads(e.json()), 400)
             except ValidateError as e:
                 return e.response
 

@@ -1,6 +1,7 @@
-import uuid, re, http
+import uuid, http
 from typing import Dict, Tuple, Callable, List, Any, Literal, overload, TYPE_CHECKING, Type
 from urllib.parse import unquote
+from re import match, fullmatch
 
 from CheeseAPI.exception import Route_404_Exception, Route_405_Exception
 
@@ -70,7 +71,7 @@ class RouteBus:
         node = self._node
 
         for part in path.split('/')[1:]:
-            if re.match(r'<\w+:\w+>', part):
+            if match(r'<\w+:\w+>', part):
                 part = part[1:-1].split(':')
                 _part = f'<:{part[1]}>'
                 if _part not in node.children:
@@ -102,7 +103,7 @@ class RouteBus:
         kwargs = {}
         _paths = results[0].split('/')
         for i in range(len(paths)):
-            if re.match(r'<.*?:.*?>', _paths[i + 1]):
+            if match(r'<.*?:.*?>', _paths[i + 1]):
                 p = _paths[i + 1][1:-1].split(':')
                 for pattern in self.patterns:
                     if pattern['key'] == p[1]:
@@ -117,7 +118,7 @@ class RouteBus:
                 results = self.__match(node.children[paths[0]], paths[1:], results)
             paths[0] = unquote(paths[0])
             for pattern in self.patterns:
-                if re.fullmatch(pattern['pattern'], paths[0]) and f'<:{pattern["key"]}>' in node.children:
+                if fullmatch(pattern['pattern'], paths[0]) and f'<:{pattern["key"]}>' in node.children:
                     results = self.__match(node.children[f'<:{pattern["key"]}>'], paths[1:], results)
                     break
 
@@ -140,22 +141,22 @@ class Route:
         self.prefix: str = prefix
 
     @overload
-    def __call__(self, path: str, methods: List[ http.HTTPMethod | str ]):
+    def __call__(self, path: str, methods: List[http.HTTPMethod | str]):
         ...
 
     @overload
-    def __call__(self, path: str, methods: List[ http.HTTPMethod | str ], fn: Callable):
+    def __call__(self, path: str, methods: List[http.HTTPMethod | str], fn: Callable):
         ...
 
-    def __call__(self, path: str, methods: List[ http.HTTPMethod | str ], fn: Callable | None = None):
+    def __call__(self, path: str, methods: List[http.HTTPMethod | str], fn: Callable | None = None):
         from CheeseAPI.app import app
 
         if fn:
-            app.routeBus._insert(self.prefix + path, fn, methods)
+            app.routeBus._insert(f'{self.prefix}{path}', fn, methods)
             return
 
         def wrapper(fn):
-            app.routeBus._insert(self.prefix + path, fn, methods)
+            app.routeBus._insert(f'{self.prefix}{path}', fn, methods)
             return fn
         return wrapper
 
@@ -171,11 +172,11 @@ class Route:
         from CheeseAPI.app import app
 
         if fn:
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.GET ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.GET])
             return
 
         def wrapper(fn):
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.GET ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.GET])
             return fn
         return wrapper
 
@@ -191,11 +192,11 @@ class Route:
         from CheeseAPI.app import app
 
         if fn:
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.POST ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.POST])
             return
 
         def wrapper(fn):
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.POST ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.POST])
             return fn
         return wrapper
 
@@ -211,11 +212,11 @@ class Route:
         from CheeseAPI.app import app
 
         if fn:
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.DELETE ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.DELETE])
             return
 
         def wrapper(fn):
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.DELETE ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.DELETE])
             return fn
         return wrapper
 
@@ -231,11 +232,11 @@ class Route:
         from CheeseAPI.app import app
 
         if fn:
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.PUT ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.PUT])
             return
 
         def wrapper(fn):
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.PUT ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.PUT])
             return fn
         return wrapper
 
@@ -251,11 +252,11 @@ class Route:
         from CheeseAPI.app import app
 
         if fn:
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.PATCH ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.PATCH])
             return
 
         def wrapper(fn):
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.PATCH ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.PATCH])
             return fn
         return wrapper
 
@@ -271,11 +272,11 @@ class Route:
         from CheeseAPI.app import app
 
         if fn:
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.TRACE ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.TRACE])
             return
 
         def wrapper(fn):
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.TRACE ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.TRACE])
             return fn
         return wrapper
 
@@ -291,11 +292,11 @@ class Route:
         from CheeseAPI.app import app
 
         if fn:
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.OPTIONS ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.OPTIONS])
             return
 
         def wrapper(fn):
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.OPTIONS ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.OPTIONS])
             return fn
         return wrapper
 
@@ -311,11 +312,11 @@ class Route:
         from CheeseAPI.app import app
 
         if fn:
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.HEAD ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.HEAD])
             return
 
         def wrapper(fn):
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.HEAD ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.HEAD])
             return fn
         return wrapper
 
@@ -331,11 +332,11 @@ class Route:
         from CheeseAPI.app import app
 
         if fn:
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.CONNECT ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.CONNECT])
             return
 
         def wrapper(fn):
-            app.routeBus._insert(self.prefix + path, fn, [ http.HTTPMethod.CONNECT ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.CONNECT])
             return fn
         return wrapper
 
@@ -351,10 +352,10 @@ class Route:
         from CheeseAPI.app import app
 
         if fn:
-            app.routeBus._insert(self.prefix + path, fn, [ 'WEBSOCKET' ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, ['WEBSOCKET'])
             return
 
         def wrapper(fn):
-            app.routeBus._insert(self.prefix + path, fn, [ 'WEBSOCKET' ])
+            app.routeBus._insert(f'{self.prefix}{path}', fn, ['WEBSOCKET'])
             return fn
         return wrapper

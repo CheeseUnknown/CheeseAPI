@@ -1,8 +1,21 @@
-import time, os, inspect, socket, multiprocessing, signal, http, ipaddress, traceback, gc
-from typing import TYPE_CHECKING, Dict, Tuple, List
+from http import HTTPMethod, HTTPStatus
+from typing import TYPE_CHECKING, Dict, Tuple
+from time import time
+from os.path import dirname, join, isfile, isdir
+from inspect import getfile
+from os import listdir, killpg, getpid
+from ipaddress import IPv4Address, AddressValueError
+from socket import socket, AF_INET, SOCK_STREAM, AF_INET6, SOL_SOCKET, SO_REUSEADDR
+from multiprocessing import allow_connection_pickling, Process, Queue
+from traceback import format_exc
+from signal import SIGKILL, SIGINT, SIGTERM
+from gc import disable, enable
+from asyncio import set_event_loop_policy, run, get_running_loop, sleep, CancelledError, wait_for, TimeoutError, gather
 
-import asyncio, uvloop, setproctitle, websockets
+import uvloop
 from CheeseLog import logger
+from setproctitle import setproctitle, getproctitle
+from websockets.exceptions import ConnectionClosed
 
 from CheeseAPI.response import BaseResponse, FileResponse, Response
 from CheeseAPI.exception import Route_404_Exception, Route_405_Exception
@@ -13,15 +26,34 @@ if TYPE_CHECKING:
     from CheeseAPI.protocol import HttpProtocol, WebsocketProtocol
     from CheeseAPI.schedule import ScheduleTask
 
+logger_starting = logger.starting
+FROMLIST = ['']
+logger_loading = logger.loading
+logger_loaded = logger.loaded
+logger_error = logger.error
+logger_encode = logger.encode
+logger_debug = logger.debug
+HTTP_METHOD_OPTIONS = HTTPMethod.OPTIONS
+HTTP_METHOD_GET = HTTPMethod.GET
+HTTP_STATUS_OK = HTTPStatus.OK
+HTTP_STATUS_NOT_FOUND = HTTPStatus.NOT_FOUND
+HTTP_STATUS_METHOD_NOT_ALLOWED = HTTPStatus.METHOD_NOT_ALLOWED
+HTTP_STATUS_INTERNAL_SERVER_ERROR = HTTPStatus.INTERNAL_SERVER_ERROR
+HTTP_STATUS_BAD_REQUEST = HTTPStatus.BAD_REQUEST
+STATIC_INDEX_FILE_NAMES = ('', '.html', 'index.html', '/index.html')
+STATIC_EXCEPTIONS = (FileNotFoundError, NotADirectoryError, IsADirectoryError)
+logger_danger = logger.danger
+WEBSOCKET_EXCEPTIONS = (ConnectionClosed, TimeoutError)
+
 class Handle:
     def __init__(self, app: 'App'):
         self._app: 'App' = app
 
     def server_beforeStarting(self):
-        self._app.g['startTime'] = time.time()
+        self._app.g['startTime'] = time()
 
         for text in self._app._text.server_information():
-            logger.starting(text[0], text[1])
+            logger_starting(text[0], text[1])
 
         self.loadModules()
         self.loadLocalModules()
@@ -41,21 +73,21 @@ class Handle:
             for dependency in module_dependencies:
                 self.loadModule(dependency)
 
-        modulePath = os.path.dirname(inspect.getfile(module))
+        modulePath = dirname(getfile(module))
 
         # 静态文件
         if module_workspace_static and module_server_static:
-            self._app.workspace._module_static.append(os.path.join(modulePath, module_workspace_static))
+            self._app.workspace._module_static.append(join(modulePath, module_workspace_static))
             self._app.server._module_static.append(module_server_static)
 
         # 单模块
         if module_type == 'single':
-            for filename in os.listdir(modulePath):
-                if os.path.isfile(os.path.join(modulePath, filename)) and filename.endswith('.py'):
-                    __import__(f'{name}.{filename[:-3]}', fromlist = [''])
+            for filename in listdir(modulePath):
+                if isfile(join(modulePath, filename)) and filename.endswith('.py'):
+                    __import__(f'{name}.{filename[:-3]}', fromlist = FROMLIST)
         # 多模块
         elif module_type == 'multiple':
-            foldernames = os.listdir(modulePath)
+            foldernames = listdir(modulePath)
             for foldername in module_preferredSubModules:
                 if foldername in foldernames:
                     foldernames.remove(foldername)
@@ -65,11 +97,11 @@ class Handle:
                 if foldername == '__pycache__':
                     continue
 
-                folderPath = os.path.join(modulePath, foldername)
-                if os.path.isdir(folderPath):
-                    for filename in os.listdir(folderPath):
-                        if os.path.isfile(os.path.join(folderPath, filename)) and filename.endswith('.py'):
-                            __import__(f'{name}.{foldername}.{filename[:-3]}', fromlist = [''])
+                folderPath = join(modulePath, foldername)
+                if isdir(folderPath):
+                    for filename in listdir(folderPath):
+                        if isfile(join(folderPath, filename)) and filename.endswith('.py'):
+                            __import__(f'{name}.{foldername}.{filename[:-3]}', fromlist = FROMLIST)
 
     def loadModules(self):
         moduleNum = len(self._app.modules)
@@ -77,18 +109,18 @@ class Handle:
             print()
 
             for i in range(moduleNum):
-                logger.loading(*self._app._text.loadingModule(i / moduleNum, self._app.modules[i]))
+                logger_loading(*self._app._text.loadingModule(i / moduleNum, self._app.modules[i]))
 
                 self.loadModule(self._app.modules[i])
 
             for text in self._app._text.loadedModules():
-                logger.loaded(text[0], text[1], refreshed = True)
+                logger_loaded(text[0], text[1], refreshed = True)
 
     def loadLocalModule(self, name: str):
-        modulePath = os.path.join(self._app.workspace.base, name)
-        for filename in os.listdir(modulePath):
-            if os.path.isfile(os.path.join(modulePath, filename)) and filename.endswith('.py'):
-                __import__(f'{name}.{filename[:-3]}', fromlist = [''])
+        modulePath = join(self._app.workspace.base, name)
+        for filename in listdir(modulePath):
+            if isfile(join(modulePath, filename)) and filename.endswith('.py'):
+                __import__(f'{name}.{filename[:-3]}', fromlist = FROMLIST)
 
     def loadLocalModules(self):
         foldernames = self._app.localModules.copy()
@@ -106,12 +138,12 @@ class Handle:
 
             for i in range(moduleNum):
                 message, styledMessage = self._app._text.loadingLocalModule(i / moduleNum, foldernames[i])
-                logger.loading(message, styledMessage)
+                logger_loading(message, styledMessage)
 
                 self.loadLocalModule(foldernames[i])
 
             for text in self._app._text.loadedLocalModules():
-                logger.loaded(text[0], text[1], refreshed = True)
+                logger_loaded(text[0], text[1], refreshed = True)
 
     def server_start(self):
         try:
@@ -119,17 +151,17 @@ class Handle:
             self._app.signal.server_beforeStarting.send()
 
             try:
-                ipaddress.IPv4Address(self._app.server.host)
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            except ipaddress.AddressValueError:
-                sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                IPv4Address(self._app.server.host)
+                sock = socket(AF_INET, SOCK_STREAM)
+            except AddressValueError:
+                sock = socket(AF_INET6, SOCK_STREAM)
+            sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
             sock.bind((self._app.server.host, self._app.server.port))
             sock.listen(self._app.server.backlog)
             sock.set_inheritable(True)
 
-            multiprocessing.allow_connection_pickling()
-            processes: List[multiprocessing.Process] = [multiprocessing.Process(target = self.worker_start, args = (sock,), name = self._app._text.workerProcess_title) for i in range(self._app.server.workers - 1)]
+            allow_connection_pickling()
+            processes: Tuple[Process] = tuple(Process(target = self.worker_start, args = (sock,), name = self._app._text.workerProcess_title) for i in range(self._app.server.workers - 1))
             for process in processes:
                 process.start()
 
@@ -147,38 +179,38 @@ class Handle:
         except KeyboardInterrupt:
             ...
         except:
-            logger.error(f'''
-{logger.encode(traceback.format_exc()[:-1])}''')
+            logger_error(f'''
+{logger_encode(format_exc()[:-1])}''')
         finally:
-            os.killpg(os.getpid(), signal.SIGKILL)
+            killpg(getpid(), SIGKILL)
 
     def worker_beforeStarting(self):
         for text in self._app._text.worker_starting():
-            logger.debug(text[0], text[1])
+            logger_debug(text[0], text[1])
 
     def worker_start(self, sock, master: bool = False):
         try:
             if not master:
-                setproctitle.setproctitle(self._app._text.workerProcess_title)
+                setproctitle(self._app._text.workerProcess_title)
 
             self.worker_beforeStarting()
             self._app.signal.worker_beforeStarting.send()
 
-            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-            asyncio.run(self.worker_run(sock, master))
+            set_event_loop_policy(uvloop.EventLoopPolicy())
+            run(self.worker_run(sock, master))
 
             with self._app._managers_['lock']:
                 self._app._managers_['server.workers'].value -= 1
 
                 for text in self._app._text.worker_stopping():
-                    logger.debug(text[0], text[1])
+                    logger_debug(text[0], text[1])
 
                 self.worker_afterStopping()
                 self._app.signal.worker_afterStopping.send()
         except:
-            logger.error(f'''The process {os.getpid()} stopped
-{logger.encode(traceback.format_exc()[:-1])}''', f'''The process <blue>{os.getpid()}</blue> stopped
-{logger.encode(traceback.format_exc()[:-1])}''')
+            logger_error(f'''The process {getpid()} stopped
+{logger_encode(format_exc()[:-1])}''', f'''The process <blue>{getpid()}</blue> stopped
+{logger_encode(format_exc()[:-1])}''')
 
     async def worker_run(self, sock, master: bool):
         from CheeseAPI.app import app
@@ -188,10 +220,10 @@ class Handle:
         app._managers = self._app.managers
         app._managers_ = self._app._managers_
 
-        loop = asyncio.get_running_loop()
+        loop = get_running_loop()
         server = await loop.create_server(HttpProtocol, sock = sock)
-        loop.add_signal_handler(signal.SIGINT, lambda server: server.close(), server)
-        loop.add_signal_handler(signal.SIGTERM, lambda server: server.close(), server)
+        loop.add_signal_handler(SIGINT, lambda server: server.close(), server)
+        loop.add_signal_handler(SIGTERM, lambda server: server.close(), server)
 
         await self.worker_afterStarting()
         await self._app.signal.worker_afterStarting.async_send()
@@ -200,14 +232,14 @@ class Handle:
             self._app._managers_['server.workers'].value += 1
             if self._app._managers_['server.workers'].value == self._app.server.workers:
                 for text in self._app._text.server_starting():
-                    logger.starting(text[0], text[1])
+                    logger_starting(text[0], text[1])
 
                 await self.server_afterStarting()
                 await self._app.signal.server_afterStarting.async_send()
 
         while server.is_serving():
-            timer = time.time()
-            gc.disable()
+            timer = time()
+            disable()
 
             if master:
                 await self.server_running()
@@ -216,8 +248,8 @@ class Handle:
             await self.worker_running()
             await self._app.signal.worker_running.async_send()
 
-            gc.enable()
-            await asyncio.sleep(max(self._app.server.intervalTime - time.time() + timer, 0))
+            enable()
+            await sleep(max(self._app.server.intervalTime - time() + timer, 0))
 
         with self._app._managers_['lock']:
             if self._app._managers_['server.workers'].value == self._app.server.workers:
@@ -234,8 +266,8 @@ class Handle:
         ...
 
     async def server_running(self):
-        taskKeys = set(self._app.scheduler.tasks)
-        taskHandleKeys = set(self._app.scheduler._taskHandlers)
+        taskKeys = tuple(self._app.scheduler.tasks)
+        taskHandleKeys = tuple(self._app.scheduler._taskHandlers)
         for key in taskHandleKeys:
             if key not in taskKeys or not self._app.scheduler._taskHandlers[key].is_alive():
                 del self._app.scheduler._taskHandlers[key]
@@ -245,10 +277,10 @@ class Handle:
         taskKeys = [key for key in self._app.scheduler.tasks if key not in taskHandleKeys]
         if taskKeys:
             queues = {
-                key: (multiprocessing.Queue(), multiprocessing.Queue()) for key in taskKeys
+                key: (Queue(), Queue()) for key in taskKeys
             }
             taskHandles = {
-                key: multiprocessing.Process(target = self._app.scheduler._processHandle, args = (key, queues[key]), name = f'{setproctitle.getproctitle()}:SchedulerTask:{key}', daemon = True) for key in taskKeys
+                key: Process(target = self._app.scheduler._processHandle, args = (key, queues[key]), name = f'{getproctitle()}:SchedulerTask:{key}', daemon = True) for key in taskKeys
             }
 
             self._app.scheduler._queues.update(queues)
@@ -259,7 +291,7 @@ class Handle:
 
         tasks = [self._app.scheduler._taskHandle(key) for key in self._app.scheduler._queues]
         if tasks:
-            await asyncio.gather(*tasks)
+            await gather(*tasks)
 
     async def worker_running(self):
         ...
@@ -309,7 +341,7 @@ class Handle:
                     **protocol.kwargs
                 })
 
-                if protocol.request.method == http.HTTPMethod.OPTIONS:
+                if protocol.request.method == HTTP_METHOD_OPTIONS:
                     protocol.response = Response(status = 200)
 
                     await self._app.signal.http_options.async_send(**{
@@ -363,7 +395,7 @@ class Handle:
                 await self.http_response(protocol, True)
 
     async def http_static(self, protocol: 'HttpProtocol'):
-        if protocol.request.method == http.HTTPMethod.GET:
+        if protocol.request.method == HTTP_METHOD_GET:
             for i in range(len(self._app.workspace._module_static) + 1):
                 if protocol.response:
                     break
@@ -378,9 +410,9 @@ class Handle:
                     workspace_static = self._app.workspace._module_static[i - 1]
 
                 if server_static and workspace_static and protocol.request.path.startswith(server_static):
-                    for key in ['', '.html', 'index.html', '/index.html']:
+                    for key in STATIC_INDEX_FILE_NAMES:
                         try:
-                            protocol.response = FileResponse(os.path.join(self._app.workspace.static, protocol.request.path[1:] + key))
+                            protocol.response = FileResponse(join(self._app.workspace.static, protocol.request.path[1:] + key))
 
                             await self.http_afterRequest(protocol)
                             await self._app.signal.http_afterRequest.async_send(**{
@@ -394,24 +426,24 @@ class Handle:
                             })
 
                             break
-                        except (FileNotFoundError, NotADirectoryError, IsADirectoryError):
+                        except STATIC_EXCEPTIONS:
                             ...
 
     async def http_options(self, protocol: 'HttpProtocol'):
-        protocol.response = Response(status = http.HTTPStatus.OK)
+        protocol.response = Response(status = HTTP_STATUS_OK)
 
     async def http_404(self, protocol: 'HttpProtocol'):
-        protocol.response = Response(status = http.HTTPStatus.NOT_FOUND)
+        protocol.response = Response(status = HTTP_STATUS_NOT_FOUND)
 
     async def http_405(self, protocol: 'HttpProtocol'):
-        protocol.response = Response(status = http.HTTPStatus.METHOD_NOT_ALLOWED)
+        protocol.response = Response(status = HTTP_STATUS_METHOD_NOT_ALLOWED)
 
     async def http_500(self, protocol: 'HttpProtocol', e: BaseException, recycled: bool = False):
-        protocol.response = Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
+        protocol.response = Response(status = HTTP_STATUS_INTERNAL_SERVER_ERROR)
 
         if not recycled:
             for text in self._app._text.http_500(protocol, e):
-                logger.danger(text[0], text[1])
+                logger_danger(text[0], text[1])
 
     async def http_response(self, protocol: 'HttpProtocol', recycled: bool = False):
         if not isinstance(protocol.response, BaseResponse):
@@ -469,7 +501,7 @@ class Handle:
             })
 
     async def noResponse(self, protocol: 'HttpProtocol') -> BaseResponse:
-        protocol.response = Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
+        protocol.response = Response(status = HTTP_STATUS_INTERNAL_SERVER_ERROR)
 
     async def http_beforeResponse(self, protocol: 'HttpProtocol') -> BaseResponse | None:
         ...
@@ -541,21 +573,21 @@ class Handle:
         ...
 
     async def websocket_404(self, protocol: 'WebsocketProtocol'):
-        protocol.response = Response(status = http.HTTPStatus.NOT_FOUND)
+        protocol.response = Response(status = HTTP_STATUS_NOT_FOUND)
         del protocol.response.headers['Transfer-Encoding']
 
     async def websocket_405(self, protocol: 'WebsocketProtocol'):
-        protocol.response = Response(status = http.HTTPStatus.METHOD_NOT_ALLOWED)
+        protocol.response = Response(status = HTTP_STATUS_METHOD_NOT_ALLOWED)
         del protocol.response.headers['Transfer-Encoding']
 
     async def websocket_500(self, protocol: 'WebsocketProtocol', e: BaseException, recycled: bool = False, connected: bool = False):
         if not connected:
-            protocol.response = Response(status = http.HTTPStatus.INTERNAL_SERVER_ERROR)
+            protocol.response = Response(status = HTTP_STATUS_INTERNAL_SERVER_ERROR)
             del protocol.response.headers['Transfer-Encoding']
 
         if not recycled:
             for text in self._app._text.websocket_500(protocol, e):
-                logger.danger(text[0], text[1])
+                logger_danger(text[0], text[1])
 
     async def websocket_response(self, protocol: 'WebsocketProtocol', recycled: bool = False) -> Tuple[int, Dict[str, str], bytes]:
         if not protocol.response or protocol.response.status == 200:
@@ -607,7 +639,7 @@ class Handle:
             **protocol.kwargs
         })
         if protocol.request.subprotocol not in protocol.request.subprotocols:
-            protocol.response = Response(status = http.HTTPStatus.BAD_REQUEST)
+            protocol.response = Response(status = HTTP_STATUS_BAD_REQUEST)
             del protocol.response.headers['Transfer-Encoding']
 
         await self.websocket_afterSubprotocol(protocol)
@@ -646,7 +678,7 @@ class Handle:
             try:
                 while not protocol.transport.is_closing():
                     await self._app._handle.websocket_message(protocol)
-            except asyncio.CancelledError:
+            except CancelledError:
                 ...
 
             await self.websocket_disconnection(protocol)
@@ -682,7 +714,7 @@ class Handle:
 
     async def websocket_message(self, protocol: 'WebsocketProtocol'):
         try:
-            message = await asyncio.wait_for(protocol.recv(), timeout = self._app.server.intervalTime)
+            message = await wait_for(protocol.recv(), timeout = self._app.server.intervalTime)
 
             await self.websocket_beforeMessage(protocol, message)
             await self._app.signal.websocket_beforeMessage.async_send(**{
@@ -703,7 +735,7 @@ class Handle:
                 'message': message,
                 **protocol.kwargs
             })
-        except (websockets.exceptions.ConnectionClosed, websockets.exceptions.ConnectionClosedError, websockets.exceptions.ConnectionClosedOK, asyncio.TimeoutError):
+        except WEBSOCKET_EXCEPTIONS:
             ...
 
     async def websocket_beforeMessage(self, protocol: 'WebsocketProtocol', message: str | bytes):

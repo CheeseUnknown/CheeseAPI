@@ -1,11 +1,15 @@
-import uuid, datetime, multiprocessing, time, queue, gc, asyncio
+import multiprocessing, queue
 from typing import TYPE_CHECKING, Callable, Dict, overload, Any, Tuple, Literal
+from datetime import datetime, timedelta
+from asyncio import sleep as asyncio_sleep
+from uuid import uuid4
 
-import dill, setproctitle
-from CheeseLog import logger
+from dill import loads, dumps
 
 if TYPE_CHECKING:
     from CheeseAPI.app import App
+
+datetime_now = datetime.now
 
 class ScheduleTask:
     def __init__(self, app: 'App', key: str):
@@ -31,7 +35,7 @@ class ScheduleTask:
         return self._key
 
     @property
-    def timer(self) -> datetime.timedelta | Literal['PER_FRAME']:
+    def timer(self) -> timedelta | Literal['PER_FRAME']:
         '''
         任务触发的间隔时间
         '''
@@ -39,7 +43,7 @@ class ScheduleTask:
         return self._app._managers_['schedules'][self.key]['timer']
 
     @timer.setter
-    def timer(self, value: datetime.timedelta | Literal['PER_FRAME']):
+    def timer(self, value: timedelta | Literal['PER_FRAME']):
         self._app._managers_['schedules'][self.key] = {
             **self._app._managers_['schedules'][self.key],
             'timer': value
@@ -47,18 +51,18 @@ class ScheduleTask:
 
     @property
     def fn(self) -> Callable:
-        return dill.loads(self._app._managers_['schedules'][self.key]['fn'])
+        return loads(self._app._managers_['schedules'][self.key]['fn'])
 
     @fn.setter
     def fn(self, value: Callable):
         self._app._managers_['schedules'][self.key] = {
             **self._app._managers_['schedules'][self.key],
-            'fn': dill.dumps(value, recurse = True),
+            'fn': dumps(value, recurse = True),
             'needUpdate': True
         }
 
     @property
-    def startTimer(self) -> datetime.datetime:
+    def startTimer(self) -> datetime:
         '''
         自定义的开始时间。若未设置，则为当前时间
         '''
@@ -66,7 +70,7 @@ class ScheduleTask:
         return self._app._managers_['schedules'][self.key]['startTimer']
 
     @startTimer.setter
-    def startTimer(self, value: datetime.datetime):
+    def startTimer(self, value: datetime):
         self._app._managers_['schedules'][self.key] = {
             **self._app._managers_['schedules'][self.key],
             'startTimer': value
@@ -160,8 +164,7 @@ class ScheduleTask:
         '''
 
         if self.endTimer:
-            return self.endTimer > datetime.datetime.now()
-        return None
+            return self.endTimer > datetime_now()
 
     @property
     def expired(self) -> bool | None:
@@ -170,11 +173,11 @@ class ScheduleTask:
         '''
 
         if self.unexpired is None:
-            return None
+            return
         return not self.unexpired
 
     @property
-    def lastTimer(self) -> datetime.datetime | None:
+    def lastTimer(self) -> datetime | None:
         '''
         【只读】 任务上一次的触发时间；`None`代表从未触发过
         '''
@@ -202,10 +205,10 @@ class ScheduleTask:
         【只读】 上一次的返回值
         '''
 
-        return dill.loads(self._app._managers_['schedules'][self.key]['lastReturn'])
+        return loads(self._app._managers_['schedules'][self.key]['lastReturn'])
 
     @property
-    def endTimer(self) -> datetime.datetime | None:
+    def endTimer(self) -> datetime | None:
         '''
         自定义的结束时间。若未设置，则为当前时间
 
@@ -215,7 +218,7 @@ class ScheduleTask:
         return self._app._managers_['schedules'][self.key]['endTimer']
 
     @endTimer.setter
-    def endTimer(self, value: datetime.datetime | None):
+    def endTimer(self, value: datetime | None):
         self._app._managers_['schedules'][self.key] = {
             **self._app._managers_['schedules'][self.key],
             'endTimer': value
@@ -244,7 +247,7 @@ class Scheduler:
                     else:
                         await self._beforeHandle(key)
                         queues[1].put(None)
-                await asyncio.sleep(0)
+                await asyncio_sleep(0)
         else:
             if not queues[0].empty():
                 if queues[0].get_nowait():
@@ -254,30 +257,41 @@ class Scheduler:
                     queues[1].put(None)
 
     def _processHandle(self, key: str, queues: Tuple[queue.Queue, queue.Queue]):
+        from gc import disable, enable
+        from time import time, sleep
+
+        import setproctitle
+        from CheeseLog import logger
+        from dill import dumps
+
+        logger_debug = logger.debug
+        logger_encode = logger.encode
+        datetime_fromtimestamp = datetime.fromtimestamp
+
         setproctitle.setproctitle(f'{setproctitle.getproctitle()}:SchedulerTask:{key}')
 
         task: ScheduleTask = self._app.scheduler.tasks[key]
         fn = task.fn
         intervalTime = task.intervalTime
         taskTime = self._app.server.intervalTime if task.timer == 'PER_FRAME' else task.timer.total_seconds()
-        lastTime = lastRunTime = triggeredTime = time.time()
+        lastTime = lastRunTime = triggeredTime = time()
 
         while True:
             task: ScheduleTask = self._app.scheduler.tasks.get(key)
             if not task or task.expired or task.remaining_repetition_num == 0 or task.inactive:
                 break
 
-            _time = time.time()
+            _time = time()
 
             triggeredTime = lastRunTime + taskTime
             if (task.timer == 'PER_FRAME' or triggeredTime - intervalTime / 2 < _time) and task.active:
                 if task.timer == 'PER_FRAME':
                     queues[1].get()
-                    _time = time.time()
+                    _time = time()
                 queues[0].put(False)
                 queues[1].get()
-                gc.disable()
-                runTime = time.time()
+                disable()
+                runTime = time()
 
                 if self._app._managers_['schedules'][task.key]['needUpdate']:
                     fn = task.fn
@@ -293,19 +307,19 @@ class Scheduler:
                 self._app._managers_['schedules'][task.key] = {
                     **self._app._managers_['schedules'][task.key],
                     'total_repetition_num': task.total_repetition_num + 1,
-                    'lastTimer': datetime.datetime.fromtimestamp(runTime),
-                    'lastReturn': dill.dumps(result, recurse = True)
+                    'lastTimer': datetime_fromtimestamp(runTime),
+                    'lastReturn': dumps(result, recurse = True)
                 }
                 queues[0].put(True)
 
-                _runTime = time.time() - (_time if task.timer == 'PER_FRAME' else runTime)
+                _runTime = time() - (_time if task.timer == 'PER_FRAME' else runTime)
                 if _runTime > taskTime:
-                    logger.debug(f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: {taskTime:.6f}s\n  Actual run time:   {_runTime:.6f}s', f'SchedulerTask: {logger.encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: <blue>{taskTime:.6f}</blue> seconds\n  Actual run time:   <blue>{_runTime:.6f}</blue> seconds')
+                    logger_debug(f'SchedulerTask: {logger_encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: {taskTime:.6f}s\n  Actual run time:   {_runTime:.6f}s', f'SchedulerTask: {logger_encode(task.key)}\nActual run time greater than expected run time. Recommendations for shorter task run time or longer running cycles\n  Expected run time: <blue>{taskTime:.6f}</blue> seconds\n  Actual run time:   <blue>{_runTime:.6f}</blue> seconds')
 
                 lastRunTime = runTime
-                gc.enable()
+                enable()
 
-            time.sleep(max(intervalTime - _time + lastTime, 0))
+            sleep(max(intervalTime - _time + lastTime, 0))
             lastTime = _time
 
     async def _beforeHandle(self, key: str):
@@ -323,7 +337,7 @@ class Scheduler:
         await self._app._handle.scheduler_afterRunning(task)
 
     @overload
-    def add(self, fn: Callable, *, timer: datetime.timedelta | Literal['PER_FRAME'] | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):
+    def add(self, fn: Callable, *, timer: timedelta | Literal['PER_FRAME'] | None = None, key: str | None = None, startTimer: datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime | None = None):
         '''
         通过函数添加一个任务；若需要获取任务或删除任务，请为其设置一个key
 
@@ -351,7 +365,7 @@ class Scheduler:
         '''
 
     @overload
-    def add(self, *, timer: datetime.timedelta | Literal['PER_FRAME'] | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):
+    def add(self, *, timer: timedelta | Literal['PER_FRAME'] | None = None, key: str | None = None, startTimer: datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime | None = None):
         '''
         通过装饰器添加一个任务；若需要获取任务或删除任务，请为其设置一个key
 
@@ -377,20 +391,20 @@ class Scheduler:
             - endTimer: 为该计划设定一个结束时间
         '''
 
-    def add(self, fn: Callable | None = None, *, timer: datetime.timedelta | Literal['PER_FRAME'] | None = None, key: str | None = None, startTimer: datetime.datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime.datetime | None = None):
+    def add(self, fn: Callable | None = None, *, timer: timedelta | Literal['PER_FRAME'] | None = None, key: str | None = None, startTimer: datetime | None = None, expected_repetition_num: int | None = None, auto_remove: bool = False, intervalTime: float | None = None, endTimer: datetime | None = None):
         if timer is None:
-            timer = datetime.timedelta(seconds = intervalTime or self._app.server.intervalTime)
+            timer = timedelta(seconds = intervalTime or self._app.server.intervalTime)
 
         if key is None:
-            key = str(uuid.uuid4())
+            key = str(uuid4())
 
         if startTimer is None:
-            startTimer = datetime.datetime.now()
+            startTimer = datetime_now()
 
         if fn:
             self._app._managers_['schedules'][key] = {
                 'timer': timer,
-                'fn': dill.dumps(fn, recurse = True),
+                'fn': dumps(fn, recurse = True),
                 'startTimer': startTimer,
                 'expected_repetition_num': expected_repetition_num,
                 'total_repetition_num': 0,
@@ -398,7 +412,7 @@ class Scheduler:
                 'active': True,
                 'lastTimer': None,
                 'intervalTime': intervalTime or (self._app.server.intervalTime if timer == 'PER_FRAME' else timer.total_seconds()) / 10,
-                'lastReturn': dill.dumps(None, recurse = True),
+                'lastReturn': dumps(None, recurse = True),
                 'needUpdate': False,
                 'endTimer': endTimer
             }
@@ -407,7 +421,7 @@ class Scheduler:
         def wrapper(fn):
             self._app._managers_['schedules'][key] = {
                 'timer': timer,
-                'fn': dill.dumps(fn, recurse = True),
+                'fn': dumps(fn, recurse = True),
                 'startTimer': startTimer,
                 'expected_repetition_num': expected_repetition_num,
                 'total_repetition_num': 0,
@@ -415,7 +429,7 @@ class Scheduler:
                 'active': True,
                 'lastTimer': None,
                 'intervalTime': intervalTime or (self._app.server.intervalTime if timer == 'PER_FRAME' else timer.total_seconds()) / 10,
-                'lastReturn': dill.dumps(None, recurse = True),
+                'lastReturn': dumps(None, recurse = True),
                 'needUpdate': False,
                 'endTimer': endTimer
             }

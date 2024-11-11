@@ -1,9 +1,11 @@
-import http, json, re
+import http
 from typing import Literal, Dict, List
 from urllib.parse import unquote
+from json import loads
+from re import findall
 
-import xmltodict
 from CheeseAPI.file import File
+from xmltodict import parse
 
 class Request:
     def __init__(self, method: http.HTTPMethod | None, url: str):
@@ -42,10 +44,10 @@ class Request:
 
         if 'application/json' in self.headers['Content-Type']:
             if self.body:
-                self._body = json.loads(self.body)
+                self._body = loads(self.body)
         elif 'application/xml' in self.headers['Content-Type']:
             if self.body:
-                self._body = xmltodict.parse(self.body)
+                self._body = parse(self.body)
         elif 'text/plain' in self.headers['Content-Type'] or 'text/html' in self.headers['Content-Type']:
             if self.body:
                 self._body = self.body.decode()
@@ -53,9 +55,9 @@ class Request:
             self._form = {}
             if self.body:
                 for t in self.body.split(f'--{self.headers["Content-Type"].split("boundary=")[1].split(";")[0]}'.encode())[1:-1]:
-                    key = re.findall(rb'name="(.*?)"', t)[0].decode()
+                    key = findall(rb'name="(.*?)"', t)[0].decode()
                     value = t.split(b'\r\n\r\n', 1)[1][:-2]
-                    filename = re.findall(rb'filename="(.*?)"', t)
+                    filename = findall(rb'filename="(.*?)"', t)
                     if len(filename):
                         self.form[key] = File(filename[0].decode(), value)
                     else:

@@ -1,4 +1,4 @@
-import os
+from os.path import join
 from typing import overload
 
 class File:
@@ -33,7 +33,7 @@ class File:
             self.data = arg1
         else:
             self.name = arg0.split('/')[-1]
-            with open(arg0 if arg0[0] == '/' else os.path.join(app.workspace.base, arg0), 'rb') as f:
+            with open(arg0 if arg0[0] == '/' else join(app.workspace.base, arg0), 'rb') as f:
                 self.data = f.read()
 
             try:
