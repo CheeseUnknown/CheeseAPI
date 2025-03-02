@@ -3,12 +3,16 @@ from typing import TYPE_CHECKING, Callable, Dict, overload, Any, Tuple, Literal
 from datetime import datetime, timedelta
 from asyncio import sleep as asyncio_sleep
 from uuid import uuid4
+from traceback import format_exc
 
+from CheeseLog import logger
 from dill import loads, dumps
 
 if TYPE_CHECKING:
     from CheeseAPI.app import App
 
+logger_danger = logger.danger
+logger_encode = logger.encode
 datetime_now = datetime.now
 
 class ScheduleTask:
@@ -300,9 +304,14 @@ class Scheduler:
                         'needUpdate': False
                     }
 
-                result = fn(task.lastReturn, **{
-                    'intervalTime': runTime - lastRunTime
-                })
+                try:
+                    result = fn(task.lastReturn, **{
+                        'intervalTime': runTime - lastRunTime
+                    })
+                except:
+                    logger_danger(f'''
+{logger_encode(format_exc()[:-1])}''')
+                    result = None
 
                 self._app._managers_['schedules'][task.key] = {
                     **self._app._managers_['schedules'][task.key],
