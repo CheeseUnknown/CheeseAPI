@@ -238,27 +238,31 @@ class Scheduler:
         self._queues: Dict[str, Tuple[queue.Queue, queue.Queue]] = {}
 
     async def _taskHandle(self, key: str):
-        task = self.tasks[key]
-        queues = self._queues[key]
+        try:
+            task = self.tasks[key]
+            queues = self._queues[key]
 
-        if task.timer == 'PER_FRAME':
-            queues[1].put(None)
-            while True:
+            if task.timer == 'PER_FRAME':
+                queues[1].put(None)
+                while True:
+                    if not queues[0].empty():
+                        if queues[0].get_nowait():
+                            await self._afterHandle(key)
+                            break
+                        else:
+                            await self._beforeHandle(key)
+                            queues[1].put(None)
+                    await asyncio_sleep(0)
+            else:
                 if not queues[0].empty():
                     if queues[0].get_nowait():
                         await self._afterHandle(key)
-                        break
                     else:
                         await self._beforeHandle(key)
                         queues[1].put(None)
-                await asyncio_sleep(0)
-        else:
-            if not queues[0].empty():
-                if queues[0].get_nowait():
-                    await self._afterHandle(key)
-                else:
-                    await self._beforeHandle(key)
-                    queues[1].put(None)
+        except:
+            logger_danger(f'''
+{logger_encode(format_exc()[:-1])}''')
 
     def _processHandle(self, key: str, queues: Tuple[queue.Queue, queue.Queue]):
         from gc import disable, enable

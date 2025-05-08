@@ -242,11 +242,19 @@ class Handle:
             disable()
 
             if master:
-                await self.server_running()
-                await self._app.signal.server_running.async_send()
+                try:
+                    await self.server_running()
+                    await self._app.signal.server_running.async_send()
+                except:
+                    logger_danger(f'''
+{logger_encode(format_exc()[:-1])}''')
 
-            await self.worker_running()
-            await self._app.signal.worker_running.async_send()
+            try:
+                await self.worker_running()
+                await self._app.signal.worker_running.async_send()
+            except:
+                logger_danger(f'''
+{logger_encode(format_exc()[:-1])}''')
 
             enable()
             await sleep(max(self._app.server.intervalTime - time() + timer, 0))
