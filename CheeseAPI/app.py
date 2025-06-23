@@ -10,6 +10,8 @@ from CheeseAPI.route import Route, RouteBus
 from CheeseAPI.cors import Cors
 from CheeseAPI.schedule import Scheduler
 
+multiprocessing.set_start_method('fork', True)
+
 class App:
     def __init__(self):
         self.manager: multiprocessing.managers.SyncManager = multiprocessing.Manager()
@@ -59,8 +61,6 @@ class App:
             self.localModules.append(foldername)
 
     def run(self):
-        multiprocessing.set_start_method('fork', True)
-
         self._handle.server_start()
 
     @property

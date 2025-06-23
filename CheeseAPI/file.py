@@ -48,5 +48,5 @@ class File:
 
         from CheeseAPI.app import app
 
-        with open(filePath if filePath[0] == '/' else os.path.join(app.workspace.base, filePath), 'w' if isinstance(self.data, str) else 'wb') as f:
+        with open(filePath if filePath[0] == '/' else join(app.workspace.base, filePath), 'w' if isinstance(self.data, str) else 'wb') as f:
             f.write(self.data)
