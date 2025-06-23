@@ -1,8 +1,8 @@
-from json import loads
 from typing import TYPE_CHECKING
 from functools import wraps
 
 from pydantic import BaseModel, ValidationError
+from orjson import loads
 
 from CheeseAPI.response import JsonResponse, Response
 

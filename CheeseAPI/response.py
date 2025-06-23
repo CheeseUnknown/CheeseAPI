@@ -1,9 +1,10 @@
-from json import dumps
 from typing import Callable, Dict, AsyncIterator, Tuple, overload, Literal
 from email.utils import formatdate
 from http import HTTPStatus
 from time import time
 from datetime import datetime, timedelta
+
+from orjson import dumps
 
 from CheeseAPI.file import File
 
@@ -465,7 +466,7 @@ class JsonResponse(BaseResponse):
     '''
 
     def __init__(self, body: dict | list = {}, status: HTTPStatus | int = HTTPStatus_OK, headers: Dict[str, str] = {}):
-        super().__init__(dumps(body), status, {
+        super().__init__(dumps(body).encode(), status, {
             'Content-Type': 'application/json',
             **headers
         })

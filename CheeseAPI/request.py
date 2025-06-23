@@ -1,11 +1,11 @@
 import http
 from typing import Literal, Dict, List
 from urllib.parse import unquote
-from json import loads
 from re import findall
 
 from CheeseAPI.file import File
 from xmltodict import parse
+from orjson import loads
 
 class Request:
     def __init__(self, method: http.HTTPMethod | None, url: str):

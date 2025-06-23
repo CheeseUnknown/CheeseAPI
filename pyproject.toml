@@ -23,7 +23,8 @@ dependencies = [
     "dill",
     "pydantic",
     "email-validator",
-    "setproctitle"
+    "setproctitle",
+    "orjson"
 ]
 
 [project.urls]
