@@ -24,7 +24,8 @@ dependencies = [
     "pydantic",
     "email-validator",
     "setproctitle",
-    "orjson"
+    "orjson",
+    "python-snappy"
 ]
 
 [project.urls]

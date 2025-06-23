@@ -49,8 +49,8 @@ Static: <cyan>{self._app.server.static}</cyan>''' if self._app.workspace.static 
     def loadedModules(self) -> List[Tuple[str, str]]:
         return [
             (f'''Modules:
-''' + ' | '.join(self._app.modules), f'''Modules:
-''' + ' | '.join(self._app.modules))
+{' | '.join(self._app.modules)}''', f'''Modules:
+{' | '.join(self._app.modules)}''')
         ]
 
     def loadingLocalModule(self, precent: float, module: str) -> Tuple[str, str]:
@@ -69,8 +69,8 @@ Static: <cyan>{self._app.server.static}</cyan>''' if self._app.workspace.static 
 
         return [
             (f'''Local Modules:
-''' + ' | '.join(foldernames), f'''Local Modules:
-''' + ' | '.join(foldernames))
+{' | '.join(foldernames)}''', f'''Local Modules:
+{' | '.join(foldernames)}''')
         ]
 
     def worker_starting(self) -> List[Tuple[str, str]]:
@@ -85,7 +85,7 @@ Static: <cyan>{self._app.server.static}</cyan>''' if self._app.workspace.static 
 
     def http(self, protocol: 'HttpProtocol') -> List[Tuple[str, str]]:
         return [
-            (f'The {protocol.request.client} accessed {protocol.request.method} {protocol.request.fullPath} and returned {protocol.response.status}', f'The <cyan>{protocol.request.client}</cyan> accessed <cyan>{protocol.request.method} ' + logger.encode(protocol.request.fullPath) + f'</cyan> and returned <blue>{protocol.response.status}</blue>')
+            (f'The {protocol.request.client} accessed {protocol.request.method} {protocol.request.fullPath} and returned {protocol.response.status}', f'The <cyan>{protocol.request.client}</cyan> accessed <cyan>{protocol.request.method} {logger.encode(protocol.request.fullPath)}</cyan> and returned <blue>{protocol.response.status}</blue>')
         ]
 
     def http_500(self, protocol: 'HttpProtocol', e: BaseException) -> List[Tuple[str, str]]:
@@ -98,7 +98,7 @@ Static: <cyan>{self._app.server.static}</cyan>''' if self._app.workspace.static 
 
     def websocket_response(self, protocol: 'WebsocketProtocol') -> List[Tuple[str, str]]:
         return [
-            (f'The {protocol.request.client} accessed {protocol.request.method} {protocol.request.fullPath} and returned {protocol.response.status}', f'The <cyan>{protocol.request.client}</cyan> accessed <cyan>{protocol.request.method} ' + logger.encode(protocol.request.fullPath) + f'</cyan> and returned <blue>{protocol.response.status}</blue>')
+            (f'The {protocol.request.client} accessed {protocol.request.method} {protocol.request.fullPath} and returned {protocol.response.status}', f'The <cyan>{protocol.request.client}</cyan> accessed <cyan>{protocol.request.method} {logger.encode(protocol.request.fullPath)}</cyan> and returned <blue>{protocol.response.status}</blue>')
         ]
 
     def websocket_500(self, protocol: 'WebsocketProtocol', e: BaseException) -> List[Tuple[str, str]]:
@@ -111,12 +111,12 @@ Static: <cyan>{self._app.server.static}</cyan>''' if self._app.workspace.static 
 
     def websocket_connection(self, protocol: 'WebsocketProtocol') -> List[Tuple[str, str]]:
         return [
-            (f'The {protocol.request.client} connected {protocol.request.method} {protocol.request.fullPath}', f'The <cyan>{protocol.request.client}</cyan> connected <cyan>{protocol.request.method} ' + logger.encode(protocol.request.fullPath) + f'</cyan>')
+            (f'The {protocol.request.client} connected {protocol.request.method} {protocol.request.fullPath}', f'The <cyan>{protocol.request.client}</cyan> connected <cyan>{protocol.request.method} {logger.encode(protocol.request.fullPath)}</cyan>')
         ]
 
     def websocket_disconnection(self, protocol: 'WebsocketProtocol') -> List[Tuple[str, str]]:
         return [
-            (f'The {protocol.request.client} disconnected {protocol.request.method} {protocol.request.fullPath}', f'The <cyan>{protocol.request.client}</cyan> disconnected <cyan>{protocol.request.method} ' + logger.encode(protocol.request.fullPath) + f'</cyan>')
+            (f'The {protocol.request.client} disconnected {protocol.request.method} {protocol.request.fullPath}', f'The <cyan>{protocol.request.client}</cyan> disconnected <cyan>{protocol.request.method} {logger.encode(protocol.request.fullPath)}</cyan>')
         ]
 
     def worker_stopping(self) -> List[Tuple[str, str]]:

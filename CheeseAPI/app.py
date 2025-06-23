@@ -1,6 +1,8 @@
 import multiprocessing, os, setproctitle, sys, multiprocessing.managers
 from typing import Dict, Any, List
 
+from dill import settings
+
 from CheeseAPI.text import Text
 from CheeseAPI.server import Server
 from CheeseAPI.workspace import Workspace
@@ -11,6 +13,7 @@ from CheeseAPI.cors import Cors
 from CheeseAPI.schedule import Scheduler
 
 multiprocessing.set_start_method('fork', True)
+settings['protocol'] = 5
 
 class App:
     def __init__(self):

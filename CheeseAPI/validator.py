@@ -9,10 +9,10 @@ from CheeseAPI.response import JsonResponse, Response
 if TYPE_CHECKING:
     from CheeseAPI.response import BaseResponse
 
-SCOPES = ('path', 'args', 'form', 'cookie', 'headers')
-SCOPES_JSON = ('form', 'args')
-JSON_PREFIX = ('{', '[')
-JSON_SUFFIX = ('}', ']')
+SCOPES = frozenset(('path', 'args', 'form', 'cookie', 'headers'))
+SCOPES_JSON = frozenset(('form', 'args'))
+JSON_PREFIX = frozenset(('{', '['))
+JSON_SUFFIX = frozenset(('}', ']'))
 
 class ValidateError(Exception):
     def __init__(self, response: 'BaseResponse' = Response(status = 400)):
@@ -56,6 +56,8 @@ def validator(validator: BaseModel):
     def wrapper(fn):
         @wraps(fn)
         async def decorator(*args, **kwargs):
+            request = kwargs['request']
+
             _kwargs = {}
             for key in validator.model_fields.keys():
                 for scope in SCOPES:
@@ -64,11 +66,11 @@ def validator(validator: BaseModel):
                             _kwargs[key] = kwargs[key]
                     elif scope == 'headers':
                         _key = key.replace('_', '-')
-                        if _key in kwargs['request'].headers:
-                            _kwargs[key] = getattr(kwargs['request'], scope)[_key]
+                        if _key in request.headers:
+                            _kwargs[key] = getattr(request, scope)[_key]
                     else:
-                        if getattr(kwargs['request'], scope) and key in getattr(kwargs['request'], scope):
-                            _kwargs[key] = getattr(kwargs['request'], scope)[key]
+                        if getattr(request, scope) and key in getattr(request, scope):
+                            _kwargs[key] = getattr(request, scope)[key]
 
                             if scope in SCOPES_JSON and _kwargs[key][0] in JSON_PREFIX and _kwargs[key][-1] in JSON_SUFFIX:
                                 try:

@@ -5,6 +5,7 @@ from asyncio import sleep as asyncio_sleep
 from uuid import uuid4
 from traceback import format_exc
 
+from snappy import compress, uncompress
 from CheeseLog import logger
 from dill import loads, dumps
 
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
 logger_danger = logger.danger
 logger_encode = logger.encode
 datetime_now = datetime.now
+DATA_LENGTH = 1024
 
 class ScheduleTask:
     def __init__(self, app: 'App', key: str):
@@ -55,13 +57,15 @@ class ScheduleTask:
 
     @property
     def fn(self) -> Callable:
-        return loads(self._app._managers_['schedules'][self.key]['fn'])
+        fn = self._app._managers_['schedules'][self.key]['fn']
+        return loads(uncompress(memoryview(fn).toreadonly() if len(fn) >= DATA_LENGTH else fn))
 
     @fn.setter
     def fn(self, value: Callable):
+        value = dumps(value, recurse = True)
         self._app._managers_['schedules'][self.key] = {
             **self._app._managers_['schedules'][self.key],
-            'fn': dumps(value, recurse = True),
+            'fn': compress(memoryview(value).toreadonly() if len(value) >= DATA_LENGTH else value),
             'needUpdate': True
         }
 
@@ -209,7 +213,8 @@ class ScheduleTask:
         【只读】 上一次的返回值
         '''
 
-        return loads(self._app._managers_['schedules'][self.key]['lastReturn'])
+        lastReturn = self._app._managers_['schedules'][self.key]['lastReturn']
+        return loads(uncompress(memoryview(lastReturn).toreadonly() if len(lastReturn) >= DATA_LENGTH else lastReturn))
 
     @property
     def endTimer(self) -> datetime | None:
@@ -317,11 +322,12 @@ class Scheduler:
 {logger_encode(format_exc()[:-1])}''')
                     result = None
 
+                result = dumps(result, recurse = True)
                 self._app._managers_['schedules'][task.key] = {
                     **self._app._managers_['schedules'][task.key],
                     'total_repetition_num': task.total_repetition_num + 1,
                     'lastTimer': datetime_fromtimestamp(runTime),
-                    'lastReturn': dumps(result, recurse = True)
+                    'lastReturn': compress(memoryview(result).toreadonly() if len(result) >= DATA_LENGTH else result)
                 }
                 queues[0].put(True)
 
@@ -415,9 +421,10 @@ class Scheduler:
             startTimer = datetime_now()
 
         if fn:
+            fn = dumps(fn, recurse = True)
             self._app._managers_['schedules'][key] = {
                 'timer': timer,
-                'fn': dumps(fn, recurse = True),
+                'fn': compress(memoryview(fn).toreadonly() if len(fn) > DATA_LENGTH else fn),
                 'startTimer': startTimer,
                 'expected_repetition_num': expected_repetition_num,
                 'total_repetition_num': 0,
@@ -432,9 +439,10 @@ class Scheduler:
             return
 
         def wrapper(fn):
+            fn = dumps(fn, recurse = True)
             self._app._managers_['schedules'][key] = {
                 'timer': timer,
-                'fn': dumps(fn, recurse = True),
+                'fn': compress(memoryview(fn).toreadonly() if len(fn) >= DATA_LENGTH else fn),
                 'startTimer': startTimer,
                 'expected_repetition_num': expected_repetition_num,
                 'total_repetition_num': 0,
