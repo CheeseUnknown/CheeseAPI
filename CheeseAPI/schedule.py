@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 logger_danger = logger.danger
 logger_encode = logger.encode
 datetime_now = datetime.now
-DATA_LENGTH = 1024
 
 class ScheduleTask:
     def __init__(self, app: 'App', key: str):
@@ -58,14 +57,14 @@ class ScheduleTask:
     @property
     def fn(self) -> Callable:
         fn = self._app._managers_['schedules'][self.key]['fn']
-        return loads(uncompress(memoryview(fn).toreadonly() if len(fn) >= DATA_LENGTH else fn))
+        return loads(uncompress(memoryview(fn).toreadonly() if len(fn) >= 1024 else fn))
 
     @fn.setter
     def fn(self, value: Callable):
         value = dumps(value, recurse = True)
         self._app._managers_['schedules'][self.key] = {
             **self._app._managers_['schedules'][self.key],
-            'fn': compress(memoryview(value).toreadonly() if len(value) >= DATA_LENGTH else value),
+            'fn': compress(memoryview(value).toreadonly() if len(value) >= 1024 else value),
             'needUpdate': True
         }
 
@@ -214,7 +213,7 @@ class ScheduleTask:
         '''
 
         lastReturn = self._app._managers_['schedules'][self.key]['lastReturn']
-        return loads(uncompress(memoryview(lastReturn).toreadonly() if len(lastReturn) >= DATA_LENGTH else lastReturn))
+        return loads(uncompress(memoryview(lastReturn).toreadonly() if len(lastReturn) >= 1024 else lastReturn))
 
     @property
     def endTimer(self) -> datetime | None:
@@ -327,7 +326,7 @@ class Scheduler:
                     **self._app._managers_['schedules'][task.key],
                     'total_repetition_num': task.total_repetition_num + 1,
                     'lastTimer': datetime_fromtimestamp(runTime),
-                    'lastReturn': compress(memoryview(result).toreadonly() if len(result) >= DATA_LENGTH else result)
+                    'lastReturn': compress(memoryview(result).toreadonly() if len(result) >= 1024 else result)
                 }
                 queues[0].put(True)
 
@@ -424,7 +423,7 @@ class Scheduler:
             fn = dumps(fn, recurse = True)
             self._app._managers_['schedules'][key] = {
                 'timer': timer,
-                'fn': compress(memoryview(fn).toreadonly() if len(fn) > DATA_LENGTH else fn),
+                'fn': compress(memoryview(fn).toreadonly() if len(fn) > 1024 else fn),
                 'startTimer': startTimer,
                 'expected_repetition_num': expected_repetition_num,
                 'total_repetition_num': 0,
@@ -432,7 +431,7 @@ class Scheduler:
                 'active': True,
                 'lastTimer': None,
                 'intervalTime': intervalTime or (self._app.server.intervalTime if timer == 'PER_FRAME' else timer.total_seconds()) / 10,
-                'lastReturn': dumps(None, recurse = True),
+                'lastReturn': compress(dumps(None, recurse = True)),
                 'needUpdate': False,
                 'endTimer': endTimer
             }
@@ -442,7 +441,7 @@ class Scheduler:
             fn = dumps(fn, recurse = True)
             self._app._managers_['schedules'][key] = {
                 'timer': timer,
-                'fn': compress(memoryview(fn).toreadonly() if len(fn) >= DATA_LENGTH else fn),
+                'fn': compress(memoryview(fn).toreadonly() if len(fn) >= 1024 else fn),
                 'startTimer': startTimer,
                 'expected_repetition_num': expected_repetition_num,
                 'total_repetition_num': 0,
@@ -450,7 +449,7 @@ class Scheduler:
                 'active': True,
                 'lastTimer': None,
                 'intervalTime': intervalTime or (self._app.server.intervalTime if timer == 'PER_FRAME' else timer.total_seconds()) / 10,
-                'lastReturn': dumps(None, recurse = True),
+                'lastReturn': compress(dumps(None, recurse = True)),
                 'needUpdate': False,
                 'endTimer': endTimer
             }
