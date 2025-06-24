@@ -466,7 +466,7 @@ class JsonResponse(BaseResponse):
     '''
 
     def __init__(self, body: dict | list = {}, status: HTTPStatus | int = HTTPStatus_OK, headers: Dict[str, str] = {}):
-        super().__init__(dumps(body).encode(), status, {
+        super().__init__(dumps(body), status, {
             'Content-Type': 'application/json',
             **headers
         })
