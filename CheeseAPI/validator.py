@@ -1,93 +1,64 @@
-from typing import TYPE_CHECKING
+import json
+from typing import Callable, TYPE_CHECKING
 from functools import wraps
 
-from pydantic import BaseModel, ValidationError
-from orjson import loads
+import pydantic
 
-from CheeseAPI.response import JsonResponse, Response
+from CheeseAPI.response import Response
 
 if TYPE_CHECKING:
-    from CheeseAPI.response import BaseResponse
+    from CheeseAPI.request import Request
 
-SCOPES = frozenset(('path', 'args', 'form', 'cookie', 'headers'))
-SCOPES_JSON = frozenset(('form', 'args'))
-JSON_PREFIX = frozenset(('{', '['))
-JSON_SUFFIX = frozenset(('}', ']'))
-
-class ValidateError(Exception):
-    def __init__(self, response: 'BaseResponse' = Response(status = 400)):
-        self.response: 'BaseResponse' = response
-
-def validator(validator: BaseModel):
+def validator(*, json_model: pydantic.BaseModel | None = None, form_model: pydantic.BaseModel | None = None, params_model: pydantic.BaseModel | None = None, headers_model: pydantic.BaseModel | None = None, query_model: pydantic.BaseModel | None = None, hide_body: bool = False) -> Callable:
     '''
-    为路由函数添加校验装饰器。
+    对 request 的各个部分进行验证的装饰器
+    根据不同的 xx_model 参数，返回 **kwargs 中的 xx_data 参数
 
-    校验参数以类的校验属性为key，从路径变量、args、form、cookie、headers按顺序尝试匹配，若全部匹配失败，则会默认为None。
-
-    校验通过后，路由函数会收到一个`validator: BaseModel`已校验参数。
-
-    >>> from CheeseAPI import app, validator
-    >>> from pydantic import BaseModel, EmailStr, PastDatetime
-    >>>
-    >>> class User(BaseModel):
-    ...    mail: EmailStr
-    ...    name: str
-    ...    birthDate: PastDatetime
-    ...
-    >>> @app.route.get('/')
-    >>> @validator(Form)
-    >>> async def test(*, validator: User, **kwargs):
-    ...     ...
-
-    在自定义校验中，可以自定义校验失败后返回的Response：
-
-    >>> from CheeseAPI import ValidateError, Response
-    >>> from pydantic import BaseModel, field_validator
-    >>>
-    >>> class Form(BaseModel):
-    ...     value: str
-    ... \\
-    ...     @field_validator('value')
-    ...     def value(cls, value: str) -> str:
-    ...         if ...:
-    ...             raise ValidateError(Response('My Response', 400))
+    - Args
+        - hide_body: 是否在验证失败时隐藏错误信息，若为 True 则仅返回 400 状态码，否则返回 400 状态码和错误信息
     '''
 
-    def wrapper(fn):
+    def wrapper(fn: Callable) -> Callable:
         @wraps(fn)
         async def decorator(*args, **kwargs):
-            request = kwargs['request']
-
-            _kwargs = {}
-            for key in validator.model_fields.keys():
-                for scope in SCOPES:
-                    if scope == 'path':
-                        if key in kwargs:
-                            _kwargs[key] = kwargs[key]
-                    elif scope == 'headers':
-                        _key = key.replace('_', '-')
-                        if _key in request.headers:
-                            _kwargs[key] = getattr(request, scope)[_key]
-                    else:
-                        if getattr(request, scope) and key in getattr(request, scope):
-                            _kwargs[key] = getattr(request, scope)[key]
-
-                            if scope in SCOPES_JSON and _kwargs[key][0] in JSON_PREFIX and _kwargs[key][-1] in JSON_SUFFIX:
-                                try:
-                                    _kwargs[key] = loads(_kwargs[key])
-                                except:
-                                    ...
-
             try:
-                _validator = validator(**_kwargs)
-            except ValidationError as e:
-                return JsonResponse(loads(e.json()), 400)
-            except ValidateError as e:
-                return e.response
+                request: 'Request' = kwargs.get('request', None)
 
-            return await fn(*args, **{
-                **kwargs,
-                'validator': _validator
-            })
+                json_data = None
+                if json_model is not None:
+                    json_data = json_model.model_validate(request.json, by_alias = True)
+                if kwargs.get('json_data') is None:
+                    kwargs['json_data'] = json_data
+
+                form_data = None
+                if form_model is not None:
+                    form_data = form_model.model_validate(request.form, by_alias = True)
+                if kwargs.get('form_data') is None:
+                    kwargs['form_data'] = form_data
+
+                params_data = None
+                if params_model is not None:
+                    params_data = params_model.model_validate(request.params, by_alias = True)
+                if kwargs.get('params_data') is None:
+                    kwargs['params_data'] = params_data
+
+                headers_data = None
+                if headers_model is not None:
+                    headers_data = headers_model.model_validate(request.headers, by_alias = True)
+                if kwargs.get('headers_data') is None:
+                    kwargs['headers_data'] = headers_data
+
+                query_data = None
+                if query_model is not None:
+                    query_data = query_model.model_validate(request.query, by_alias = True)
+                if kwargs.get('query_data') is None:
+                    kwargs['query_data'] = query_data
+            except Exception as e:
+                if hide_body:
+                    return Response(status = 400)
+                else:
+                    return Response(json.loads(e.json()), 400)
+
+            return await fn(*args, **kwargs)
         return decorator
     return wrapper

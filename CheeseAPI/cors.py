@@ -1,66 +1,49 @@
-import http
-from typing import Set, Literal
+from typing import Literal, TYPE_CHECKING
 
-class Cors:
-    def __init__(self):
-        self._origin: Set[str] | Literal['*'] = '*'
-        self._exclude_origin: Set[str] = set()
-        self._methods: Set[http.HTTPMethod] = set([ method for method in http.HTTPMethod ])
-        self._exclude_methods: Set[http.HTTPMethod] = set()
-        self._headers: Set[str] | Literal['*'] = '*'
+from CheeseAPI.response import Response
 
-    @property
-    def origin(self) -> Set[str] | Literal['*']:
-        '''
-        允许访问的host地址，`'*'`代表允许所有
-        '''
+if TYPE_CHECKING:
+    from CheeseAPI.request import Request
 
-        return self._origin
+HTTP_METHOD_TYPE = Literal['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD', 'PATCH']
 
-    @origin.setter
-    def origin(self, value: Set[str] | Literal['*']):
-        self._origin = value
+class CORS:
+    __slots__ = ('allow_origins', 'allow_methods', 'allow_headers', 'allow_credentials', 'expose_headers', 'max_age')
 
-    @property
-    def exclude_origin(self) -> Set[str]:
-        '''
-        【只读】 不允许访问的host地址；优先级高于`app.cors.origin`
-        '''
+    def __init__(self, allow_origins: list[str] = ['*'], allow_methods: list[HTTP_METHOD_TYPE] = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD', 'PATCH', 'CONNECT'], allow_headers: list[str] = ['*'], allow_credentials: bool = False, expose_headers: list[str] = [], max_age: int | None = None):
+        self.allow_origins: list[str] = allow_origins
+        self.allow_methods: list[HTTP_METHOD_TYPE] = allow_methods
+        self.allow_headers: list[str] = allow_headers
+        self.allow_credentials: bool = allow_credentials
+        self.expose_headers: list[str] = expose_headers
+        self.max_age: int | None = max_age
 
-        return self._exclude_origin
+    def get_response(self, request: 'Request'):
+        origin = request.headers.get('Origin', '')
+        if '*' not in self.allow_origins and origin not in self.allow_origins:
+            return Response(status = 403)
 
-    @property
-    def methods(self) -> Set[http.HTTPMethod]:
-        '''
-        允许访问的method
-        '''
+        headers = {}
 
-        return self._methods
+        if origin in self.allow_origins:
+            headers['Access-Control-Allow-Origin'] = origin
+        elif '*' in self.allow_origins and not self.allow_credentials:
+            headers['Access-Control-Allow-Origin'] = '*'
 
-    @methods.setter
-    def methods(self, value: Set[http.HTTPMethod]):
-        self._methods = value
+        headers['Access-Control-Allow-Methods'] = ', '.join(self.allow_methods)
 
-    @property
-    def exclude_methods(self) -> Set[http.HTTPMethod]:
-        '''
-        不允许访问的method；优先级高于`app.cors.methods`
-        '''
+        if '*' in self.allow_headers:
+            headers['Access-Control-Allow-Headers'] = request.headers.get('Access-Control-Request-Headers') or '*'
+        else:
+            headers['Access-Control-Allow-Headers'] = ', '.join(self.allow_headers)
 
-        return self._exclude_methods
+        if self.allow_credentials:
+            headers['Access-Control-Allow-Credentials'] = 'true'
 
-    @exclude_methods.setter
-    def exclude_methods(self, value: Set[http.HTTPMethod]):
-        self._exclude_methods = value
+        if self.expose_headers:
+            headers['Access-Control-Expose-Headers'] = ', '.join(self.expose_headers)
 
-    @property
-    def headers(self) -> Set[str] | Literal['*']:
-        '''
-        允许的header keys，`'*'`代表允许所有
-        '''
+        if self.max_age is not None:
+            headers['Access-Control-Max-Age'] = str(self.max_age)
 
-        return self._headers
-
-    @headers.setter
-    def headers(self, value: Set[str] | Literal['*']):
-        self._headers = value
+        return Response(status = 204, headers = headers)

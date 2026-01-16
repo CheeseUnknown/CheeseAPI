@@ -1,52 +1,78 @@
-from os.path import join
+import shutil
 from typing import overload
 
 class File:
-    @overload
-    def __init__(self, filePath: str):
-        '''
-        通过文件路径进行读取；支持相对路径以及绝对路径
-
-        >>> from CheeseAPI import File
-        >>>
-        >>> file = File('./media/a.py')
-        '''
+    __slots__ = ('_path', '_name', '_data_in_file', '_data')
 
     @overload
-    def __init__(self, name: str, data: bytes | str):
+    def __init__(self, path: str, *, data_in_file: bool = True):
         '''
-        通过二进制数据或字符串创建文件
-
-        >>> from CheeseAPI import File
-        >>>
-        >>> file = File('test.txt', '这里是CheeseAPI！')
+        - Args
+            - data_in_file: 是否将数据保存在文件中，若否则读取文件内容到内存
         '''
 
-    def __init__(self, arg0: str, arg1: bytes | str | None = None):
-        from CheeseAPI.app import app
+    @overload
+    def __init__(self, name: str, data: bytes):
+        ...
 
-        self.name: str
-        self.data: bytes
+    def __init__(self, *args, data_in_file: bool = True):
+        self._path: str | None = None
+        self._name: str
+        self._data_in_file: bool = data_in_file
+        self._data: bytes | None = None
+        if len(args) == 1:
+            self._path = args[0]
+            self._name = self._path.split('/')[-1]
+            if self.data_in_file is False:
+                with open(self._path, 'rb') as f:
+                    self._data = f.read()
+        elif len(args) == 2:
+            self._name = args[0]
+            self._data = args[1]
 
-        if arg1:
-            self.name = arg0
-            self.data = arg1
+    def save(self, path: str, update_path: bool = False, data_in_file: bool = False):
+        '''
+        - Args
+            - update_path: 是否更新文件路径为保存后的路径
+            - data_in_file: 是否将数据保存在文件中，若否则读取文件内容到内存
+        '''
+
+        if self._data is not None:
+            with open(path, 'wb') as f:
+                f.write(self.data)
         else:
-            self.name = arg0.split('/')[-1]
-            with open(arg0 if arg0[0] == '/' else join(app.workspace.base, arg0), 'rb') as f:
-                self.data = f.read()
+            shutil.copyfile(self.path, path)
 
-            try:
-                self.data = self.data.decode()
-            except:
-                ...
+        if update_path:
+            self._path = path
 
-    def save(self, filePath: str):
+        if data_in_file:
+            self._data = None
+        else:
+            with open(path, 'rb') as f:
+                self._data = f.read()
+        self._data_in_file = data_in_file
+
+    @property
+    def path(self) -> str | None:
+        return self._path
+
+    @property
+    def data_in_file(self) -> bool:
         '''
-        保存文件；支持相对路径以及绝对路径
+        是否将数据保存在文件中，若否则读取文件内容到内存
         '''
 
-        from CheeseAPI.app import app
+        return self._data_in_file
 
-        with open(filePath if filePath[0] == '/' else join(app.workspace.base, filePath), 'w' if isinstance(self.data, str) else 'wb') as f:
-            f.write(self.data)
+    @property
+    def data(self) -> bytes:
+        if self._data:
+            return self._data
+        else:
+            with open(self._path, 'rb') as f:
+                return f.read()
+
+    @property
+    def name(self) -> str:
+        return self._name

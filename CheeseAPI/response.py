@@ -1,523 +1,401 @@
-from typing import Callable, Dict, AsyncIterator, Tuple, overload, Literal
-from email.utils import formatdate
-from http import HTTPStatus
-from time import time
-from datetime import datetime, timedelta
+import socket, asyncio, datetime, json, zlib, gzip, os, mimetypes, uuid, math
+from typing import TYPE_CHECKING, TypedDict, Literal, AsyncIterable
 
-from orjson import dumps
+import brotli, zstandard
 
 from CheeseAPI.file import File
 
-HTTPStatus_OK = HTTPStatus.OK
-HTTPStatus_FOUND = HTTPStatus.FOUND
+if TYPE_CHECKING:
+    from CheeseAPI.app import CheeseAPI
+    from CheeseAPI.request import Request
+    from CheeseAPI.websocket import Websocket
 
-CONTENT_TYPES = {
-    'tif': 'image/tiff',
-    '001': 'application/x-001',
-    '301': 'application/x-301',
-    '323': 'text/h323',
-    '906': 'application/x-906',
-    '907': 'drawing/907',
-    'a11': 'application/x-a11',
-    'acp': 'audio/x-mei-aac',
-    'ai': 'application/postscript',
-    'aif': 'audio/aiff',
-    'aifc': 'audio/aiff',
-    'aiff': 'audio/aiff',
-    'anv': 'application/x-anv',
-    'asa': 'text/asa',
-    'asf': 'video/x-ms-asf',
-    'asp': 'text/asp',
-    'asx': 'video/x-ms-asf',
-    'au': 'audio/basic',
-    'avi': 'video/avi',
-    'awf': 'application/vnd.adobe.workflow',
-    'biz': 'text/xml',
-    'bmp': 'application/x-bmp',
-    'bot': 'application/x-bot',
-    'c4t': 'application/x-c4t',
-    'c90': 'application/x-c90',
-    'cal': 'application/x-cals',
-    'cat': 'application/vnd.ms-pki.seccat',
-    'cdf': 'application/x-netcdf',
-    'cdr': 'application/x-cdr',
-    'cel': 'application/x-cel',
-    'cer': 'application/x-x509-ca-cert',
-    'cg4': 'application/x-g4',
-    'cgm': 'application/x-cgm',
-    'cit': 'application/x-cit',
-    'class': 'java/*',
-    'cml': 'text/xml',
-    'cmp': 'application/x-cmp',
-    'cmx': 'application/x-cmx',
-    'cot': 'application/x-cot',
-    'crl': 'application/pkix-crl',
-    'crt': 'application/x-x509-ca-cert',
-    'csi': 'application/x-csi',
-    'css': 'text/css',
-    'cut': 'application/x-cut',
-    'dbf': 'application/x-dbf',
-    'dbm': 'application/x-dbm',
-    'dbx': 'application/x-dbx',
-    'dcd': 'text/xml',
-    'dcx': 'application/x-dcx',
-    'der': 'application/x-x509-ca-cert',
-    'dgn': 'application/x-dgn',
-    'dib': 'application/x-dib',
-    'dll': 'application/x-msdownload',
-    'doc': 'application/msword',
-    'dot': 'application/msword',
-    'drw': 'application/x-drw',
-    'dtd': 'text/xml',
-    'dwf': 'Model/vnd.dwf',
-    'dwf': 'application/x-dwf',
-    'dwg': 'application/x-dwg',
-    'dxb': 'application/x-dxb',
-    'dxf': 'application/x-dxf',
-    'edn': 'application/vnd.adobe.edn',
-    'emf': 'application/x-emf',
-    'eml': 'message/rfc822',
-    'ent': 'text/xml',
-    'epi': 'application/x-epi',
-    'eps': 'application/x-ps',
-    'etd': 'application/x-ebx',
-    'exe': 'application/x-msdownload',
-    'fax': 'image/fax',
-    'fdf': 'application/vnd.fdf',
-    'fif': 'application/fractals',
-    'fo': 'text/xml',
-    'frm': 'application/x-frm',
-    'g4': 'application/x-g4',
-    'gbr': 'application/x-gbr',
-    '': 'application/x-',
-    'gif': 'image/gif',
-    'gl2': 'application/x-gl2',
-    'gp4': 'application/x-gp4',
-    'hgl': 'application/x-hgl',
-    'hmr': 'application/x-hmr',
-    'hpg': 'application/x-hpgl',
-    'hpl': 'application/x-hpl',
-    'hqx': 'application/mac-binhex40',
-    'hrf': 'application/x-hrf',
-    'hta': 'application/hta',
-    'htc': 'text/x-component',
-    'htm': 'text/html',
-    'html': 'text/html',
-    'htt': 'text/webviewhtml',
-    'htx': 'text/html',
-    'icb': 'application/x-icb',
-    'ico': 'image/x-icon',
-    'iff': 'application/x-iff',
-    'ig4': 'application/x-g4',
-    'igs': 'application/x-igs',
-    'iii': 'application/x-iphone',
-    'img': 'application/x-img',
-    'ins': 'application/x-internet-signup',
-    'isp': 'application/x-internet-signup',
-    'IVF': 'video/x-ivf',
-    'java': 'java/*',
-    'jfif': 'image/jpeg',
-    'jpe': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'jpg': 'image/jpeg',
-    'js': 'application/x-javascript',
-    'jsp': 'text/html',
-    'la1': 'audio/x-liquid-file',
-    'lar': 'application/x-laplayer-reg',
-    'latex': 'application/x-latex',
-    'lavs': 'audio/x-liquid-secure',
-    'lbm': 'application/x-lbm',
-    'lmsff': 'audio/x-la-lms',
-    'ls': 'application/x-javascript',
-    'ltr': 'application/x-ltr',
-    'm1v': 'video/x-mpeg',
-    'm2v': 'video/x-mpeg',
-    'm3u': 'audio/mpegurl',
-    'm4e': 'video/mpeg4',
-    'mac': 'application/x-mac',
-    'man': 'application/x-troff-man',
-    'math': 'text/xml',
-    'mdb': 'application/msaccess',
-    'mfp': 'application/x-shockwave-flash',
-    'mht': 'message/rfc822',
-    'mhtml': 'message/rfc822',
-    'mi': 'application/x-mi',
-    'mid': 'audio/mid',
-    'midi': 'audio/mid',
-    'mil': 'application/x-mil',
-    'mml': 'text/xml',
-    'mnd': 'audio/x-musicnet-download',
-    'mns': 'audio/x-musicnet-stream',
-    'mocha': 'application/x-javascript',
-    'movie': 'video/x-sgi-movie',
-    'mp1': 'audio/mp1',
-    'mp2': 'audio/mp2',
-    'mp2v': 'video/mpeg',
-    'mp3': 'audio/mp3',
-    'mp4': 'video/mpeg4',
-    'mpa': 'video/x-mpg',
-    'mpd': 'application/vnd.ms-project',
-    'mpe': 'video/x-mpeg',
-    'mpeg': 'video/mpg',
-    'mpg': 'video/mpg',
-    'mpga': 'audio/rn-mpeg',
-    'mpp': 'application/vnd.ms-project',
-    'mps': 'video/x-mpeg',
-    'mpt': 'application/vnd.ms-project',
-    'mpv': 'video/mpg',
-    'mpv2': 'video/mpeg',
-    'mpw': 'application/vnd.ms-project',
-    'mpx': 'application/vnd.ms-project',
-    'mtx': 'text/xml',
-    'mxp': 'application/x-mmxp',
-    'net': 'image/pnetvue',
-    'nrf': 'application/x-nrf',
-    'nws': 'message/rfc822',
-    'odc': 'text/x-ms-odc',
-    'out': 'application/x-out',
-    'p10': 'application/pkcs10',
-    'p12': 'application/x-pkcs12',
-    'p7b': 'application/x-pkcs7-certificates',
-    'p7c': 'application/pkcs7-mime',
-    'p7m': 'application/pkcs7-mime',
-    'p7r': 'application/x-pkcs7-certreqresp',
-    'p7s': 'application/pkcs7-signature',
-    'pc5': 'application/x-pc5',
-    'pci': 'application/x-pci',
-    'pcl': 'application/x-pcl',
-    'pcx': 'application/x-pcx',
-    'pdf': 'application/pdf',
-    'pdx': 'application/vnd.adobe.pdx',
-    'pfx': 'application/x-pkcs12',
-    'pgl': 'application/x-pgl',
-    'pic': 'application/x-pic',
-    'pko': 'application/vnd.ms-pki.pko',
-    'pl': 'application/x-perl',
-    'plg': 'text/html',
-    'pls': 'audio/scpls',
-    'plt': 'application/x-plt',
-    'png': 'image/png',
-    'pot': 'application/vnd.ms-powerpoint',
-    'ppa': 'application/vnd.ms-powerpoint',
-    'ppm': 'application/x-ppm',
-    'pps': 'application/vnd.ms-powerpoint',
-    'ppt': 'application/vnd.ms-powerpoint',
-    'pr': 'application/x-pr',
-    'prf': 'application/pics-rules',
-    'prn': 'application/x-prn',
-    'prt': 'application/x-prt',
-    'ps': 'application/postscript',
-    'ptn': 'application/x-ptn',
-    'pwz': 'application/vnd.ms-powerpoint',
-    'r3t': 'text/vnd.rn-realtext3d',
-    'ra': 'audio/vnd.rn-realaudio',
-    'ram': 'audio/x-pn-realaudio',
-    'ras': 'application/x-ras',
-    'rat': 'application/rat-file',
-    'rdf': 'text/xml',
-    'rec': 'application/vnd.rn-recording',
-    'red': 'application/x-red',
-    'rgb': 'application/x-rgb',
-    'rjs': 'application/vnd.rn-realsystem-rjs',
-    'rjt': 'application/vnd.rn-realsystem-rjt',
-    'rlc': 'application/x-rlc',
-    'rle': 'application/x-rle',
-    'rm': 'application/vnd.rn-realmedia',
-    'rmf': 'application/vnd.adobe.rmf',
-    'rmi': 'audio/mid',
-    'rmj': 'application/vnd.rn-realsystem-rmj',
-    'rmm': 'audio/x-pn-realaudio',
-    'rmp': 'application/vnd.rn-rn_music_package',
-    'rms': 'application/vnd.rn-realmedia-secure',
-    'rmvb': 'application/vnd.rn-realmedia-vbr',
-    'rmx': 'application/vnd.rn-realsystem-rmx',
-    'rnx': 'application/vnd.rn-realplayer',
-    'rp': 'image/vnd.rn-realpix',
-    'rpm': 'audio/x-pn-realaudio-plugin',
-    'rsml': 'application/vnd.rn-rsml',
-    'rt': 'text/vnd.rn-realtext',
-    'rtf': 'application/msword',
-    'rv': 'video/vnd.rn-realvideo',
-    'sam': 'application/x-sam',
-    'sat': 'application/x-sat',
-    'sdp': 'application/sdp',
-    'sdw': 'application/x-sdw',
-    'sit': 'application/x-stuffit',
-    'slb': 'application/x-slb',
-    'sld': 'application/x-sld',
-    'slk': 'drawing/x-slk',
-    'smi': 'application/smil',
-    'smil': 'application/smil',
-    'smk': 'application/x-smk',
-    'snd': 'audio/basic',
-    'sol': 'text/plain',
-    'sor': 'text/plain',
-    'spc': 'application/x-pkcs7-certificates',
-    'spl': 'application/futuresplash',
-    'spp': 'text/xml',
-    'ssm': 'application/streamingmedia',
-    'sst': 'application/vnd.ms-pki.certstore',
-    'stl': 'application/vnd.ms-pki.stl',
-    'stm': 'text/html',
-    'sty': 'application/x-sty',
-    'svg': 'text/xml',
-    'swf': 'application/x-shockwave-flash',
-    'tdf': 'application/x-tdf',
-    'tg4': 'application/x-tg4',
-    'tga': 'application/x-tga',
-    'tif': 'image/tiff',
-    'tiff': 'image/tiff',
-    'tld': 'text/xml',
-    'top': 'drawing/x-top',
-    'torrent': 'application/x-bittorrent',
-    'tsd': 'text/xml',
-    'txt': 'text/plain',
-    'uin': 'application/x-icq',
-    'uls': 'text/iuls',
-    'vcf': 'text/x-vcard',
-    'vda': 'application/x-vda',
-    'vdx': 'application/vnd.visio',
-    'vml': 'text/xml',
-    'vpg': 'application/x-vpeg005',
-    'vsd': 'application/vnd.visio',
-    'vss': 'application/vnd.visio',
-    'vst': 'application/vnd.visio',
-    'vsw': 'application/vnd.visio',
-    'vsx': 'application/vnd.visio',
-    'vtx': 'application/vnd.visio',
-    'vxml': 'text/xml',
-    'wav': 'audio/wav',
-    'wax': 'audio/x-ms-wax',
-    'wb1': 'application/x-wb1',
-    'wb2': 'application/x-wb2',
-    'wb3': 'application/x-wb3',
-    'wbmp': 'image/vnd.wap.wbmp',
-    'wiz': 'application/msword',
-    'wk3': 'application/x-wk3',
-    'wk4': 'application/x-wk4',
-    'wkq': 'application/x-wkq',
-    'wks': 'application/x-wks',
-    'wm': 'video/x-ms-wm',
-    'wma': 'audio/x-ms-wma',
-    'wmd': 'application/x-ms-wmd',
-    'wmf': 'application/x-wmf',
-    'wml': 'text/vnd.wap.wml',
-    'wmv': 'video/x-ms-wmv',
-    'wmx': 'video/x-ms-wmx',
-    'wmz': 'application/x-ms-wmz',
-    'wp6': 'application/x-wp6',
-    'wpd': 'application/x-wpd',
-    'wpg': 'application/x-wpg',
-    'wpl': 'application/vnd.ms-wpl',
-    'wq1': 'application/x-wq1',
-    'wr1': 'application/x-wr1',
-    'wri': 'application/x-wri',
-    'wrk': 'application/x-wrk',
-    'ws': 'application/x-ws',
-    'ws2': 'application/x-ws',
-    'wsc': 'text/scriptlet',
-    'wsdl': 'text/xml',
-    'wvx': 'video/x-ms-wvx',
-    'xdp': 'application/vnd.adobe.xdp',
-    'xdr': 'text/xml',
-    'xfd': 'application/vnd.adobe.xfd',
-    'xfdf': 'application/vnd.adobe.xfdf',
-    'xhtml': 'text/html',
-    'xls': 'application/vnd.ms-excel',
-    'xlw': 'application/x-xlw',
-    'xml': 'text/xml',
-    'xpl': 'audio/scpls',
-    'xq': 'text/xml',
-    'xql': 'text/xml',
-    'xquery': 'text/xml',
-    'xsd': 'text/xml',
-    'xsl': 'text/xml',
-    'xslt': 'text/xml',
-    'xwd': 'application/x-xwd',
-    'x_b': 'application/x-x_b',
-    'sis': 'application/vnd.symbian.install',
-    'sisx': 'application/vnd.symbian.install',
-    'x_t': 'application/x-x_t',
-    'ipa': 'application/vnd.iphone',
-    'apk': 'application/vnd.android.package-archive',
-    'xap': 'application/x-silverlight-app',
+HTTP_STATUS = {
+    100: 'Continue',
+    101: 'Switching Protocols',
+    102: 'Processing',
+    200: 'OK',
+    201: 'Created',
+    202: 'Accepted',
+    203: 'Non-Authoritative Information',
+    204: 'No Content',
+    205: 'Reset Content',
+    206: 'Partial Content',
+    207: 'Multi-Status',
+    208: 'Already Reported',
+    226: 'IM Used',
+    300: 'Multiple Choices',
+    301: 'Moved Permanently',
+    302: 'Found',
+    303: 'See Other',
+    304: 'Not Modified',
+    305: 'Use Proxy',
+    307: 'Temporary Redirect',
+    308: 'Permanent Redirect',
+    400: 'Bad Request',
+    401: 'Unauthorized',
+    402: 'Payment Required',
+    403: 'Forbidden',
+    404: 'Not Found',
+    405: 'Method Not Allowed',
+    406: 'Not Acceptable',
+    407: 'Proxy Authentication Required',
+    408: 'Request Timeout',
+    409: 'Conflict',
+    410: 'Gone',
+    411: 'Length Required',
+    412: 'Precondition Failed',
+    413: 'Payload Too Large',
+    414: 'URI Too Long',
+    415: 'Unsupported Media Type',
+    416: 'Range Not Satisfiable',
+    417: 'Expectation Failed',
+    418: 'I\'m a teapot',
+    421: 'Misdirected Request',
+    422: 'Unprocessable Entity',
+    423: 'Locked',
+    424: 'Failed Dependency',
+    425: 'Too Early',
+    426: 'Upgrade Required',
+    428: 'Precondition Required',
+    429: 'Too Many Requests',
+    431: 'Request Header Fields Too Large',
+    451: 'Unavailable For Legal Reasons',
+    500: 'Internal Server Error',
+    501: 'Not Implemented',
+    502: 'Bad Gateway',
+    503: 'Service Unavailable',
+    504: 'Gateway Timeout',
+    505: 'HTTP Version Not Supported',
+    506: 'Variant Also Negotiates',
+    507: 'Insufficient Storage',
+    508: 'Loop Detected',
+    510: 'Not Extended',
+    511: 'Network Authentication Required'
 }
+NO_BODY_STATUS = (100, 101, 102, 204, 304)
+PREVIEWABLE_TYPES = ('text/plain', 'text/html', 'text/css', 'text/javascript', 'application/json', 'application/xml', 'text/xml', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp', 'image/bmp', 'video/mp4', 'video/webm', 'video/ogg', 'audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm', 'application/pdf')
 
-class BaseResponse:
-    '''
-    其他Response的父类；平时使用它判断response是否是合法的，并不建议使用它创建response
+class Cookie(TypedDict):
+    value: str
+    expires: datetime.datetime | None
+    max_age: int | None
+    domain: str | None
+    secure: bool | None
+    http_only: bool | None
 
-    >>> from CheeseAPI import app, BaseResponse
-    >>>
-    >>> @app.route.get('/')
-    >>> async def index(*args, **kwargs):
-    ...     response = ...
-    ...     if isinstance(response, BaseResponse):
-    ...         ...
-    '''
+class Response:
+    __slots__ = ('status', '_proxy', 'body', 'headers', 'cookies', 'high_precision_date', 'compress', 'compress_level')
 
-    def __init__(self, body: str | bytes | Callable | AsyncIterator | None = None, status: HTTPStatus | int = HTTPStatus_OK, headers: Dict[str, str] = {}):
-        from CheeseAPI.app import app
+    def __init__(self, body: dict | list | str | bytes | AsyncIterable | None = None, status: int = 200, headers: dict[str, str] = {}, *, high_precision_date: bool = False, compress: Literal['gzip', 'deflate', 'br', 'zstd'] | None = None, compress_level: int | None = None):
+        '''
+        - Args
+            - body: 当为 `AsyncIterable` 时，自动使用 chunked 传输编码
+            - headers: 若某些特殊 headers 被设置，则不会被框架自动处理
+            - high_precision_date: 是否使用高精度时间戳
+            - compress: 强制使用的压缩算法，若不指定则根据请求头自动协商
+            - compress_level: 压缩等级；每种算法的取值范围不同，请参考相应文档
+        '''
 
-        self.status: HTTPStatus = HTTPStatus(status)
-        self.headers: Dict[str, str] = {
-            'Server': app._text.response_server,
-            'Transfer-Encoding': 'chunked',
-            **headers
+        self.status: int = status
+        self.body: dict | list | str | bytes | AsyncIterable | None = body
+        self.headers: dict[str, str] = headers
+        self.cookies: dict[str, Cookie] = {}
+        self.high_precision_date: bool = high_precision_date
+        self.compress: Literal['gzip', 'deflate', 'br', 'zstd'] | None = compress
+        self.compress_level: int | None = compress_level
+
+        self._proxy: ResponseProxy | None = None
+
+    def set_cookie(self, key: str, value: str, expires: datetime.datetime | None = None, max_age: int | None = None, domain: str | None = None, secure: bool | None = None, http_only: bool | None = None):
+        self.cookies[key] = {
+            'value': value,
+            'expires': expires,
+            'max_age': max_age,
+            'domain': domain,
+            'secure': secure,
+            'http_only': http_only
         }
-        self.headers['Content-Type'] += '; charset=utf-8'
-        self.body: str | bytes | Callable | AsyncIterator = self.status.description if body is None else body
-        self._transfering: bool = False
 
-    async def __call__(self) -> Tuple[bytes, bool]:
-        if self._transfering:
-            try:
-                value = await anext(self.body)
-            except:
-                self._transfering = False
-                return b'0\r\n\r\n', False
+class RedirectResponse(Response):
+    def __init__(self, location: str, status: Literal[301, 302, 303, 307, 308] = 302, headers: dict[str, str] = {}, body: bytes | str | list | dict | None = None):
+        headers['Location'] = location
 
-            if isinstance(value, str):
-                value = value.encode()
+        super().__init__(status, body, headers)
 
-            value = b'%x\r\n' % len(value) + value + b'\r\n'
-            return value, self._transfering
-        else:
-            if isinstance(self.body, AsyncIterator):
-                self._transfering = True
+class FileResponse(Response):
+    __slots__ = ('file', 'preview', 'transmission_type', 'chunked_size')
 
-            self.headers['Data'] = formatdate(time(), usegmt = True)
+    def __init__(self, file_path_or_file: str | File, *, status: int = 200, headers: dict[str, str] = {}, preview: bool = True, transmission_type: Literal['CONTENT_LENGTH', 'CHUNKED'] = 'CONTENT_LENGTH', chunked_size: int | None = None, compress: Literal['gzip', 'deflate', 'br', 'zstd'] | None = None, compress_level: int | None = None):
+        '''
+        - Args
+            - preview: 优先预览文件
+            - transmission_type: 传输方式，'CONTENT_LENGTH' 使用 Content-Length 头，'CHUNKED' 使用分块传输编码
+            - chunked_size: 分块传输时每块的大小
+        '''
 
-            value = f'HTTP/1.1 {self.status} {HTTPStatus(self.status).phrase}\r\n'
-            for key, _value in self.headers.items():
-                if key == 'Set-Cookies':
-                    for _, __value in _value.items():
-                        value += f'Set-Cookie: {__value}\r\n'
+        super().__init__(status = status, headers = headers, compress = compress, compress_level = compress_level)
+
+        self.file: File = File(file_path_or_file) if isinstance(file_path_or_file, str) else file_path_or_file
+        self.preview: bool = preview
+        self.transmission_type: Literal['CONTENT_LENGTH', 'CHUNKED'] = transmission_type
+        self.chunked_size: int | None = chunked_size
+
+class ResponseProxy:
+    __slots__ = ('app', 'response', 'request', 'websocket')
+
+    def __init__(self, app: 'CheeseAPI', response: Response):
+        self.app: 'CheeseAPI' = app
+        self.response: Response = response
+        self.response._proxy = self
+
+        self.request: 'Request' | None = None
+        self.websocket: 'Websocket' | None = None
+
+    async def send(self, client_socket: socket.socket):
+        loop = asyncio.get_event_loop()
+        no_body = self.response.status in NO_BODY_STATUS or (self.request and self.request.method == 'HEAD')
+
+        status, headers, body = await self.get_status(self.response.status, self.response.headers, self.response.body)
+        status, headers, body = await self.get_headers(status, headers, body)
+        gen = self.get_body(status, headers, body)
+        if not no_body:
+            status, headers, data = await anext(gen)
+
+        bytes = [f'HTTP/1.1 {status} {HTTP_STATUS[status]}']
+        bytes.extend(f'{key}: {value}' for key, value in headers.items())
+        bytes.extend(['', ''])
+        bytes = '\r\n'.join(bytes).encode()
+        if not no_body:
+            if self.response.headers.get('Transfer-Encoding') == 'chunked':
+                bytes += hex(len(data)).encode() + b'\r\n' + data + b'\r\n'
+            else:
+                bytes += data
+        await loop.sock_sendall(client_socket, bytes)
+
+        if not no_body:
+            if self.response.headers.get('Transfer-Encoding') == 'chunked':
+                async for _, _, data in gen:
+                    await loop.sock_sendall(client_socket, hex(len(data)).encode() + b'\r\n' + data + b'\r\n')
+                await loop.sock_sendall(client_socket, b'0\r\n\r\n')
+            elif self.request.ranges:
+                async for _, _, data in gen:
+                    await loop.sock_sendall(client_socket, data)
+
+        if self.request.method != 'WEBSOCKET':
+            self.app.printer.response(self.request, self.response)
+
+    async def get_status(self, status: int, headers: dict[str, str], body: dict | list | str | bytes | None) -> tuple[int, dict[str, str], dict | list | str | bytes | None]:
+        if isinstance(self.response, FileResponse):
+            if self.request.headers.get('Range') is not None:
+                max_range = -1
+                for range in self.request.ranges:
+                    if range[1] is not None:
+                        max_range = max(max_range, range[1])
+                max_range += 1
+                if self.response.file._data is not None:
+                    if len(self.response.file.data) < max_range:
+                        status = 416
                 else:
-                    value += f'{key}: {_value}\r\n'
-            value += '\r\n'
-            value = value.encode()
+                    if os.path.getsize(self.response.file.path) < max_range:
+                        status = 416
 
-            _value = None
-            if isinstance(self.body, Callable):
-                _value = self.body().encode()
-            elif isinstance(self.body, str):
-                _value = self.body.encode()
-            elif isinstance(self.body, bytes):
-                _value = self.body
-            if _value is not None:
-                value += b'%x\r\n' % len(_value) + _value + b'\r\n0\r\n\r\n'
+        return status, headers, body
 
-            return value, self._transfering
+    async def file_response_chunked_body(self) -> AsyncIterable[bytes]:
+        self.response: FileResponse
+        if self.response.file._data is None:
+            with open(self.response.file.path, 'rb') as f:
+                while True:
+                    chunk = f.read(self.response.chunked_size)
+                    if not chunk:
+                        break
 
-    def setCookie(self, key: str, value: str, *, path: str = '/', secure: bool = False, httpOnly: bool = False, domain: str = '', sameSite: Literal['Strict', 'Lax', 'None'] = 'Lax', expires: datetime | str | None = None, maxAge: timedelta | int | None = None):
-        if 'Set-Cookies' not in self.headers:
-            self.headers['Set-Cookies'] = {}
-
-        s = f'{key}={value};'
-        if path:
-            s += f' Path={path};'
-        if sameSite == 'None' or secure:
-            s += ' Secure;'
-        if httpOnly:
-            s += ' HttpOnly;'
-        if domain:
-            s += f' Domain={domain};'
-        if sameSite != 'Lax':
-            s += f' SameSite={sameSite};'
-        if expires:
-            if isinstance(expires, str):
-                s += f' Expires={expires};'
-            elif isinstance(expires, datetime):
-                s += f' Expires={expires.strftime("%a, %d-%b-%Y %H:%M:%S GMT")};'
-        if maxAge:
-            if isinstance(maxAge, int):
-                s += f' Max-Age={maxAge};'
-            elif isinstance(maxAge, timedelta):
-                s += f' Max-Age={maxAge.total_seconds()};'
-        self.headers['Set-Cookies'][key] = s
-
-class Response(BaseResponse):
-    '''
-    >>> from CheeseAPI import app, Response
-    >>>
-    >>> @app.route.get('/')
-    >>> async def index(*args, **kwargs):
-    ...     return Response('这里是CheeseAPI！')
-    '''
-
-    def __init__(self, body: str | bytes | Callable | AsyncIterator | None = None, status: HTTPStatus | int = HTTPStatus_OK, headers: Dict[str, str] = {}):
-        super().__init__(body, status, {
-            'Content-Type': 'text/plain',
-            **headers
-        })
-
-class JsonResponse(BaseResponse):
-    '''
-    可将`dict`或`list`自动转为可发送的格式
-
-    >>> from CheeseAPI import app, JsonResponse
-    >>>
-    >>> @app.route.get('/')
-    >>> async def index(*args, **kwargs):
-    ...     return JsonResponse({
-    ...         'welcome': '这里是CheeseAPI！'
-    ...     })
-    '''
-
-    def __init__(self, body: dict | list = {}, status: HTTPStatus | int = HTTPStatus_OK, headers: Dict[str, str] = {}):
-        super().__init__(dumps(body), status, {
-            'Content-Type': 'application/json',
-            **headers
-        })
-
-class FileResponse(BaseResponse):
-    @overload
-    def __init__(self, path: str, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1048576):
-        '''
-        - Args
-            - path: 文件路径；支持相对路径与绝对路径
-
-            - downloaded: 文件是否下载；为`False`时优先预览，若无法预览则仍然下载
-
-            - chunkSize: 发送文件的chunk大小
-        '''
-
-    @overload
-    def __init__(self, data: File, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1048576):
-        '''
-        - Args
-            - downloaded: 文件是否下载；为`False`时优先预览，若无法预览则仍然下载
-
-            - chunkSize: 发送文件的chunk大小
-        '''
-
-    def __init__(self, arg: str | File, headers: Dict[str, str] = {}, *, downloaded: bool = False, chunkSize: int = 1048576):
-        self.file: File = File(arg) if isinstance(arg, str) else arg
-        self.downloaded: bool = downloaded
-        self.chunkSize: int = chunkSize
-
-        suffix = self.file.name.split('.')[-1]
-        if downloaded or suffix not in CONTENT_TYPES:
-            headers['Content-Type'] = 'application/octet-stream'
+                    yield chunk
         else:
-            headers['Content-Type'] = CONTENT_TYPES[suffix]
+            for i in range(0, len(self.response.file.data), self.response.chunked_size):
+                yield self.response.file.data[i:i + self.response.chunked_size]
 
-        super().__init__(self._chunk(), HTTPStatus_OK, headers = headers)
+    async def get_headers(self, status: int, headers: dict[str, str], body: dict | list | str | bytes | None) -> tuple[int, dict[str, str], dict | list | str | bytes | None]:
+        if isinstance(self.response, FileResponse):
+            if self.response.transmission_type == 'CONTENT_LENGTH':
+                body = self.response.file.data
+            elif self.response.transmission_type == 'CHUNKED':
+                body = self.file_response_chunked_body()
 
-    async def _chunk(self):
-        length = len(self.file.data)
-        index = 0
+            if 'Content-Type' not in headers and 'Content-Disposition' not in headers:
+                mime_type = mimetypes.guess_type(self.response.file.name)[0] or 'application/octet-stream'
+                headers['Content-Type'] = f'{mime_type}; charset=utf-8'
+                headers['Content-Disposition'] = f'{"inline" if self.response.preview and mime_type in PREVIEWABLE_TYPES else "attachment"}; filename="{self.response.file.name}"'
 
-        while index < length:
-            endIndex = min(index + self.chunkSize, length)
-            yield self.file.data[index:endIndex]
-            index = endIndex
+        if isinstance(self.response.body, AsyncIterable):
+            if 'Transfer-Encoding' not in headers:
+                headers['Transfer-Encoding'] = 'chunked'
 
-class RedirectResponse(BaseResponse):
-    def __init__(self, location: str, status: HTTPStatus | int = HTTPStatus_FOUND, body: str | bytes | None = None, headers: Dict[str, str] = {}):
-        super().__init__(body, status, {
-            'Content-Type': 'text/plain',
-            'Location': location,
-            **headers
-        })
+        if 'Date' not in headers:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            headers['Date'] = (now.strftime('%a, %d %b %Y %H:%M:%S.') + f'{now.microsecond:06d} GMT') if self.response.high_precision_date else now.strftime('%a, %d %b %Y %H:%M:%S GMT')
+
+        if 'Connection' not in headers:
+            if self.app.keep_alive and self.request and ((self.request._proxy.protocol == 'HTTP/1.1' and self.request.headers.get('Connection', '') != 'close') or (self.request._proxy.protocol == 'HTTP/1.0' and self.request.headers.get('Connection', '') == 'keep-alive')):
+                headers['Connection'] = 'keep-alive'
+                headers['Keep-Alive'] = f'timeout={self.app.keep_alive_timeout}, max={self.app.keep_alive_max_requests}'
+            else:
+                headers['Connection'] = 'close'
+
+        if self.request.ranges:
+            if status == 206:
+                headers.setdefault('Accept-Ranges', 'bytes')
+        else:
+            encodings = []
+            encoding_quality = False
+            if self.app.compress and self.request and self.request.headers and self.request.headers.get('Accept-Encoding'):
+                for encoding in self.request.headers.get('Accept-Encoding').split(','):
+                    encoding_split = encoding.strip().split(';')
+                    if len(encoding_split) == 1:
+                        encoding_split.append(1)
+                    else:
+                        encoding_quality = True
+                        encoding_split[1] = float(encoding_split[1].split('=')[1])
+                    encodings.append(encoding_split)
+                encodings.sort(key = lambda x: float(x[1]), reverse = True)
+                encodings = [encoding[0] for encoding in encodings]
+
+            if self.response.compress is not None:
+                headers.setdefault('Content-Encoding', self.response.compress)
+            elif encodings:
+                if encoding_quality is True:
+                    for encoding in encodings:
+                        if encoding in self.app.compress:
+                            headers.setdefault('Content-Encoding', encoding)
+                            break
+                        if encoding == '*':
+                            headers.setdefault('Content-Encoding', self.app.compress[0])
+                            break
+                else:
+                    if encodings[0] == '*':
+                        headers.setdefault('Content-Encoding', self.app.compress[0])
+                    else:
+                        for encoding in self.app.compress:
+                            if encoding in encodings:
+                                headers.setdefault('Content-Encoding', encoding)
+                                break
+
+        if self.response.cookies and 'Set-Cookie' not in headers:
+            cookies = []
+            for key, cookie in self.response.cookies.items():
+                _cookie = f'{key}={cookie["value"]}'
+                if cookie['expires'] is not None:
+                    _cookie += f'; Expires={cookie["expires"].strftime("%a, %d %b %Y %H:%M:%S GMT")}'
+                if cookie['max_age'] is not None:
+                    _cookie += f'; Max-Age={cookie["max_age"]}'
+                if cookie['domain'] is not None:
+                    _cookie += f'; Domain={cookie["domain"]}'
+                if cookie['secure']:
+                    _cookie += '; Secure'
+                if cookie['http_only']:
+                    _cookie += '; HttpOnly'
+                cookies.append(_cookie)
+            headers['Set-Cookie'] = ', '.join(cookies)
+
+        return status, headers, body
+
+    async def get_body(self, status: int, headers: dict[str, str], body: dict | list | str | bytes | AsyncIterable | None) -> AsyncIterable[tuple[int, dict[str, str], bytes]]:
+        if type(self.response) is FileResponse and self.request.ranges and status != 416:
+            if self.response.file._data is None:
+                handler = open(self.response.file.path, 'rb')
+            if len(self.request.ranges) == 1:
+                if self.response.file._data is not None:
+                    size = len(self.response.file.data)
+                    data = self.response.file.data[self.request.ranges[0][0] or 0:self.request.ranges[0][1] or len(self.response.file.data) + 1]
+                else:
+                    size = os.path.getsize(self.response.file.path)
+                    handler.seek(self.request.ranges[0][0] or 0)
+                    data = handler.read((self.request.ranges[0][1] or size) - (self.request.ranges[0][0]))
+                    handler.close()
+                headers['Content-Length'] = str(len(data))
+                headers['Content-Range'] = f'bytes {self.request.ranges[0][0]}-{(self.request.ranges[0][1] or size) - 1}/{size}'
+                yield status, headers, data
+            else:
+                boundary = uuid.uuid4().hex
+                content_type = headers['Content-Type']
+                headers['Content-Type'] = f'multipart/byteranges; boundary={boundary}'
+                if self.response.file._data is not None:
+                    size = len(self.response.file.data)
+                else:
+                    size = os.path.getsize(self.response.file.path)
+
+                content_length = 0
+                for range in self.request.ranges:
+                    content_length += 2 + 32 + 2 + 14 + len(content_type) + 2 + 21 + (1 if range[0] == 0 else int(math.log10(range[0]))) + 1 + 1 + int(math.log10(range[1] or size)) + 1 + 1 + int(math.log10(size)) + 1 + 4 + (range[1] or size) - range[0] + 1
+                headers['Content-Length'] = str(content_length)
+
+                for range in self.request.ranges:
+                    data = [b'--', boundary.encode(), b'\r\n', b'Content-Type: ', content_type.encode(), b'\r\n', b'Content-Range: bytes ', str(range[0]).encode(), b'-', str(range[1] or size).encode(), b'/', str(size).encode() + b'\r\n\r\n']
+                    if self.response.file._data is not None:
+                        data.append(self.response.file.data[range[0]:range[1] or size + 1])
+                    else:
+                        handler.seek(range[0])
+                        data.append(handler.read((range[1] or size) - (range[0])))
+                    yield status, headers, b''.join(data)
+                if self.response.file._data is None:
+                    handler.close()
+                yield status, headers, b'--' + boundary.encode() + b'--'
+        else:
+            if isinstance(body, AsyncIterable):
+                data = await anext(body)
+            else:
+                data = body
+
+            if isinstance(data, (dict, list)):
+                data = json.dumps(data).encode()
+                headers.setdefault('Content-Type', 'application/json; charset=utf-8')
+            elif isinstance(data, str):
+                data = data.encode()
+                headers.setdefault('Content-Type', 'text/plain; charset=utf-8')
+            elif data is None:
+                data = HTTP_STATUS[status].encode()
+                headers.setdefault('Content-Type', 'text/plain; charset=utf-8')
+            elif isinstance(data, bytes):
+                headers.setdefault('Content-Type', 'application/octet-stream; charset=utf-8')
+
+            if isinstance(body, AsyncIterable) is False:
+                headers['Content-Length'] = str(len(data))
+
+            status, headers, data = await self.get_encode_body(status, headers, data)
+            if isinstance(body, AsyncIterable) is False:
+                headers['Content-Length'] = str(len(data))
+            yield status, headers, data
+
+            if isinstance(body, AsyncIterable):
+                async for data in body:
+                    if isinstance(data, (dict, list)):
+                        data = json.dumps(data).encode()
+                    elif isinstance(data, str):
+                        data = data.encode()
+                    status, headers, data = await self.get_encode_body(status, headers, data)
+                    yield status, headers, data
+
+    async def get_encode_body(self, status: int, headers: dict[str, str], body: bytes) -> tuple[int, dict[str, str], bytes]:
+        content_length = headers.get('Content-Length')
+        if content_length and int(content_length) < self.app.compress_min_length:
+            if 'Content-Encoding' in headers:
+                del headers['Content-Encoding']
+
+        if 'Content-Encoding' in headers and 'Content-Length' in headers and (int(headers['Content-Length']) > self.app.compress_min_length or self.response.compress is not None):
+            compress_level = self.response.compress_level if self.response.compress_level is not None else self.app.compress_level
+            if headers['Content-Encoding'] == 'gzip':
+                body = gzip.compress(body, compress_level)
+            elif headers['Content-Encoding'] == 'deflate':
+                body = zlib.compress(body, level = compress_level)
+            elif headers['Content-Encoding'] == 'br':
+                body = brotli.compress(body, quality = compress_level)
+            elif headers['Content-Encoding'] == 'zstd':
+                body = zstandard.ZstdCompressor(level = compress_level).compress(body)
+
+            headers['Content-Length'] = str(len(body))
+        else:
+            if 'Content-Encoding' in headers:
+                del headers['Content-Encoding']
+
+        return status, headers, body

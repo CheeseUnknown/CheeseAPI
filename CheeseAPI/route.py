@@ -1,361 +1,261 @@
-import uuid, http
-from typing import Dict, Tuple, Callable, List, Any, Literal, overload, TYPE_CHECKING, Type
-from urllib.parse import unquote
-from re import match, fullmatch
+import re, uuid
+from typing import Literal, TypedDict, Callable, TYPE_CHECKING, AsyncIterable, Union
 
-from CheeseAPI.exception import Route_404_Exception, Route_405_Exception
+from CheeseAPI.cors import CORS
 
 if TYPE_CHECKING:
-    from CheeseAPI.websocket import WebsocketServer
+    from CheeseAPI.websocket import Websocket
+    from CheeseAPI.app import CheeseAPI
 
-class RouteNode:
-    def __init__(self):
-        self.children: Dict[str, RouteNode] = {}
-        self.key: str | None = None
-        self.methods: Dict[str, Tuple[str, Callable]] = {}
+HTTP_METHOD_TYPE = Literal['CONNECT', 'DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT', 'TRACE', 'WEBSOCKET']
 
-class RouteBus:
-    def __init__(self):
-        self._patterns: List[Dict[str, Any]] = [
-            {
-                'key': 'uuid',
-                'pattern': r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
-                'type': uuid.UUID,
-                'weight': 10
-            },
-            {
-                'key': 'float',
-                'pattern': r'[-+]?[0-9]+\.[0-9]+',
-                'type': float,
-                'weight': 10
-            },
-            {
-                'key': 'int',
-                'pattern': r'[-+]?[0-9]+',
-                'type': int,
-                'weight': 10
-            },
-            {
-                'key': 'str',
-                'pattern': r'.+',
-                'type': str,
-                'weight': 0
-            }
-        ]
-        self._node: RouteNode = RouteNode()
+class Pattern(TypedDict):
+    pattern: re.Pattern
+    weight: int
+    ''' 权重；越高权重，匹配优先级越高 '''
+    type: type
+    ''' 数据类型；应当为对应的 Python 类型，执行该类型转换后应当返还一个对应类型的值 '''
+    key: str
 
-    def addPattern(self, key: str, pattern: str, type: object | Callable, weight: int):
+class RouteDict(TypedDict):
+    fn: Callable | 'Websocket'
+    cors: CORS | None
+    params: dict[str, type] | None
+    auto_recv_body: bool
+
+class Route:
+    __slots__ = ('_path', '_proxy')
+
+    def __init__(self, path: str, app: 'CheeseAPI'):
         '''
-        新增动态路由匹配条件
-
-        - Arg
-            - key: 在动态路由中的key
-
-            - pattern: 使用正则匹配动态路由的字符串
-
-            - type: 若匹配成功，则会将字符串转为该类；请确保该类可以使用`Xxx(value: str)`进行转换，或是一个返回值为该类的函数
-
-            - weight: 匹配优先级的权重；更高的权重意味着优先级更高的匹配，若匹配成功则不会继续匹配
+        - Args
+            - path: 路由前缀
         '''
 
-        self.patterns.append({
-            'key': key,
-            'pattern': pattern,
-            'type': type,
-            'weight': weight
-        })
-        self.patterns = sorted(self.patterns, key = lambda x: x['weight'], reverse = True)
+        self._path: str = path
 
-    def _insert(self, path: str, fn: Callable, methods: List[http.HTTPMethod | str]):
-        methods = [http.HTTPMethod(method) if method != 'WEBSOCKET' else method for method in methods]
-        node = self._node
+        self._proxy: RouteProxy = app.RouteProxy_Class(app, self)
 
-        for part in path.split('/')[1:]:
-            if match(r'<\w+:\w+>', part):
-                part = part[1:-1].split(':')
-                _part = f'<:{part[1]}>'
-                if _part not in node.children:
-                    node.children[_part] = RouteNode()
-                node.children[_part].key = part[0]
-                part = _part
-            else:
-                if part not in node.children:
-                    node.children[part] = RouteNode()
-            node = node.children[part]
+    def add(self, method_or_methods: list[HTTP_METHOD_TYPE] | HTTP_METHOD_TYPE, path: str, fn: Callable | 'Websocket' | AsyncIterable | None = None, *, allow_origins: list[str] | None = None, allow_methods: list[HTTP_METHOD_TYPE] | None = None, allow_headers: list[str] | None = None, allow_credentials: bool | None = None, expose_headers: list[str] | None = None, max_age: int | None = None, auto_recv_body: bool = True):
+        '''
+        - Args
+            - auto_recv_body: 是否自动接收响应的 body，若否则自行调用 `request.recv_body()` 接收，并自行调用 `request.parse_body()` 解析
+        '''
 
-        if not node.methods:
-            node.methods = {}
-        node.methods.update({
-            method: (path, fn) for method in methods
-        })
+        if allow_origins is not None or allow_methods is not None or allow_headers is not None or allow_credentials is not None or expose_headers or max_age is not None:
+            cors = CORS(allow_origins = allow_origins, allow_methods = allow_methods, allow_headers = allow_headers, allow_credentials = allow_credentials, expose_headers = expose_headers, max_age = max_age)
+        else:
+            cors = None
 
-    def _match(self, path: str, method: http.HTTPMethod | Literal['WEBSOCKET']) -> Tuple[Callable, Dict[str, Any]]:
-        paths = path.split('/')[1:]
-        if paths[-1] == '' and path != '/':
-            paths = paths[:-1]
+        methods = method_or_methods if isinstance(method_or_methods, list) else [method_or_methods]
+        if fn is not None:
+            for method in methods:
+                self._proxy.add_route(method, f'{self.path}{path}', fn, cors, auto_recv_body)
+        else:
+            def wrapper(_fn: Callable | AsyncIterable | 'Websocket'):
+                for method in methods:
+                    self._proxy.add_route(method, f'{self.path}{path}', _fn, cors, auto_recv_body)
+                return _fn
+            return wrapper
 
-        results = self.__match(self._node, paths, {})
-        if not results:
-            raise Route_404_Exception()
-        if method not in results:
-            raise Route_405_Exception()
-        results = results[method]
-        kwargs = {}
-        _paths = results[0].split('/')
-        for i in range(len(paths)):
-            if match(r'<.*?:.*?>', _paths[i + 1]):
-                p = _paths[i + 1][1:-1].split(':')
-                for pattern in self.patterns:
-                    if pattern['key'] == p[1]:
-                        kwargs[p[0]] = pattern['type'](unquote(paths[i]))
-                        break
+    def get(self, path: str, fn: Callable | AsyncIterable | None = None, *, allow_origins: list[str] | None = None, allow_methods: list[HTTP_METHOD_TYPE] | None = None, allow_headers: list[str] | None = None, allow_credentials: bool | None = None, expose_headers: list[str] | None = None, max_age: int | None = None, auto_recv_body: bool = True):
+        '''
+        - Args
+            - auto_recv_body: 是否自动接收响应的 body，若否则自行调用 `request.recv_body()` 接收，并自行调用 `request.parse_body()` 解析
+        '''
 
-        return results[1], kwargs
+        return self.add('GET', path, fn, allow_origins = allow_origins, allow_methods = allow_methods, allow_headers = allow_headers, allow_credentials = allow_credentials, expose_headers = expose_headers, max_age = max_age, auto_recv_body = auto_recv_body)
 
-    def __match(self, node: RouteNode, paths: List[str], results: Dict[http.HTTPMethod, Tuple[str, Callable]]) -> Dict[http.HTTPMethod, Tuple[str, Callable]]:
-        if paths and node.children:
-            if paths[0] in node.children:
-                results = self.__match(node.children[paths[0]], paths[1:], results)
-            paths[0] = unquote(paths[0])
-            for pattern in self.patterns:
-                if fullmatch(pattern['pattern'], paths[0]) and f'<:{pattern["key"]}>' in node.children:
-                    results = self.__match(node.children[f'<:{pattern["key"]}>'], paths[1:], results)
-                    break
+    def post(self, path: str, fn: Callable |AsyncIterable | None = None, *, allow_origins: list[str] | None = None, allow_methods: list[HTTP_METHOD_TYPE] | None = None, allow_headers: list[str] | None = None, allow_credentials: bool | None = None, expose_headers: list[str] | None = None, max_age: int | None = None, auto_recv_body: bool = True):
+        '''
+        - Args
+            - auto_recv_body: 是否自动接收响应的 body，若否则自行调用 `request.recv_body()` 接收，并自行调用 `request.parse_body()` 解析
+        '''
 
-        if not paths and node.methods:
-            results.update({
-                key: value for key, value in node.methods.items() if key not in results
-            })
-        return results
+        return self.add('POST', path, fn, allow_origins = allow_origins, allow_methods = allow_methods, allow_headers = allow_headers, allow_credentials = allow_credentials, expose_headers = expose_headers, max_age = max_age, auto_recv_body = auto_recv_body)
+
+    def websocket(self, path: str, fn: Union['Websocket', None] = None, *, allow_origins: list[str] | None = None, allow_methods: list[HTTP_METHOD_TYPE] | None = None, allow_headers: list[str] | None = None, allow_credentials: bool | None = None, expose_headers: list[str] | None = None, max_age: int | None = None):
+        return self.add('WEBSOCKET', path, fn, allow_origins = allow_origins, allow_methods = allow_methods, allow_headers = allow_headers, allow_credentials = allow_credentials, expose_headers = expose_headers, max_age = max_age, auto_recv_body = True)
+
+    def delete(self, path: str, fn: Callable |AsyncIterable | None = None, *, allow_origins: list[str] | None = None, allow_methods: list[HTTP_METHOD_TYPE] | None = None, allow_headers: list[str] | None = None, allow_credentials: bool | None = None, expose_headers: list[str] | None = None, max_age: int | None = None, auto_recv_body: bool = True):
+        '''
+        - Args
+            - auto_recv_body: 是否自动接收响应的 body，若否则自行调用 `request.recv_body()` 接收，并自行调用 `request.parse_body()` 解析
+        '''
+
+        return self.add('DELETE', path, fn, allow_origins = allow_origins, allow_methods = allow_methods, allow_headers = allow_headers, allow_credentials = allow_credentials, expose_headers = expose_headers, max_age = max_age, auto_recv_body = auto_recv_body)
+
+    def put(self, path: str, fn: Callable |AsyncIterable | None = None, *, allow_origins: list[str] | None = None, allow_methods: list[HTTP_METHOD_TYPE] | None = None, allow_headers: list[str] | None = None, allow_credentials: bool | None = None, expose_headers: list[str] | None = None, max_age: int | None = None, auto_recv_body: bool = True):
+        '''
+        - Args
+            - auto_recv_body: 是否自动接收响应的 body，若否则自行调用 `request.recv_body()` 接收，并自行调用 `request.parse_body()` 解析
+        '''
+
+        return self.add('PUT', path, fn, allow_origins = allow_origins, allow_methods = allow_methods, allow_headers = allow_headers, allow_credentials = allow_credentials, expose_headers = expose_headers, max_age = max_age, auto_recv_body = auto_recv_body)
+
+    def patch(self, path: str, fn: Callable |AsyncIterable | None = None, *, allow_origins: list[str] | None = None, allow_methods: list[HTTP_METHOD_TYPE] | None = None, allow_headers: list[str] | None = None, allow_credentials: bool | None = None, expose_headers: list[str] | None = None, max_age: int | None = None, auto_recv_body: bool = True):
+        '''
+        - Args
+            - auto_recv_body: 是否自动接收响应的 body，若否则自行调用 `request.recv_body()` 接收，并自行调用 `request.parse_body()` 解析
+        '''
+
+        return self.add('PATCH', path, fn, allow_origins = allow_origins, allow_methods = allow_methods, allow_headers = allow_headers, allow_credentials = allow_credentials, expose_headers = expose_headers, max_age = max_age, auto_recv_body = auto_recv_body)
+
+    def head(self, path: str, fn: Callable |AsyncIterable | None = None, *, allow_origins: list[str] | None = None, allow_methods: list[HTTP_METHOD_TYPE] | None = None, allow_headers: list[str] | None = None, allow_credentials: bool | None = None, expose_headers: list[str] | None = None, max_age: int | None = None, auto_recv_body: bool = True):
+        '''
+        - Args
+            - auto_recv_body: 是否自动接收响应的 body，若否则自行调用 `request.recv_body()` 接收，并自行调用 `request.parse_body()` 解析
+        '''
+
+        return self.add('HEAD', path, fn, allow_origins = allow_origins, allow_methods = allow_methods, allow_headers = allow_headers, allow_credentials = allow_credentials, expose_headers = expose_headers, max_age = max_age, auto_recv_body = auto_recv_body)
+
+    def options(self, path: str, fn: Callable |AsyncIterable | None = None, *, allow_origins: list[str] | None = None, allow_methods: list[HTTP_METHOD_TYPE] | None = None, allow_headers: list[str] | None = None, allow_credentials: bool | None = None, expose_headers: list[str] | None = None, max_age: int | None = None, auto_recv_body: bool = True):
+        '''
+        - Args
+            - auto_recv_body: 是否自动接收响应的 body，若否则自行调用 `request.recv_body()` 接收，并自行调用 `request.parse_body()` 解析
+        '''
+
+        return self.add('OPTIONS', path, fn, allow_origins = allow_origins, allow_methods = allow_methods, allow_headers = allow_headers, allow_credentials = allow_credentials, expose_headers = expose_headers, max_age = max_age, auto_recv_body = auto_recv_body)
+
+    def trace(self, path: str, fn: Callable |AsyncIterable | None = None, *, allow_origins: list[str] | None = None, allow_methods: list[HTTP_METHOD_TYPE] | None = None, allow_headers: list[str] | None = None, allow_credentials: bool | None = None, expose_headers: list[str] | None = None, max_age: int | None = None, auto_recv_body: bool = True):
+        '''
+        - Args
+            - auto_recv_body: 是否自动接收响应的 body，若否则自行调用 `request.recv_body()` 接收，并自行调用 `request.parse_body()` 解析
+        '''
+
+        return self.add('TRACE', path, fn, allow_origins = allow_origins, allow_methods = allow_methods, allow_headers = allow_headers, allow_credentials = allow_credentials, expose_headers = expose_headers, max_age = max_age, auto_recv_body = auto_recv_body)
+
+    def connect(self, path: str, fn: Callable |AsyncIterable | None = None, *, allow_origins: list[str] | None = None, allow_methods: list[HTTP_METHOD_TYPE] | None = None, allow_headers: list[str] | None = None, allow_credentials: bool | None = None, expose_headers: list[str] | None = None, max_age: int | None = None, auto_recv_body: bool = True):
+        '''
+        - Args
+            - auto_recv_body: 是否自动接收响应的 body，若否则自行调用 `request.recv_body()` 接收，并自行调用 `request.parse_body()` 解析
+        '''
+
+        return self.add('CONNECT', path, fn, allow_origins = allow_origins, allow_methods = allow_methods, allow_headers = allow_headers, allow_credentials = allow_credentials, expose_headers = expose_headers, max_age = max_age, auto_recv_body = auto_recv_body)
 
     @property
-    def patterns(self) -> List[Dict[str, Any]]:
+    def path(self) -> str:
         '''
-        【只读】 可匹配的动态路由参数
+        路由前缀
+        '''
+
+        return self._path
+
+class AppRoute(Route):
+    __slots__ = ('_routes', '_proxy', '_patterns')
+
+    def __init__(self, app: 'CheeseAPI'):
+        super().__init__('', app)
+
+        self._routes: dict[str, dict[HTTP_METHOD_TYPE, RouteDict]] = {}
+        self._patterns: list[Pattern] = [
+            {
+                'pattern': re.compile(r'-?(0|[1-9]\d*)'),
+                'weight': 5,
+                'type': int,
+                'key': 'int'
+            },
+            {
+                'pattern': re.compile(r'-?\d+\.\d+'),
+                'weight': 5,
+                'type': float,
+                'key': 'float'
+            },
+            {
+                'pattern': re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'),
+                'weight': 5,
+                'type': uuid.UUID,
+                'key': 'uuid'
+            },
+            {
+                'pattern': re.compile(r'.+'),
+                'weight': 0,
+                'type': str,
+                'key': 'str'
+            }
+        ]
+
+    @property
+    def patterns(self) -> list[Pattern]:
+        '''
+        动态路由匹配模式
         '''
 
         return self._patterns
 
-class Route:
-    def __init__(self, prefix: str = ''):
-        self.prefix: str = prefix
+    @property
+    def routes(self) -> dict[str, dict[HTTP_METHOD_TYPE, RouteDict]]:
+        '''
+        所有路由
+        '''
 
-    @overload
-    def __call__(self, path: str, methods: List[http.HTTPMethod | str]):
-        ...
+        return self._routes
 
-    @overload
-    def __call__(self, path: str, methods: List[http.HTTPMethod | str], fn: Callable):
-        ...
+class RouteProxy:
+    __slots__ = ('app', 'is_root', 'dynamic_routes', 'route', 'dynamic_route_orders')
 
-    def __call__(self, path: str, methods: List[http.HTTPMethod | str], fn: Callable | None = None):
-        from CheeseAPI.app import app
+    def __init__(self, app: 'CheeseAPI', route: Route):
+        self.app: 'CheeseAPI' = app
+        self.route: Route = route
 
-        if fn:
-            app.routeBus._insert(f'{self.prefix}{path}', fn, methods)
-            return
+        self.dynamic_routes: dict[str, dict[HTTP_METHOD_TYPE, RouteDict]] = {}
+        self.dynamic_route_orders: list[tuple[str, int]] = []
 
-        def wrapper(fn):
-            app.routeBus._insert(f'{self.prefix}{path}', fn, methods)
-            return fn
-        return wrapper
+    def add_route(self, method: HTTP_METHOD_TYPE, path: str, fn: Callable | 'Websocket', cors: CORS | None, auto_recv_body: bool):
+        if path not in self.app.route.routes:
+            self.app.route.routes[path] = {}
+        self.app.route.routes[path][method] = {
+            'fn': fn,
+            'cors': cors,
+            'params': None,
+            'auto_recv_body': auto_recv_body
+        }
 
-    @overload
-    def get(self, path: str):
-        ...
+        if '<' in path and '>' in path and ':' in path:
+            regex_path = f'^{path}$'
+            params = {}
+            weight = 0
+            for match in re.finditer(r'<(\w+):(\w+)>', path):
+                key = match.group(1)
+                type = match.group(2)
+                for pattern in self.app.route.patterns:
+                    if pattern['key'] == type:
+                        regex_path = regex_path.replace(f'<{key}:{type}>', f'({pattern["pattern"].pattern})')
+                        params[key] = pattern['type']
+                        weight += pattern['weight']
+                        break
 
-    @overload
-    def get(self, path: str, fn: Callable):
-        ...
+            if regex_path not in self.app.route._proxy.dynamic_routes:
+                self.app.route._proxy.dynamic_routes[regex_path] = {}
+            self.app.route._proxy.dynamic_routes[regex_path][method] = {
+                'fn': fn,
+                'cors': cors,
+                'params': params,
+                'auto_recv_body': auto_recv_body
+            }
+            self.app.route._proxy.dynamic_route_orders.append((regex_path, weight))
 
-    def get(self, path: str, fn: Callable | None = None):
-        from CheeseAPI.app import app
+            self.app.route._proxy.dynamic_route_orders.sort(key = lambda x: x[1], reverse = True)
 
-        if fn:
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.GET])
-            return
+    def get_route(self, method: HTTP_METHOD_TYPE, path: str) -> tuple[RouteDict, dict] | Literal[404, 405]:
+        if path in self.app.route.routes:
+            if method in self.app.route.routes[path]:
+                return (self.app.route.routes[path][method], {})
+            else:
+                return 405
 
-        def wrapper(fn):
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.GET])
-            return fn
-        return wrapper
+        for _path, _ in self.app.route._proxy.dynamic_route_orders:
+            match = re.match(_path, path)
+            if match:
+                if method in self.app.route._proxy.dynamic_routes[_path]:
+                    _params = {}
+                    i = 1
+                    for key, type in self.app.route._proxy.dynamic_routes[_path][method]['params'].items():
+                        value = match.group(i)
+                        _params[key] = type(value)
+                        i += 1
+                    return self.app.route._proxy.dynamic_routes[_path][method], _params
+                else:
+                    return 405
 
-    @overload
-    def post(self, path: str):
-        ...
-
-    @overload
-    def post(self, path: str, fn: Callable):
-        ...
-
-    def post(self, path: str, fn: Callable | None = None):
-        from CheeseAPI.app import app
-
-        if fn:
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.POST])
-            return
-
-        def wrapper(fn):
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.POST])
-            return fn
-        return wrapper
-
-    @overload
-    def delete(self, path: str):
-        ...
-
-    @overload
-    def delete(self, path: str, fn: Callable):
-        ...
-
-    def delete(self, path: str, fn: Callable | None = None):
-        from CheeseAPI.app import app
-
-        if fn:
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.DELETE])
-            return
-
-        def wrapper(fn):
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.DELETE])
-            return fn
-        return wrapper
-
-    @overload
-    def put(self, path: str):
-        ...
-
-    @overload
-    def put(self, path: str, fn: Callable):
-        ...
-
-    def put(self, path: str, fn: Callable | None = None):
-        from CheeseAPI.app import app
-
-        if fn:
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.PUT])
-            return
-
-        def wrapper(fn):
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.PUT])
-            return fn
-        return wrapper
-
-    @overload
-    def patch(self, path: str):
-        ...
-
-    @overload
-    def patch(self, path: str, fn: Callable):
-        ...
-
-    def patch(self, path: str, fn: Callable | None = None):
-        from CheeseAPI.app import app
-
-        if fn:
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.PATCH])
-            return
-
-        def wrapper(fn):
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.PATCH])
-            return fn
-        return wrapper
-
-    @overload
-    def trace(self, path: str):
-        ...
-
-    @overload
-    def trace(self, path: str, fn: Callable):
-        ...
-
-    def trace(self, path: str, fn: Callable | None = None):
-        from CheeseAPI.app import app
-
-        if fn:
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.TRACE])
-            return
-
-        def wrapper(fn):
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.TRACE])
-            return fn
-        return wrapper
-
-    @overload
-    def options(self, path: str):
-        ...
-
-    @overload
-    def options(self, path: str, fn: Callable):
-        ...
-
-    def options(self, path: str, fn: Callable | None = None):
-        from CheeseAPI.app import app
-
-        if fn:
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.OPTIONS])
-            return
-
-        def wrapper(fn):
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.OPTIONS])
-            return fn
-        return wrapper
-
-    @overload
-    def head(self, path: str):
-        ...
-
-    @overload
-    def head(self, path: str, fn: Callable):
-        ...
-
-    def head(self, path: str, fn: Callable | None = None):
-        from CheeseAPI.app import app
-
-        if fn:
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.HEAD])
-            return
-
-        def wrapper(fn):
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.HEAD])
-            return fn
-        return wrapper
-
-    @overload
-    def connect(self, path: str):
-        ...
-
-    @overload
-    def connect(self, path: str, fn: Callable):
-        ...
-
-    def connect(self, path: str, fn: Callable | None = None):
-        from CheeseAPI.app import app
-
-        if fn:
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.CONNECT])
-            return
-
-        def wrapper(fn):
-            app.routeBus._insert(f'{self.prefix}{path}', fn, [http.HTTPMethod.CONNECT])
-            return fn
-        return wrapper
-
-    @overload
-    def websocket(self, path: str):
-        ...
-
-    @overload
-    def websocket(self, path: str, fn: 'WebsocketServer'):
-        ...
-
-    def websocket(self, path: str, fn: Type['WebsocketServer'] | None = None):
-        from CheeseAPI.app import app
-
-        if fn:
-            app.routeBus._insert(f'{self.prefix}{path}', fn, ['WEBSOCKET'])
-            return
-
-        def wrapper(fn):
-            app.routeBus._insert(f'{self.prefix}{path}', fn, ['WEBSOCKET'])
-            return fn
-        return wrapper
+        return 404

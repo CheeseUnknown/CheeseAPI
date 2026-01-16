@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "CheeseAPI"
-version = "1.7.2"
+version = "2.0.0"
 description = "一款web协程框架"
 readme = "README.md"
 license-files = { paths = [ "LICENSE" ] }
@@ -14,18 +14,13 @@ authors = [
 keywords = [ 'API', 'BackEnd' ]
 
 dependencies = [
-    "CheeseLog==1.1.*",
-    "xmltodict",
-    "websockets",
-    "uvloop",
-    "httptools",
-    "CheeseSignal==1.2.*",
-    "dill",
+    "CheeseLog==2.1.*",
+    "CheeseSignal==2.1.*",
     "pydantic",
-    "email-validator",
-    "setproctitle",
-    "orjson",
-    "python-snappy"
+    "redis",
+    "psutil",
+    "brotli",
+    "zstandard"
 ]
 
 [project.urls]
@@ -33,3 +28,9 @@ Source = "https://github.com/CheeseUnknown/CheeseAPI"
 
 [tool.hatch.build.targets.sdist]
 include = [ "/CheeseAPI" ]
+
+[project.optional-dependencies]
+dev = [
+    "requests",
+    "websockets"
+]

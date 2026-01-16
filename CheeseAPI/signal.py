@@ -1,54 +1,179 @@
 from typing import TYPE_CHECKING
 
-from CheeseSignal import Signal
+from CheeseSignal import Signal as CheeseSignal
 
 if TYPE_CHECKING:
-    from CheeseAPI.app import App
+    from CheeseAPI.app import CheeseAPI
 
-class _Signal:
-    def __init__(self, app: 'App'):
-        self.app: 'App' = app
+class Signal:
+    __slots__ = ('_app', '_before_load_module', '_after_load_module', '_before_load_modules', '_after_load_modules', '_before_server_start', '_after_server_start', '_before_app_stop', '_after_app_stop', '_before_workers_start', '_after_workers_start', '_before_worker_start', '_after_worker_start', '_before_worker_stop', '_after_worker_stop', '_before_request', '_after_request', '_before_response', '_after_response')
 
-        self.server_beforeStarting: Signal = Signal()
-        self.server_afterStarting: Signal = Signal()
-        self.server_running: Signal = Signal()
-        self.server_beforeStopping: Signal = Signal()
-        self.server_afterStopping: Signal = Signal()
+    def __init__(self, app: 'CheeseAPI'):
+        self._app: 'CheeseAPI' = app
 
-        self.worker_beforeStarting: Signal = Signal()
-        self.worker_afterStarting: Signal = Signal()
-        self.worker_running: Signal = Signal()
-        self.worker_beforeStopping: Signal = Signal()
-        self.worker_afterStopping: Signal = Signal()
+        self._before_load_module = CheeseSignal()
+        self._after_load_module = CheeseSignal()
+        self._before_load_modules = CheeseSignal()
+        self._after_load_modules = CheeseSignal()
+        self._before_server_start = CheeseSignal()
+        self._after_server_start = CheeseSignal()
+        self._before_app_stop = CheeseSignal()
+        self._after_app_stop = CheeseSignal()
+        self._before_workers_start = CheeseSignal()
+        self._after_workers_start = CheeseSignal()
+        self._before_worker_start = CheeseSignal()
+        self._after_worker_start = CheeseSignal()
+        self._before_worker_stop = CheeseSignal()
+        self._after_worker_stop = CheeseSignal()
+        self._before_request = CheeseSignal()
+        self._after_request = CheeseSignal()
+        self._before_response = CheeseSignal()
+        self._after_response = CheeseSignal()
 
-        self.http_beforeRequest: Signal = Signal()
-        self.http_afterRequest: Signal = Signal()
-        self.http_static: Signal = Signal()
-        self.http_custom: Signal = Signal()
-        self.http_404: Signal = Signal()
-        self.http_options: Signal = Signal()
-        self.http_405: Signal = Signal()
-        self.http_500: Signal = Signal()
-        self.http_beforeResponse: Signal = Signal()
-        self.http_afterResponse: Signal = Signal()
+    @property
+    def app(self) -> 'CheeseAPI':
+        return self._app
 
-        self.websocket_afterRequest: Signal = Signal()
-        self.websocket_404: Signal = Signal()
-        self.websocket_405: Signal = Signal()
-        self.websocket_500: Signal = Signal()
-        self.websocket_beforeResponse: Signal = Signal()
-        self.websocket_afterResponse: Signal = Signal()
-        self.websocket_beforeSubprotocol: Signal = Signal()
-        self.websocket_afterSubprotocol: Signal = Signal()
-        self.websocket_beforeConnection: Signal = Signal()
-        self.websocket_afterConnection: Signal = Signal()
-        self.websocket_beforeMessage: Signal = Signal()
-        self.websocket_afterMessage: Signal = Signal()
-        self.websocket_beforeSending: Signal = Signal()
-        self.websocket_afterSending: Signal = Signal()
-        self.websocket_beforeClosing: Signal = Signal()
-        self.websocket_afterClosing: Signal = Signal()
-        self.websocket_afterDisconnection: Signal = Signal()
+    @property
+    def before_load_module(self) -> CheeseSignal:
+        '''
+        绑定函数`def func(*, index: int, module: str)`
+        '''
 
-        self.scheduler_beforeRunning: Signal = Signal()
-        self.scheduler_afterRunning: Signal = Signal()
+        return self._before_load_module
+
+    @property
+    def after_load_module(self) -> CheeseSignal:
+        '''
+        绑定函数`def func(*, index: int, module: str)`
+        '''
+
+        return self._after_load_module
+
+    @property
+    def before_load_modules(self) -> CheeseSignal:
+        '''
+        绑定函数`def func(*, modules: list[str])`
+        '''
+
+        return self._before_load_modules
+
+    @property
+    def after_load_modules(self) -> CheeseSignal:
+        '''
+        绑定函数`def func(*, modules: list[str])`
+        '''
+
+        return self._after_load_modules
+
+    @property
+    def before_server_start(self) -> CheeseSignal:
+        return self._before_server_start
+
+    @property
+    def after_server_start(self) -> CheeseSignal:
+        return self._after_server_start
+
+    @property
+    def before_app_stop(self) -> CheeseSignal:
+        return self._before_app_stop
+
+    @property
+    def after_app_stop(self) -> CheeseSignal:
+        return self._after_app_stop
+
+    @property
+    def before_workers_start(self) -> CheeseSignal:
+        '''
+        绑定函数`def func(*, workers: int)`
+        '''
+
+        return self._before_workers_start
+
+    @property
+    def after_workers_start(self) -> CheeseSignal:
+        '''
+        绑定函数`def func(*, workers: int)`
+        '''
+
+        return self._after_workers_start
+
+    @property
+    def before_worker_start(self) -> CheeseSignal:
+        '''
+        绑定函数`def func(*, is_first: bool)`
+        '''
+
+        return self._before_worker_start
+
+    @property
+    def after_worker_start(self) -> CheeseSignal:
+        '''
+        绑定协程函数`async def func(*, is_first: bool)`
+        '''
+
+        return self._after_worker_start
+
+    @property
+    def before_worker_stop(self) -> CheeseSignal:
+        '''
+        绑定协程函数`async def func(*, is_first: bool)`
+        '''
+
+        return self._before_worker_stop
+
+    @property
+    def after_worker_stop(self) -> CheeseSignal:
+        '''
+        绑定函数`def func(*, is_first: bool)`
+        '''
+
+        return self._after_worker_stop
+
+    @property
+    def before_request(self) -> CheeseSignal:
+        '''
+        绑定协程函数`async def func(*, client_socket: socket.socket, addr: tuple[str, int])`
+        '''
+
+        return self._before_request
+
+    @property
+    def after_request(self) -> CheeseSignal:
+        '''
+        绑定协程函数`async def func(*, request: Request)`
+        '''
+
+        return self._after_request
+
+    @property
+    def before_request(self) -> CheeseSignal:
+        '''
+        绑定协程函数`async def func(*, client_socket: socket.socket, addr: tuple[str, int])`
+        '''
+
+        return self._before_request
+
+    @property
+    def after_request(self) -> CheeseSignal:
+        '''
+        绑定协程函数`async def func(*, request: Request | None)`
+        '''
+
+        return self._after_request
+
+    @property
+    def before_response(self) -> CheeseSignal:
+        '''
+        绑定协程函数`async def func(*, response: Response) -> Response`
+        '''
+
+        return self._before_response
+
+    @property
+    def after_response(self) -> CheeseSignal:
+        '''
+        绑定协程函数`async def func(*, response: Response)`
+        '''
+
+        return self._after_response
