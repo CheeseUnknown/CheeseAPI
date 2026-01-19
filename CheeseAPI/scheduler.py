@@ -41,7 +41,7 @@ class Task:
         self._last_run_time: float | None = None
         self._run_num: int = 0
         self._handler: threading.Thread | multiprocessing.Process | asyncio.Task | None = None
-        self._event = multiprocessing.Event()
+        self._event = multiprocessing.get_context('spawn').Event()
 
     def __getstate__(self) -> tuple[None, dict[str, any]]:
         self._handler = None
@@ -141,7 +141,7 @@ class SchedulerProxy:
             if task.run_type == 'THREAD':
                 task._handler = threading.Thread(target = self.task_processing, args = (task, *args), kwargs = kwargs, daemon = True).start()
             elif task.run_type == 'PROCESS':
-                task._handler = multiprocessing.Process(target = self.task_processing, args = (task, *args), kwargs = kwargs, daemon = True).start()
+                task._handler = multiprocessing.get_context('spawn').Process(target = self.task_processing, args = (task, *args), kwargs = kwargs, daemon = True).start()
             if task.auto_remove:
                 threading.Thread(target = self.join, args = (task,), daemon = True).start()
         else:
@@ -166,6 +166,10 @@ class SchedulerProxy:
             return wrapper
 
     def task_processing(self, task: Task, *args, **kwargs):
+        if task.run_type == 'PROCESS' and multiprocessing.get_start_method() != 'spawn':
+            self.app.logger.stop()
+            self.app.logger.start()
+
         try:
             sleep_time = max(0, task.first_run_timer.timestamp() - time.time()) if task.first_run_timer else 0
             if sleep_time:
@@ -237,7 +241,7 @@ class SchedulerProxy:
         if task.run_type == 'THREAD':
             task._handler = threading.Thread(target = self.task_processing, args = (task, *task.args), kwargs = task.kwargs, daemon = True).start()
         elif task.run_type == 'PROCESS':
-            task._handler = multiprocessing.Process(target = self.task_processing, args = (task, *task.args), kwargs = task.kwargs, daemon = True).start()
+            task._handler = multiprocessing.get_context('spawn').Process(target = self.task_processing, args = (task, *task.args), kwargs = task.kwargs, daemon = True).start()
 
     async def async_restart(self, key: str):
         '''
