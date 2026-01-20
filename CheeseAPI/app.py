@@ -37,7 +37,7 @@ class AppProxy:
 
             self.load_modules()
 
-            self.stop_signal = multiprocessing.get_context('spawn').Event()
+            self.stop_signal = multiprocessing.Event()
             self.app._is_running = True
 
             self.app.signal.before_server_start.send()
@@ -113,7 +113,8 @@ class AppProxy:
             'modules': modules
         })
 
-        self.app.printer.modules_loaded(modules)
+        if modules:
+            self.app.printer.modules_loaded(modules)
 
     def before_load_modules(self, modules: list[str]) -> list[str]:
         return modules
@@ -192,7 +193,7 @@ class AppProxy:
         else:
             processes: list[multiprocessing.Process] = []
             for i in range(workers):
-                process = multiprocessing.get_context('spawn').Process(target = self.worker_running, args = (i == 0,))
+                process = multiprocessing.Process(target = self.worker_running, args = (i == 0,))
                 process.start()
                 processes.append(process)
 
@@ -215,10 +216,6 @@ class AppProxy:
         ...
 
     def worker_running(self, is_first: bool):
-        if multiprocessing.get_start_method() != 'spawn':
-            self.app.logger.stop()
-            self.app.logger.start()
-
         try:
             self.before_worker_start(is_first)
             self.app.signal.before_worker_start.send(kwargs = {
